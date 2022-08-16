@@ -145,7 +145,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     }
                     case TokenType::OP_DOT: {
                         next();
-                        lhs = context.make<DotExpr>(std::move(lhs), parseId());
+                        lhs = context.make<DotExpr>(std::move(lhs), parseId(true));
                         break;
                     }
                     case TokenType::KW_AS: {
@@ -201,7 +201,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     return parseClause();
 
                 case TokenType::IDENTIFIER:
-                    return parseId();
+                    return parseId(true);
 
                 case TokenType::KW_FALSE:
                 case TokenType::KW_TRUE:
@@ -272,7 +272,7 @@ std::unique_ptr<ClauseExpr> Parser::parseClause() {
         switch (peek().type) {
             case TokenType::RBRACE: flag = false;
             case TokenType::LINEBREAK: next(); continue;
-            default: rhs.push_back(parseExpression());
+            default: rhs.emplace_back(parseExpression());
         }
     }
     return context.make<ClauseExpr>(token, rewind(), std::move(rhs));
@@ -346,9 +346,16 @@ ExprHandle Parser::parseFn() {
     std::vector<TypeReference> P;
     while (true) {
         if (peek().type == TokenType::RPAREN) break;
-        parameters.push_back(parseId(false));
-        expectColon();
-        P.emplace_back(parseType());
+        auto id = parseId(false);
+        auto type = optionalType();
+        bool underscore = sourcecode->source(id->token) == "_";
+        if (type == nullptr) {
+            type = underscore ? ScalarTypes::NONE : ScalarTypes::ANY;
+        } else if (underscore && !isNone(type)) {
+            throw ParserException("the type of parameter '_' must be none", id->token);
+        }
+        parameters.emplace_back(std::move(id));
+        P.emplace_back(type);
         neverGonnaGiveYouUp(P.back(), "as parameter", rewind());
         if (peek().type == TokenType::RPAREN) break;
         expectComma();
@@ -375,6 +382,7 @@ ExprHandle Parser::parseFn() {
 ExprHandle Parser::parseLet() {
     auto token = next();
     auto id = parseId(false);
+    if (sourcecode->source(id->token) == "_") throw ParserException("'_' is not allowed to be an identifier of let", id->token);
     auto type = optionalType();
     expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
     auto init = parseExpression();

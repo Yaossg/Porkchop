@@ -293,12 +293,11 @@ TypeReference FnExpr::evalType(ReferenceContext& context) const {
 }
 
 TypeReference LetExpr::evalType(ReferenceContext& context) const {
-    auto type = rhs->typeCache;
-    if (designated == nullptr) designated = type;
+    if (designated == nullptr) designated = rhs->typeCache;
     neverGonnaGiveYouUp(designated, "", segment());
     assignable(rhs.get(), designated);
-    context.local(context.sourcecode->source(lhs->token), type);
-    return type;
+    context.local(context.sourcecode->source(lhs->token), designated);
+    return designated;
 }
 
 }

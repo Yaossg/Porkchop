@@ -22,9 +22,11 @@ struct ReferenceContext {
         scopes.front().emplace(name, type);
     }
     void local(std::string_view name, TypeReference const& type)  {
+        if (name == "_") return;
         scopes.back().emplace(name, type);
     }
     [[nodiscard]] TypeReference lookup(std::string_view name) const noexcept {
+        if (name == "_") return ScalarTypes::NONE;
         for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
             if (auto lookup = it->find(name); lookup != it->end())
                 return lookup->second;
