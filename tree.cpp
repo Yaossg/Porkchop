@@ -243,6 +243,13 @@ TypeReference AccessExpr::evalType(ReferenceContext& context) const {
     if (isString(type1)) {
         expected(rhs.get(), ScalarTypes::INT);
         return ScalarTypes::CHAR;
+    } else if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
+        expected(rhs.get(), ScalarTypes::INT);
+        try {
+            return tuple->E[rhs->evalConst(*context.sourcecode)];
+        } catch (...) {
+            return ScalarTypes::ANY;
+        }
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
         return list->E;
@@ -289,12 +296,6 @@ TypeReference AsExpr::evalType(ReferenceContext& context) const {
         || isSimilar(isFloatOrByteList, type, T)
         || isSimilar(isCharOrByteList, type, T)
         || isSimilar(isStringOrByteList, type, T)) return T;
-    if (auto list1 = dynamic_cast<ListType*>(type.get()), list2 = dynamic_cast<ListType*>(T.get()); list1 && list2) {
-        if (isAny(list2->E)) return T;
-    } else if (auto dict1 = dynamic_cast<DictType*>(type.get()), dict2 = dynamic_cast<DictType*>(T.get()); dict1 && dict2) {
-        if ((isAny(dict2->K) || dict2->K->equals(dict1->K))
-            && (isAny(dict2->V) || dict2->V->equals(dict1->V))) return T;
-    }
     throw TypeException("cannot cast the expression from " + type->toString() + " to " + T->toString(), segment());
 }
 
@@ -315,6 +316,7 @@ int64_t IsExpr::evalConst(SourceCode& sourcecode) const {
 
 TypeReference DefaultExpr::evalType(ReferenceContext& context) const {
     neverGonnaGiveYouUp(T, "for it has no instance at all", segment());
+    if (auto tuple = dynamic_cast<TupleType*>(T.get())) throw TypeException("tuple has no default instance", segment());
     return T;
 }
 
@@ -323,47 +325,53 @@ int64_t DefaultExpr::evalConst(SourceCode& sourcecode) const {
     return 0;
 }
 
+TypeReference TupleExpr::evalType(ReferenceContext &context) const {
+    std::vector<TypeReference> E;
+    for (auto&& expr: elements) {
+        E.push_back(expr->typeCache);
+    }
+    return std::make_shared<TupleType>(std::move(E));
+}
+
 TypeReference ListExpr::evalType(ReferenceContext& context) const {
-    if (rhs.empty()) return listOf(ScalarTypes::ANY);
-    auto type0 = rhs.front()->typeCache;
-    neverGonnaGiveYouUp(rhs.front().get(), "as list element");
-    for (size_t i = 1; i < rhs.size(); ++i) {
-        auto type = rhs[i]->typeCache;
-        if (!type0->equals(type)) throw TypeException(mismatch(type, "list's elements", i, type0), rhs[i]->segment());
+    if (elements.empty()) return listOf(ScalarTypes::ANY);
+    auto type0 = elements.front()->typeCache;
+    neverGonnaGiveYouUp(elements.front().get(), "as list element");
+    for (size_t i = 1; i < elements.size(); ++i) {
+        auto type = elements[i]->typeCache;
+        if (!type0->equals(type)) throw TypeException(mismatch(type, "list's elements", i, type0), elements[i]->segment());
     }
     return listOf(type0);
 }
 
 TypeReference DictExpr::evalType(ReferenceContext& context) const {
-    if (rhs.empty()) return listOf(ScalarTypes::ANY);
-    auto key0 = rhs.front().first->typeCache;
-    auto value0 = rhs.front().second->typeCache;
-    neverGonnaGiveYouUp(rhs.front().first.get(), "as dict key");
-    neverGonnaGiveYouUp(rhs.front().second.get(), "as dict value");
-    for (size_t i = 1; i < rhs.size(); ++i) {
-        auto key = rhs[i].first->typeCache;
-        auto value = rhs[i].second->typeCache;
-        if (!key0->equals(key)) throw TypeException(mismatch(key, "dict's keys", i, key0), rhs[i].first->segment());
-        if (!value0->equals(value)) throw TypeException(mismatch(value, "dict's values", i, value0), rhs[i].second->segment());
+    if (elements.empty()) return listOf(ScalarTypes::ANY);
+    auto key0 = elements.front().first->typeCache;
+    auto value0 = elements.front().second->typeCache;
+    neverGonnaGiveYouUp(elements.front().first.get(), "as dict key");
+    neverGonnaGiveYouUp(elements.front().second.get(), "as dict value");
+    for (size_t i = 1; i < elements.size(); ++i) {
+        auto key = elements[i].first->typeCache;
+        auto value = elements[i].second->typeCache;
+        if (!key0->equals(key)) throw TypeException(mismatch(key, "dict's keys", i, key0), elements[i].first->segment());
+        if (!value0->equals(value)) throw TypeException(mismatch(value, "dict's values", i, value0), elements[i].second->segment());
     }
-    return std::make_shared<DictType>(key0, value0);
+    return std::make_shared<DictType>(std::move(key0), std::move(value0));
 }
 
 TypeReference ClauseExpr::evalType(ReferenceContext& context) const {
-    ReferenceContext::Guard guard(context);
-    for (auto&& expr : rhs) if (isNever(expr->typeCache)) return ScalarTypes::NEVER;
-    return rhs.empty() ? ScalarTypes::NONE : rhs.back()->typeCache;
+    for (auto&& expr : lines) if (isNever(expr->typeCache)) return ScalarTypes::NEVER;
+    return lines.empty() ? ScalarTypes::NONE : lines.back()->typeCache;
 }
 
 int64_t ClauseExpr::evalConst(SourceCode& sourcecode) const {
-    if (rhs.empty()) throw TypeException("compile-time evaluation is limited as int", segment());
+    if (lines.empty()) throw TypeException("compile-time evaluation is limited as int", segment());
     int64_t value;
-    for (auto&& expr : rhs) value = expr->evalConst(sourcecode);
+    for (auto&& expr : lines) value = expr->evalConst(sourcecode);
     return value;
 }
 
 TypeReference IfElseExpr::evalType(ReferenceContext& context) const {
-    ReferenceContext::Guard guard(context);
     expected(cond.get(), ScalarTypes::BOOL);
     try {
         if (cond->evalConst(*context.sourcecode))
@@ -389,7 +397,6 @@ TypeReference YieldExpr::evalType(ReferenceContext& context) const {
 }
 
 TypeReference WhileExpr::evalType(ReferenceContext& context) const {
-    ReferenceContext::Guard guard(context);
     auto type = cond->typeCache;
     if (isNever(type)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
@@ -402,20 +409,13 @@ TypeReference WhileExpr::evalType(ReferenceContext& context) const {
 }
 
 TypeReference ForExpr::evalType(ReferenceContext& context) const {
-    ReferenceContext::Guard guard(context);
-    if (auto type = iterable(rhs->typeCache)) {
-        context.local(context.sourcecode->source(lhs->token), type);
-        if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
-        return hook->yield();
-    }
-    throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
+    if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
+    return hook->yield();
 }
 
 TypeReference TryExpr::evalType(ReferenceContext& context) const {
     TypeReference type1, type2;
     type1 = lhs->typeCache;
-    ReferenceContext::Guard guard(context);
-    context.local(context.sourcecode->source(except->token), ScalarTypes::ANY);
     type2 = rhs->typeCache;
     if (auto either = eithertype(type1, type2)) return either;
     throw TypeException(mismatch(type2, "both clause", type1), segment());

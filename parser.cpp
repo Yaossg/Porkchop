@@ -167,9 +167,16 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
             switch (auto token = peek(); token.type) {
                 case TokenType::LPAREN: {
                     next();
-                    auto expr = parseExpression();
-                    expect(TokenType::RPAREN, "missing ')' to match '('");
-                    return expr;
+                    auto expr = parseExpressions(TokenType::RPAREN);
+                    auto token2 = next();
+                    switch (expr.size()) {
+                        case 0:
+                            throw ParserException("expression is expected", range(token, token2));
+                        case 1:
+                            return std::move(expr.front());
+                        default:
+                            return context.make<TupleExpr>(token, token2, std::move(expr));
+                    }
                 }
                 case TokenType::LBRACKET: {
                     next();
@@ -266,6 +273,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
 std::unique_ptr<ClauseExpr> Parser::parseClause() {
     auto token = expect(TokenType::LBRACE, "'{' is expected");
+    ReferenceContext::Guard guard(context);
     std::vector<ExprHandle> rhs;
     bool flag = true;
     while (flag) {
@@ -278,18 +286,22 @@ std::unique_ptr<ClauseExpr> Parser::parseClause() {
     return context.make<ClauseExpr>(token, rewind(), std::move(rhs));
 }
 
-std::vector<ExprHandle> Parser::parseExpressions(TokenType stop, std::vector<ExprHandle> init) {
+std::vector<ExprHandle> Parser::parseExpressions(TokenType stop) {
+    std::vector<ExprHandle> expr;
     while (true) {
         if (peek().type == stop) break;
-        init.emplace_back(parseExpression());
+        expr.emplace_back(parseExpression());
         if (peek().type == stop) break;
         expectComma();
     }
-    return init;
+    if (expr.size() == 1 && rewind().type == TokenType::OP_COMMA)
+        throw ParserException("the additional comma is forbidden beside a single element", rewind());
+    return expr;
 }
 
 ExprHandle Parser::parseIf() {
     auto token = next();
+    ReferenceContext::Guard guard(context);
     auto cond = parseExpression();
     auto clause = parseClause();
     if (peek().type == TokenType::KW_ELSE) {
@@ -315,6 +327,7 @@ ExprHandle Parser::parseYieldClause() {
 ExprHandle Parser::parseWhile() {
     auto token = next();
     pushLoop();
+    ReferenceContext::Guard guard(context);
     auto cond = parseExpression();
     auto clause = parseYieldClause();
     return context.make<WhileExpr>(token, std::move(cond), std::move(clause), popLoop());
@@ -325,10 +338,14 @@ ExprHandle Parser::parseFor() {
     auto lhs = parseId(false);
     expectColon();
     pushLoop();
+    ReferenceContext::Guard guard(context);
     auto rhs = parseExpression();
-    auto clause = parseYieldClause();
-    return context.make<ForExpr>(token, std::move(lhs), std::move(rhs), std::move(clause), popLoop());
-
+    if (auto type = iterable(rhs->typeCache)) {
+        context.local(context.sourcecode->source(lhs->token), type);
+        auto clause = parseYieldClause();
+        return context.make<ForExpr>(token, std::move(lhs), std::move(rhs), std::move(clause), popLoop());
+    }
+    throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
 }
 
 ExprHandle Parser::parseTry() {
@@ -336,6 +353,8 @@ ExprHandle Parser::parseTry() {
     auto lhs = parseClause();
     expect(TokenType::KW_CATCH, "catch is expected");
     auto except = parseId(false);
+    ReferenceContext::Guard guard(context);
+    context.local(context.sourcecode->source(except->token), ScalarTypes::ANY);
     return context.make<TryExpr>(token, std::move(lhs), std::move(except), parseClause());
 }
 
@@ -410,10 +429,23 @@ TypeReference Parser::parseType() {
                 return expr->typeCache;
             }
             if (id == "elementof") {
-                if (auto list = dynamic_cast<ListType*>(parseParenType().get())) {
+                expect(TokenType::LPAREN, "'(' is expected");
+                auto type = parseType();
+                if (auto list = dynamic_cast<ListType*>(type.get())) {
+                    expect(TokenType::RPAREN, "missing ')' to match '('");
                     return list->E;
+                } else if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
+                    expectComma();
+                    auto expr = parseExpression();
+                    expect(TokenType::RPAREN, "missing ')' to match '('");
+                    auto index = expr->evalConst(*sourcecode);
+                    if (0 <= index && index < tuple->E.size()) {
+                        return tuple->E[index];
+                    } else {
+                        throw TypeException("index out of bound", expr->segment());
+                    }
                 } else {
-                    throw TypeException("elementof expect a list type", token);
+                    throw TypeException("elementof expect a list or tuple type", token);
                 }
             }
             if (id == "keyof") {
@@ -478,14 +510,20 @@ TypeReference Parser::parseType() {
             while (true) {
                 if (peek().type == TokenType::RPAREN) break;
                 P.emplace_back(parseType());
-                neverGonnaGiveYouUp(P.back(), "as parameter", rewind());
+                neverGonnaGiveYouUp(P.back(), "as tuple element or parameter", rewind());
                 if (peek().type == TokenType::RPAREN) break;
                 expectComma();
             }
-            next();
-            expectColon();
-            auto R = parseType();
-            return std::make_shared<FuncType>(std::move(P), std::move(R));
+            auto token2 = next();
+            if (peek().type == TokenType::OP_COLON) {
+                next();
+                auto R = parseType();
+                return std::make_shared<FuncType>(std::move(P), std::move(R));
+            } else if (P.size() > 1) {
+                return std::make_shared<TupleType>(std::move(P));
+            } else {
+                throw TypeException("a tuple should contain at least 2 elements", range(token, token2));
+            }
         }
     }
 }

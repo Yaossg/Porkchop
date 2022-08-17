@@ -97,6 +97,35 @@ const TypeReference STRING = std::make_shared<ScalarType>(ScalarTypeKind::STRING
     return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::STRING; });
 }
 
+struct TupleType : Type {
+    std::vector<TypeReference> E;
+    explicit TupleType(std::vector<TypeReference> E): E(std::move(E)) {}
+    [[nodiscard]] std::string toString() const override {
+        std::string buf = "(";
+        bool first = true;
+        for (auto&& p : E) {
+            if (first) { first = false; } else { buf += ", "; }
+            buf += p->toString();
+        }
+        buf += ")";
+        return buf;
+    }
+    [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
+        if (auto func = dynamic_cast<const TupleType*>(type.get())) {
+            return std::equal(E.begin(), E.end(), func->E.begin(), func->E.end(),
+                              [](const TypeReference& type1, const TypeReference& type2) { return type1->equals(type2); });
+        }
+        return false;
+    }
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (auto&& e : E) ret.push_back(e.get());
+        return ret;
+    }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "()"; }
+};
+
 struct ListType : Type {
     TypeReference E;
     explicit ListType(TypeReference E): E(std::move(E)) {}
@@ -230,10 +259,12 @@ struct FuncType : Type {
 [[nodiscard]] inline TypeReference iterable(TypeReference const& type) noexcept {
     if (isString(type)) {
         return ScalarTypes::CHAR;
+    } else if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
+        return ScalarTypes::ANY;
     } else if (auto list = dynamic_cast<ListType*>(type.get())) {
         return list->E;
     } else if (auto dict = dynamic_cast<DictType*>(type.get())) {
-        return dict->K;
+        return std::make_shared<TupleType>(std::vector{dict->K, dict->V});
     } else {
         return nullptr;
     }

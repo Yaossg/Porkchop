@@ -247,15 +247,34 @@ struct DefaultExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
-struct ListExpr : Expr {
+struct TupleExpr : Expr {
     Token token1, token2;
-    std::vector<ExprHandle> rhs;
+    std::vector<ExprHandle> elements;
 
-    ListExpr(Token token1, Token token2, std::vector<ExprHandle> rhs): token1(token1), token2(token2), rhs(std::move(rhs)) {}
+    TupleExpr(Token token1, Token token2, std::vector<ExprHandle> elements): token1(token1), token2(token2), elements(std::move(elements)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
-        for (auto&& e : rhs) ret.push_back(e.get());
+        for (auto&& e : elements) ret.push_back(e.get());
+        return ret;
+    }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "()"; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token1, token2);
+    }
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+};
+struct ListExpr : Expr {
+    Token token1, token2;
+    std::vector<ExprHandle> elements;
+
+    ListExpr(Token token1, Token token2, std::vector<ExprHandle> elements): token1(token1), token2(token2), elements(std::move(elements)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (auto&& e : elements) ret.push_back(e.get());
         return ret;
     }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "[]"; }
@@ -268,13 +287,13 @@ struct ListExpr : Expr {
 };
 struct DictExpr : Expr {
     Token token1, token2;
-    std::vector<std::pair<ExprHandle, ExprHandle>> rhs;
+    std::vector<std::pair<ExprHandle, ExprHandle>> elements;
 
-    DictExpr(Token token1, Token token2, std::vector<std::pair<ExprHandle, ExprHandle>> rhs): token1(token1), token2(token2), rhs(std::move(rhs)) {}
+    DictExpr(Token token1, Token token2, std::vector<std::pair<ExprHandle, ExprHandle>> elements): token1(token1), token2(token2), elements(std::move(elements)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
-        for (auto&& [e1, e2] : rhs) {
+        for (auto&& [e1, e2] : elements) {
             ret.push_back(e1.get());
             ret.push_back(e2.get());
         }
@@ -290,13 +309,13 @@ struct DictExpr : Expr {
 };
 struct ClauseExpr : Expr {
     Token token1, token2;
-    std::vector<ExprHandle> rhs;
+    std::vector<ExprHandle> lines;
 
-    explicit ClauseExpr(Token token1, Token token2, std::vector<ExprHandle> rhs = {}): token1(token1), token2(token2), rhs(std::move(rhs)) {}
+    explicit ClauseExpr(Token token1, Token token2, std::vector<ExprHandle> lines = {}): token1(token1), token2(token2), lines(std::move(lines)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
-        for (auto&& e : rhs) ret.push_back(e.get());
+        for (auto&& e : lines) ret.push_back(e.get());
         return ret;
     }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "{}"; }
