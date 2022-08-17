@@ -245,10 +245,16 @@ TypeReference AccessExpr::evalType(ReferenceContext& context) const {
         return ScalarTypes::CHAR;
     } else if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
+        ssize_t index;
         try {
-            return tuple->E[rhs->evalConst(*context.sourcecode)];
+            index = rhs->evalConst(*context.sourcecode);
         } catch (...) {
             return ScalarTypes::ANY;
+        }
+        if (0 <= index && index < tuple->E.size()) {
+            return tuple->E[index];
+        } else {
+            throw TypeException("index out of bound", segment());
         }
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
@@ -271,6 +277,20 @@ TypeReference InvokeExpr::evalType(ReferenceContext& context) const {
             }
         }
         return func->R;
+    } else if (auto tuple = dynamic_cast<TupleType*>(lhs->typeCache.get())) {
+        std::vector<FuncType*> candidates;
+        for (auto&& e : tuple->E) {
+            if (auto func0 = dynamic_cast<FuncType*>(e.get())) {
+                if (std::equal(func0->P.begin(), func0->P.end(), rhs.begin(), rhs.end(), [](TypeReference const& type0, ExprHandle const& expr) {
+                    return type0->assignableFrom(expr->typeCache);
+                })) candidates.push_back(func0);
+            } else {
+                throw TypeException("all elements of tuple are required to be invocable for functional tuple", lhs->segment());
+            }
+        }
+        if (candidates.empty()) throw TypeException("no overloaded candidate fits the parameters", lhs->segment());
+        if (candidates.size() > 1) throw TypeException("multiple ambiguous overloaded candidates fit the parameters", lhs->segment());
+        return candidates.front()->R;
     }
     throw TypeException(unexpected(lhs->typeCache, "invocable type"), lhs->segment());
 }
