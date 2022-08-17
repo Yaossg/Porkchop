@@ -215,6 +215,10 @@ struct FuncType : Type {
     return isString(type) || ListTypes::BYTELIST->equals(type);
 }
 
+[[nodiscard]] inline bool isCompileTime(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::BOOL || kind == ScalarTypeKind::INT; });
+}
+
 [[nodiscard]] inline TypeReference eithertype(TypeReference const& type1, TypeReference const& type2) noexcept {
     if (type1->equals(type2)) return type1;
     if (isNever(type1)) return type2;

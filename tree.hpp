@@ -36,6 +36,10 @@ struct Expr : Descriptor {
     [[nodiscard]] virtual Segment segment() const = 0;
 
     [[nodiscard]] virtual TypeReference evalType(ReferenceContext& context) const = 0;
+
+    [[nodiscard]] virtual int64_t evalConst(SourceCode& sourcecode) const {
+        throw TypeException("cannot evaluate at compile-time", segment());
+    }
 };
 
 struct ConstExpr : Expr {
@@ -50,6 +54,8 @@ struct ConstExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct LoadExpr : Expr {};
 struct IdExpr : LoadExpr {
@@ -82,6 +88,8 @@ struct PrefixExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct InfixExpr : Expr {
     Token token;
@@ -98,6 +106,8 @@ struct InfixExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct AssignExpr : Expr {
     Token token;
@@ -130,6 +140,8 @@ struct LogicalExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct AccessExpr : LoadExpr {
     Token token1, token2;
@@ -197,6 +209,8 @@ struct AsExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct IsExpr : Expr {
     Token token, token2;
@@ -213,6 +227,8 @@ struct IsExpr : Expr {
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
     }
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct DefaultExpr : Expr {
     Token token, token2;
@@ -228,6 +244,8 @@ struct DefaultExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct ListExpr : Expr {
     Token token1, token2;
@@ -288,6 +306,8 @@ struct ClauseExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct IfElseExpr : Expr {
     Token token;
@@ -305,6 +325,8 @@ struct IfElseExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
 struct LoopHook;
 struct LoopExpr;

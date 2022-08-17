@@ -412,21 +412,47 @@ TypeReference Parser::parseType() {
             if (id == "elementof") {
                 if (auto list = dynamic_cast<ListType*>(parseParenType().get())) {
                     return list->E;
+                } else {
+                    throw TypeException("elementof expect a list type", token);
                 }
             }
             if (id == "keyof") {
                 if (auto dict = dynamic_cast<DictType*>(parseParenType().get())) {
                     return dict->K;
+                } else {
+                    throw TypeException("keyof expect a dict type", token);
                 }
             }
             if (id == "valueof") {
                 if (auto dict = dynamic_cast<DictType*>(parseParenType().get())) {
                     return dict->V;
+                } else {
+                    throw TypeException("valueof expect a dict type", token);
                 }
             }
             if (id == "returnof") {
                 if (auto func = dynamic_cast<FuncType*>(parseParenType().get())) {
                     return func->R;
+                } else {
+                    throw TypeException("returnof expect a func type", token);
+                }
+            }
+            if (id == "parameterof") {
+                expect(TokenType::LPAREN, "'(' is expected");
+                auto type = parseType();
+                expectComma();
+                auto expr = parseExpression();
+                expect(TokenType::RPAREN, "missing ')' to match '('");
+                expected(expr.get(), ScalarTypes::INT);
+                if (auto func = dynamic_cast<FuncType*>(type.get())) {
+                    auto index = expr->evalConst(*sourcecode);
+                    if (0 <= index && index < func->P.size()) {
+                        return func->P[index];
+                    } else {
+                        throw TypeException("index out of bound", expr->segment());
+                    }
+                } else {
+                    throw TypeException("parameterof expect a func type", token);
                 }
             }
         }

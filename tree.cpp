@@ -29,6 +29,47 @@ TypeReference ConstExpr::evalType(ReferenceContext& context) const {
     }
 }
 
+int64_t parseInt(SourceCode& sourcecode, Token token) try {
+    int base;
+    std::string literal;
+    switch (token.type) {
+        case TokenType::BINARY_INTEGER: base = 2; break;
+        case TokenType::OCTAL_INTEGER: base = 8; break;
+        case TokenType::DECIMAL_INTEGER:  base = 10; break;
+        case TokenType::HEXADECIMAL_INTEGER: base = 16; break;
+    }
+    switch (token.type) {
+        case TokenType::BINARY_INTEGER:
+        case TokenType::OCTAL_INTEGER:
+        case TokenType::HEXADECIMAL_INTEGER: literal = sourcecode.source(token).substr(2); break;
+        case TokenType::DECIMAL_INTEGER: literal = sourcecode.source(token); break;
+    }
+    std::erase(literal, '_');
+    return std::stoll(literal, nullptr, base);
+} catch (std::out_of_range& e) {
+    throw TypeException("int literal out of range", token);
+}
+
+int64_t ConstExpr::evalConst(SourceCode& sourcecode) const {
+    switch (token.type) {
+        case TokenType::KW_FALSE:
+            return 0;
+        case TokenType::KW_TRUE:
+            return 1;
+        case TokenType::KW_LINE:
+            return token.line;
+        case TokenType::KW_EOF:
+            return -1;
+        case TokenType::BINARY_INTEGER:
+        case TokenType::OCTAL_INTEGER:
+        case TokenType::DECIMAL_INTEGER:
+        case TokenType::HEXADECIMAL_INTEGER:
+            return parseInt(sourcecode, token);
+        default:
+            return Expr::evalConst(sourcecode);
+    }
+}
+
 TypeReference PrefixExpr::evalType(ReferenceContext& context) const {
     switch (token.type) {
         case TokenType::OP_ADD:
@@ -45,6 +86,21 @@ TypeReference PrefixExpr::evalType(ReferenceContext& context) const {
             unreachable("invalid token is classified as prefix operator");
     }
     return rhs->typeCache;
+}
+
+int64_t PrefixExpr::evalConst(SourceCode& sourcecode) const {
+    switch (token.type) {
+        case TokenType::OP_ADD:
+            return rhs->evalConst(sourcecode);
+        case TokenType::OP_SUB:
+            return -rhs->evalConst(sourcecode);
+        case TokenType::OP_NOT:
+            return !rhs->evalConst(sourcecode);
+        case TokenType::OP_INV:
+            return ~rhs->evalConst(sourcecode);
+        default:
+            unreachable("invalid token is classified as prefix operator");
+    }
 }
 
 TypeReference InfixExpr::evalType(ReferenceContext& context) const {
@@ -84,7 +140,57 @@ TypeReference InfixExpr::evalType(ReferenceContext& context) const {
     }
 }
 
-TypeReference AssignExpr::evalType(ReferenceContext &context) const {
+int64_t nonneg(int64_t value, Segment segment) {
+    if (value < 0) throw TypeException("non-negative constant is expected", segment);
+    return value;
+}
+int64_t nonzero(int64_t value, Segment segment) {
+    if (value == 0) throw TypeException("non-zero constant is expected", segment);
+    return value;
+}
+
+int64_t InfixExpr::evalConst(SourceCode& sourcecode) const {
+    switch (token.type) {
+        case TokenType::OP_OR:
+            return lhs->evalConst(sourcecode) | rhs->evalConst(sourcecode);
+        case TokenType::OP_XOR:
+            return lhs->evalConst(sourcecode) ^ rhs->evalConst(sourcecode);
+        case TokenType::OP_AND:
+            return lhs->evalConst(sourcecode) & rhs->evalConst(sourcecode);
+        case TokenType::OP_EQ:
+            return lhs->evalConst(sourcecode) == rhs->evalConst(sourcecode);
+        case TokenType::OP_NEQ:
+            return lhs->evalConst(sourcecode) != rhs->evalConst(sourcecode);
+        case TokenType::OP_LT:
+            return lhs->evalConst(sourcecode) < rhs->evalConst(sourcecode);
+        case TokenType::OP_GT:
+            return lhs->evalConst(sourcecode) > rhs->evalConst(sourcecode);
+        case TokenType::OP_LE:
+            return lhs->evalConst(sourcecode) <= rhs->evalConst(sourcecode);
+        case TokenType::OP_GE:
+            return lhs->evalConst(sourcecode) >= rhs->evalConst(sourcecode);
+        case TokenType::OP_SHL:
+            return lhs->evalConst(sourcecode) << nonneg(rhs->evalConst(sourcecode), rhs->segment());
+        case TokenType::OP_SHR:
+            return lhs->evalConst(sourcecode) >> nonneg(rhs->evalConst(sourcecode), rhs->segment());
+        case TokenType::OP_USHR:
+            return ssize_t(size_t(lhs->evalConst(sourcecode)) >> nonneg(rhs->evalConst(sourcecode), rhs->segment()));
+        case TokenType::OP_ADD:
+            return lhs->evalConst(sourcecode) + rhs->evalConst(sourcecode);
+        case TokenType::OP_SUB:
+            return lhs->evalConst(sourcecode) - rhs->evalConst(sourcecode);
+        case TokenType::OP_MUL:
+            return lhs->evalConst(sourcecode) * rhs->evalConst(sourcecode);
+        case TokenType::OP_DIV:
+            return lhs->evalConst(sourcecode) / nonzero(rhs->evalConst(sourcecode), rhs->segment());
+        case TokenType::OP_REM:
+            return lhs->evalConst(sourcecode) % nonzero(rhs->evalConst(sourcecode), rhs->segment());
+        default:
+            unreachable("invalid token is classified as infix operator");
+    }
+}
+
+TypeReference AssignExpr::evalType(ReferenceContext& context) const {
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_ASSIGN:
@@ -115,10 +221,21 @@ TypeReference AssignExpr::evalType(ReferenceContext &context) const {
     }
 }
 
-TypeReference LogicalExpr::evalType(ReferenceContext &context) const {
+TypeReference LogicalExpr::evalType(ReferenceContext& context) const {
     expected(lhs.get(), ScalarTypes::BOOL);
     expected(rhs.get(), ScalarTypes::BOOL);
     return ScalarTypes::BOOL;
+}
+
+int64_t LogicalExpr::evalConst(SourceCode& sourcecode) const {
+    switch (token.type) {
+        case TokenType::OP_LAND:
+            return lhs->evalConst(sourcecode) && rhs->evalConst(sourcecode);
+        case TokenType::OP_LOR:
+            return lhs->evalConst(sourcecode) || rhs->evalConst(sourcecode);
+        default:
+            unreachable("invalid token is classified as logical operator");
+    }
 }
 
 TypeReference AccessExpr::evalType(ReferenceContext& context) const {
@@ -181,14 +298,29 @@ TypeReference AsExpr::evalType(ReferenceContext& context) const {
     throw TypeException("cannot cast the expression from " + type->toString() + " to " + T->toString(), segment());
 }
 
-TypeReference IsExpr::evalType(ReferenceContext &context) const {
+int64_t AsExpr::evalConst(SourceCode& sourcecode) const {
+    if (!isCompileTime(T)) throw TypeException("compile-time evaluation only support bool and int", segment());
+    return lhs->evalConst(sourcecode);
+}
+
+TypeReference IsExpr::evalType(ReferenceContext& context) const {
     neverGonnaGiveYouUp(lhs.get(), "");
     return ScalarTypes::BOOL;
 }
 
-TypeReference DefaultExpr::evalType(ReferenceContext &context) const {
+int64_t IsExpr::evalConst(SourceCode& sourcecode) const {
+    if (isAny(lhs->typeCache)) throw TypeException("dynamic type cannot be checked at compile-time", lhs->segment());
+    return lhs->typeCache->equals(T);
+}
+
+TypeReference DefaultExpr::evalType(ReferenceContext& context) const {
     neverGonnaGiveYouUp(T, "for it has no instance at all", segment());
     return T;
+}
+
+int64_t DefaultExpr::evalConst(SourceCode& sourcecode) const {
+    if (!isCompileTime(T)) throw TypeException("compile-time evaluation only support bool and int", segment());
+    return 0;
 }
 
 TypeReference ListExpr::evalType(ReferenceContext& context) const {
@@ -217,24 +349,41 @@ TypeReference DictExpr::evalType(ReferenceContext& context) const {
     return std::make_shared<DictType>(key0, value0);
 }
 
-TypeReference ClauseExpr::evalType(ReferenceContext &context) const {
+TypeReference ClauseExpr::evalType(ReferenceContext& context) const {
     ReferenceContext::Guard guard(context);
     for (auto&& expr : rhs) if (isNever(expr->typeCache)) return ScalarTypes::NEVER;
     return rhs.empty() ? ScalarTypes::NONE : rhs.back()->typeCache;
 }
 
-TypeReference IfElseExpr::evalType(ReferenceContext &context) const {
+int64_t ClauseExpr::evalConst(SourceCode& sourcecode) const {
+    if (rhs.empty()) throw TypeException("compile-time evaluation is limited as int", segment());
+    int64_t value;
+    for (auto&& expr : rhs) value = expr->evalConst(sourcecode);
+    return value;
+}
+
+TypeReference IfElseExpr::evalType(ReferenceContext& context) const {
     ReferenceContext::Guard guard(context);
     expected(cond.get(), ScalarTypes::BOOL);
+    try {
+        if (cond->evalConst(*context.sourcecode))
+            return lhs->typeCache;
+        else
+            return rhs->typeCache;
+    } catch (...) {}
     if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) return either;
     throw TypeException(mismatch(rhs->typeCache, "both clause", lhs->typeCache), segment());
 }
 
-TypeReference BreakExpr::evalType(ReferenceContext &context) const {
+int64_t IfElseExpr::evalConst(SourceCode& sourcecode) const {
+    return cond->evalConst(sourcecode) ? lhs->evalConst(sourcecode) : rhs->evalConst(sourcecode);
+}
+
+TypeReference BreakExpr::evalType(ReferenceContext& context) const {
     return ScalarTypes::NEVER;
 }
 
-TypeReference YieldExpr::evalType(ReferenceContext &context) const {
+TypeReference YieldExpr::evalType(ReferenceContext& context) const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return rhs->typeCache;
 }
@@ -245,6 +394,10 @@ TypeReference WhileExpr::evalType(ReferenceContext& context) const {
     if (isNever(type)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
+    try {
+        if (cond->evalConst(*context.sourcecode) && hook->breaks.empty())
+            return ScalarTypes::NEVER;
+    } catch (...) {}
     return hook->yield();
 }
 
@@ -268,7 +421,7 @@ TypeReference TryExpr::evalType(ReferenceContext& context) const {
     throw TypeException(mismatch(type2, "both clause", type1), segment());
 }
 
-TypeReference FnJumpExpr::evalType(ReferenceContext &context) const {
+TypeReference FnJumpExpr::evalType(ReferenceContext& context) const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return ScalarTypes::NEVER;
 }
