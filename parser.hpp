@@ -39,6 +39,12 @@ struct Parser {
     ExprHandle parseIf(), parseYieldClause(), parseWhile(), parseFor(), parseTry(), parseFn(), parseLet();
     TypeReference parseType(), parseParenType();
 
+    std::pair<std::unique_ptr<IdExpr>, TypeReference> parseParameter(TypeReference const& fallback);
+    std::pair<std::vector<std::unique_ptr<IdExpr>>, std::vector<TypeReference>> parseParameters(TypeReference const& fallback);
+
+    void declaring(std::unique_ptr<IdExpr> const& lhs, TypeReference& designated, TypeReference const& type, Segment segment);
+    void destructuring(std::vector<std::unique_ptr<IdExpr>> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment);
+
     Token expect(TokenType type, const char* msg) {
         auto token = next();
         if (token.type != type)
@@ -47,6 +53,10 @@ struct Parser {
     }
     void expectComma() {
         expect(TokenType::OP_COMMA, "',' is expected");
+    }
+    void unexpectedComma(size_t size) const {
+        if (size == 1 && rewind().type == TokenType::OP_COMMA)
+            throw ParserException("the additional comma is forbidden beside a single element", rewind());
     }
     void expectColon() {
         expect(TokenType::OP_COLON, "':' is expected");

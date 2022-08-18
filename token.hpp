@@ -28,6 +28,7 @@ enum class TokenType {
     KW_IS,
     KW_DEFAULT,
     KW_LET,
+    KW_IN,
 
     LPAREN,
     RPAREN,

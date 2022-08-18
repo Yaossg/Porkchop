@@ -46,7 +46,8 @@ const std::unordered_map<std::string_view, TokenType> KEYWORDS {
     {"as", TokenType::KW_AS},
     {"is", TokenType::KW_IS},
     {"default", TokenType::KW_DEFAULT},
-    {"let", TokenType::KW_LET}
+    {"let", TokenType::KW_LET},
+    {"in", TokenType::KW_IN}
 };
 
 const std::unordered_map<std::string_view, TokenType> OPERATORS {

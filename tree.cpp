@@ -288,9 +288,14 @@ TypeReference InvokeExpr::evalType(ReferenceContext& context) const {
                 throw TypeException("all elements of tuple are required to be invocable for functional tuple", lhs->segment());
             }
         }
-        if (candidates.empty()) throw TypeException("no overloaded candidate fits the parameters", lhs->segment());
-        if (candidates.size() > 1) throw TypeException("multiple ambiguous overloaded candidates fit the parameters", lhs->segment());
-        return candidates.front()->R;
+        switch (candidates.size()) {
+            case 0:
+                throw TypeException("none of overloaded candidates fits the parameters", lhs->segment());
+            case 1:
+                return candidates.front()->R;
+            default:
+                throw TypeException("multiple ambiguous overloaded candidates fit the parameters", lhs->segment());
+        }
     }
     throw TypeException(unexpected(lhs->typeCache, "invocable type"), lhs->segment());
 }
@@ -433,12 +438,14 @@ TypeReference ForExpr::evalType(ReferenceContext& context) const {
     return hook->yield();
 }
 
+TypeReference ForDestructuringExpr::evalType(ReferenceContext& context) const {
+    if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
+    return hook->yield();
+}
+
 TypeReference TryExpr::evalType(ReferenceContext& context) const {
-    TypeReference type1, type2;
-    type1 = lhs->typeCache;
-    type2 = rhs->typeCache;
-    if (auto either = eithertype(type1, type2)) return either;
-    throw TypeException(mismatch(type2, "both clause", type1), segment());
+    if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) return either;
+    throw TypeException(mismatch(rhs->typeCache, "both clause", lhs->typeCache), segment());
 }
 
 TypeReference FnJumpExpr::evalType(ReferenceContext& context) const {
@@ -466,11 +473,11 @@ TypeReference FnExpr::evalType(ReferenceContext& context) const {
 }
 
 TypeReference LetExpr::evalType(ReferenceContext& context) const {
-    if (designated == nullptr) designated = rhs->typeCache;
-    neverGonnaGiveYouUp(designated, "", segment());
-    assignable(rhs.get(), designated);
-    context.local(context.sourcecode->source(lhs->token), designated);
     return designated;
+}
+
+TypeReference LetDestructuringExpr::evalType(ReferenceContext& context) const {
+    return std::make_shared<TupleType>(designated);
 }
 
 }

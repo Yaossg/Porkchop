@@ -15,7 +15,7 @@ void SourceCode::parse() {
     if (tokens.empty()) return;
     Parser parser(this, tokens);
     tree = parser.parseExpression();
-    parser.expect(TokenType::LINEBREAK, "expected a linebreak");
+    parser.expect(TokenType::LINEBREAK, "a linebreak is expected");
     if (parser.remains())
         throw ParserException("unterminated tokens", parser.peek());
     type = tree->typeCache;
@@ -186,7 +186,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 }
                 case TokenType::AT_BRACKET: {
                     next();
-                    std::vector<std::pair<ExprHandle, ExprHandle>> rhs;
+                    std::vector<std::pair<ExprHandle, ExprHandle>> elements;
                     while (true) {
                         if (peek().type == TokenType::RBRACKET) break;
                         auto key = parseExpression();
@@ -197,12 +197,13 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         } else {
                             value = context.make<ClauseExpr>(peek(), peek());
                         }
-                        rhs.emplace_back(std::move(key), std::move(value));
+                        elements.emplace_back(std::move(key), std::move(value));
                         if (peek().type == TokenType::RBRACKET) break;
                         expectComma();
                     }
+                    unexpectedComma(elements.size());
                     auto token2 = next();
-                    return context.make<DictExpr>(token, token2, std::move(rhs));
+                    return context.make<DictExpr>(token, token2, std::move(elements));
                 }
                 case TokenType::LBRACE:
                     return parseClause();
@@ -228,7 +229,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
                 case TokenType::KW_DEFAULT: {
                     next();
-                    expect(TokenType::LPAREN, "expected '('");
+                    expect(TokenType::LPAREN, "'(' is expected");
                     auto type = parseType();
                     auto token2 = expect(TokenType::RPAREN, "missing ')' to match '('");
                     return context.make<DefaultExpr>(token, token2, type);
@@ -294,8 +295,7 @@ std::vector<ExprHandle> Parser::parseExpressions(TokenType stop) {
         if (peek().type == stop) break;
         expectComma();
     }
-    if (expr.size() == 1 && rewind().type == TokenType::OP_COMMA)
-        throw ParserException("the additional comma is forbidden beside a single element", rewind());
+    unexpectedComma(expr.size());
     return expr;
 }
 
@@ -333,53 +333,103 @@ ExprHandle Parser::parseWhile() {
     return context.make<WhileExpr>(token, std::move(cond), std::move(clause), popLoop());
 }
 
+void Parser::declaring(std::unique_ptr<IdExpr> const& lhs, TypeReference& designated, TypeReference const& type, Segment segment) {
+    if (designated == nullptr) designated = type;
+    assignable(type, designated, segment);
+    context.local(context.sourcecode->source(lhs->token), designated);
+}
+
+void Parser::destructuring(std::vector<std::unique_ptr<IdExpr>> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment) {
+    if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
+        if (designated.size() != tuple->E.size()) {
+            throw TypeException("expected " + std::to_string(designated.size()) + " elements but got " + std::to_string(tuple->E.size()), segment);
+        }
+        for (size_t i = 0; i < designated.size(); ++i) {
+            if (designated[i] == nullptr)
+                designated[i] = tuple->E[i];
+        }
+        for (size_t i = 0; i < designated.size(); ++i) {
+            assignable(tuple->E[i], designated[i], segment);
+        }
+        for (size_t i = 0; i < designated.size(); ++i) {
+            context.local(context.sourcecode->source(lhs[i]->token), designated[i]);
+        }
+    }
+    throw TypeException(unexpected(type, "tuple type"), segment);
+}
+
 ExprHandle Parser::parseFor() {
     auto token = next();
-    auto lhs = parseId(false);
-    expectColon();
-    pushLoop();
-    ReferenceContext::Guard guard(context);
-    auto rhs = parseExpression();
-    if (auto type = iterable(rhs->typeCache)) {
-        context.local(context.sourcecode->source(lhs->token), type);
-        auto clause = parseYieldClause();
-        return context.make<ForExpr>(token, std::move(lhs), std::move(rhs), std::move(clause), popLoop());
+    if (peek().type == TokenType::LPAREN) {
+        auto [lhs, designated] = parseParameters(nullptr);
+        expect(TokenType::KW_IN, "'in' is expected");
+        pushLoop();
+        ReferenceContext::Guard guard(context);
+        auto rhs = parseExpression();
+        if (auto element = iterable(rhs->typeCache)) {
+            destructuring(lhs, designated, element, rhs->segment());
+            auto clause = parseYieldClause();
+            return context.make<ForDestructuringExpr>(token, std::move(lhs), std::move(designated), std::move(rhs), std::move(clause), popLoop());
+        }
+        throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
+    } else {
+        auto [lhs, designated] = parseParameter(nullptr);
+        expect(TokenType::KW_IN, "'in' is expected");
+        pushLoop();
+        ReferenceContext::Guard guard(context);
+        auto rhs = parseExpression();
+        if (auto element = iterable(rhs->typeCache)) {
+            declaring(lhs, designated, element, rhs->segment());
+            auto clause = parseYieldClause();
+            return context.make<ForExpr>(token, std::move(lhs), std::move(designated), std::move(rhs), std::move(clause), popLoop());
+        }
+        throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
     }
-    throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
 }
 
 ExprHandle Parser::parseTry() {
     auto token = next();
     auto lhs = parseClause();
-    expect(TokenType::KW_CATCH, "catch is expected");
+    expect(TokenType::KW_CATCH, "'catch' is expected");
     auto except = parseId(false);
     ReferenceContext::Guard guard(context);
     context.local(context.sourcecode->source(except->token), ScalarTypes::ANY);
     return context.make<TryExpr>(token, std::move(lhs), std::move(except), parseClause());
 }
 
-ExprHandle Parser::parseFn() {
-    auto token = next();
+std::pair<std::unique_ptr<IdExpr>, TypeReference> Parser::parseParameter(const TypeReference& fallback) {
+    auto id = parseId(false);
+    auto type = optionalType();
+    bool underscore = sourcecode->source(id->token) == "_";
+    if (type == nullptr) {
+        type = underscore ? ScalarTypes::NONE : fallback;
+    } else if (underscore && !isNone(type)) {
+        throw ParserException("the type of '_' must be none", id->token);
+    }
+    return {std::move(id), std::move(type)};
+}
+
+std::pair<std::vector<std::unique_ptr<IdExpr>>, std::vector<TypeReference>> Parser::parseParameters(TypeReference const& fallback) {
     expect(TokenType::LPAREN, "'(' is expected");
     std::vector<std::unique_ptr<IdExpr>> parameters;
     std::vector<TypeReference> P;
     while (true) {
         if (peek().type == TokenType::RPAREN) break;
-        auto id = parseId(false);
-        auto type = optionalType();
-        bool underscore = sourcecode->source(id->token) == "_";
-        if (type == nullptr) {
-            type = underscore ? ScalarTypes::NONE : ScalarTypes::ANY;
-        } else if (underscore && !isNone(type)) {
-            throw ParserException("the type of parameter '_' must be none", id->token);
-        }
+        auto [id, type] = parseParameter(fallback);
         parameters.emplace_back(std::move(id));
-        P.emplace_back(type);
-        neverGonnaGiveYouUp(P.back(), "as parameter", rewind());
+        P.emplace_back(std::move(type));
+        neverGonnaGiveYouUp(P.back(), "as parameter or tuple element", rewind());
         if (peek().type == TokenType::RPAREN) break;
         expectComma();
     }
+    unexpectedComma(P.size());
     next();
+    return {std::move(parameters), std::move(P)};
+}
+
+ExprHandle Parser::parseFn() {
+    auto token = next();
+    auto [parameters, P] = parseParameters(ScalarTypes::ANY);
     auto R = optionalType();
     expect(TokenType::OP_ASSIGN, "'=' is expected before function body");
     auto _hooks = std::move(hooks);
@@ -400,12 +450,19 @@ ExprHandle Parser::parseFn() {
 
 ExprHandle Parser::parseLet() {
     auto token = next();
-    auto id = parseId(false);
-    if (sourcecode->source(id->token) == "_") throw ParserException("'_' is not allowed to be an identifier of let", id->token);
-    auto type = optionalType();
-    expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
-    auto init = parseExpression();
-    return context.make<LetExpr>(token, std::move(id), std::move(type), std::move(init));
+    if (peek().type == TokenType::LPAREN) {
+        auto [lhs, designated] = parseParameters(nullptr);
+        expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
+        auto rhs = parseExpression();
+        destructuring(lhs, designated, rhs->typeCache, rhs->segment());
+        return context.make<LetDestructuringExpr>(token, std::move(lhs), std::move(designated), std::move(rhs));
+    } else {
+        auto [lhs, designated] = parseParameter(nullptr);
+        expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
+        auto rhs = parseExpression();
+        declaring(lhs, designated, rhs->typeCache, rhs->segment());
+        return context.make<LetExpr>(token, std::move(lhs), std::move(designated), std::move(rhs));
+    }
 }
 
 TypeReference Parser::parseParenType() {
@@ -514,6 +571,7 @@ TypeReference Parser::parseType() {
                 if (peek().type == TokenType::RPAREN) break;
                 expectComma();
             }
+            unexpectedComma(P.size());
             auto token2 = next();
             if (peek().type == TokenType::OP_COLON) {
                 next();

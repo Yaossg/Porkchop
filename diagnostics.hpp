@@ -42,5 +42,5 @@ void matchOnBothOperand(Expr const* expr1, Expr const* expr2);
 void expected(Expr const* expr, bool pred(TypeReference const&), const char* msg);
 void expected(Expr const* expr, TypeReference const& expected);
 void assignable(Expr const* expr, TypeReference const& expected);
-
+void assignable(TypeReference const& type, TypeReference const& expected, Segment segment);
 }

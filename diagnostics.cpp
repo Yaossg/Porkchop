@@ -134,4 +134,9 @@ void assignable(Expr const* expr, TypeReference const& expected) {
     if (!expected->assignableFrom(expr->typeCache))
         throw TypeException(unassignable(expr->typeCache, expected), expr->segment());
 }
+
+void assignable(TypeReference const& type, TypeReference const& expected, Segment segment) {
+    if (!expected->assignableFrom(type))
+        throw TypeException(unassignable(type, expected), segment);
+}
 }

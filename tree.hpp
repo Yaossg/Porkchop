@@ -395,41 +395,55 @@ struct LoopHook {
     }
 };
 struct LoopExpr : Expr {
+    Token token;
+    ExprHandle clause;
     std::shared_ptr<LoopHook> hook;
-    explicit LoopExpr(std::shared_ptr<LoopHook> hook): hook(std::move(hook)) {
+    LoopExpr(Token token, ExprHandle clause, std::shared_ptr<LoopHook> hook): token(token), clause(std::move(clause)), hook(std::move(hook)) {
         this->hook->loop = this;
+    }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token, clause->segment());
     }
 };
 struct WhileExpr : LoopExpr {
-    Token token;
     ExprHandle cond;
-    ExprHandle clause;
 
-    WhileExpr(Token token, ExprHandle cond, ExprHandle lhs, std::shared_ptr<LoopHook> hook): token(token), cond(std::move(cond)), clause(std::move(lhs)), LoopExpr(std::move(hook)) {}
+    WhileExpr(Token token, ExprHandle cond, ExprHandle clause, std::shared_ptr<LoopHook> hook): cond(std::move(cond)), LoopExpr(token, std::move(clause), std::move(hook)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "while"; }
 
-    [[nodiscard]] Segment segment() const override {
-        return range(token, clause->segment());
-    }
-
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 };
 struct ForExpr : LoopExpr {
-    Token token;
     std::unique_ptr<IdExpr> lhs;
+    TypeReference designated;
     ExprHandle rhs;
-    ExprHandle clause;
 
-    ForExpr(Token token, std::unique_ptr<IdExpr> lhs, ExprHandle rhs, ExprHandle clause, std::shared_ptr<LoopHook> hook): token(token), lhs(std::move(lhs)), rhs(std::move(rhs)), clause(std::move(clause)), LoopExpr(std::move(hook)) {}
+    ForExpr(Token token, std::unique_ptr<IdExpr> lhs, TypeReference designated, ExprHandle rhs, ExprHandle clause, std::shared_ptr<LoopHook> hook): lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)), LoopExpr(token, std::move(clause), std::move(hook)) {}
 
-    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get(), clause.get()}; }
+    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), designated.get(), rhs.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "for"; }
 
-    [[nodiscard]] Segment segment() const override {
-        return range(token, clause->segment());
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+};
+struct ForDestructuringExpr : LoopExpr {
+    std::vector<std::unique_ptr<IdExpr>> lhs;
+    std::vector<TypeReference> designated;
+    ExprHandle rhs;
+
+    ForDestructuringExpr(Token token, std::vector<std::unique_ptr<IdExpr>> lhs, std::vector<TypeReference> designated, ExprHandle rhs, ExprHandle clause, std::shared_ptr<LoopHook> hook): lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)), LoopExpr(token, std::move(clause), std::move(hook)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (auto&& e : lhs) ret.push_back(e.get());
+        for (auto&& e : designated) ret.push_back(e.get());
+        ret.push_back(rhs.get());
+        ret.push_back(clause.get());
+        return ret;
     }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "for"; }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 };
@@ -492,13 +506,36 @@ struct FnExpr : Expr {
 struct LetExpr : Expr {
     Token token;
     std::unique_ptr<IdExpr> lhs;
-    mutable TypeReference designated;
+    TypeReference designated;
     ExprHandle rhs;
 
     LetExpr(Token token, std::unique_ptr<IdExpr> lhs, TypeReference designated, ExprHandle rhs): token(token), lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), designated.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "let"; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token, rhs->segment());
+    }
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+};
+struct LetDestructuringExpr : Expr {
+    Token token;
+    std::vector<std::unique_ptr<IdExpr>> lhs;
+    std::vector<TypeReference> designated;
+    ExprHandle rhs;
+
+    LetDestructuringExpr(Token token, std::vector<std::unique_ptr<IdExpr>> lhs, std::vector<TypeReference> designated, ExprHandle rhs): token(token), lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (auto&& e : lhs) ret.push_back(e.get());
+        for (auto&& e : designated) ret.push_back(e.get());
+        ret.push_back(rhs.get());
+        return ret;
+    }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "let"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
