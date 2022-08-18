@@ -236,12 +236,13 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 }
 ```
 
-复合类型有列表、字典、函数
+复合类型有元组、列表、字典、函数
 
 ```
 {
-	let a: [int]            = [1, 2, 3]
-	let b: @[string: float] = @["pi": 3.14]
+	let t: (int, string)    = (12, "apple")
+	let l: [int]            = [1, 2, 3]
+	let d: @[string: float] = @["pi": 3.14]
 	let f: (int): int       = fn(x: int) = x
 }
 ```
@@ -303,7 +304,7 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 		i += 1
 	} # none
 	
-	for g : ["hello", "my", "friends"] {
+	for g in ["hello", "my", "friends"] {
 		println(g)
 	} # none
 }
@@ -313,14 +314,14 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 
 ```
 {
-	for x : [1, 2, 3] {
+	for x in [1, 2, 3] {
 		if x != 2 {
 			yield x * 2 + 1
 		}
 	} # 返回 [3, 7]
 	
 	# yield 也可以放在括号外面
-	for x : [1, 2, 3] yield {
+	for x in [1, 2, 3] yield {
 		x * 2 + 1
 	} # 返回 [3, 5, 7]
 }
@@ -385,4 +386,48 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 }
 ```
 
+将多个函数放置在一个元组里，还支持重载
+
+```
+{
+	let f1 = fn()=1
+	let f2 = fn(x: int)=2
+	let f3 = fn(x: string)=3
+	let f = (f1, f2, f3)
+	f()    #1
+	f(0)   #2
+	f("0") #3
+}
+```
+
 更多细节这里从略
+
+## 解构
+
+元组可以被解构：
+```
+{
+	let (a, b) = (1, 2)
+	a + b # 3
+}
+```
+
+你可以用下划线标注想要忽略的元素或者是参数
+
+```
+{
+	let (a, _) = (1, 2) # 忽略第二个元素
+	let f = fn(_) = 0 # 忽略第一个参数
+}
+```
+
+解构在迭代字典的时候非常有用：
+
+```
+{
+	for (key, value) in @[] {
+		# ...
+	}
+}
+```
+

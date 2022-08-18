@@ -341,7 +341,9 @@ int64_t IsExpr::evalConst(SourceCode& sourcecode) const {
 
 TypeReference DefaultExpr::evalType(ReferenceContext& context) const {
     neverGonnaGiveYouUp(T, "for it has no instance at all", segment());
+    if (isAny(T)) throw TypeException("any has no default instance", segment());
     if (auto tuple = dynamic_cast<TupleType*>(T.get())) throw TypeException("tuple has no default instance", segment());
+    if (auto func = dynamic_cast<FuncType*>(T.get())) throw TypeException("func has no default instance", segment());
     return T;
 }
 
