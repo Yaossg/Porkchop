@@ -30,6 +30,7 @@ struct SegmentException : std::logic_error {
 using TokenException = SegmentException;
 using ParserException = SegmentException;
 using TypeException = SegmentException;
+using ConstException = SegmentException;
 
 void neverGonnaGiveYouUp(TypeReference const& type, const char* msg, Segment segment);
 [[nodiscard]] std::string mismatch(TypeReference const& type, const char* msg, TypeReference const& expected) noexcept;

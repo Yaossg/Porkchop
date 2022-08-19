@@ -13,13 +13,6 @@ namespace Porkchop {
     return isIdentifierStart(ch) || isNumberStart(ch);
 }
 
-enum class Base {
-    BINARY = 2,
-    OCTAL = 8,
-    DECIMAL = 10,
-    HEXADECIMAL = 16
-};
-
 [[nodiscard]] constexpr bool isBinary(char ch) noexcept { return ch == '0' || ch == '1'; }
 [[nodiscard]] constexpr bool isOctal(char ch) noexcept { return ch >= '0' && ch <= '7'; }
 [[nodiscard]] constexpr bool isDecimal(char ch) noexcept { return ch >= '0' && ch <= '9'; }
@@ -91,9 +84,12 @@ const std::unordered_map<std::string_view, TokenType> OPERATORS {
     // unused single ASCII characters: ` ? @
 };
 
-// should only be used locally
 struct Tokenizer {
-    explicit Tokenizer(std::string_view view, size_t line) noexcept:
+    const char *p, *q, *const r;
+    const size_t line;
+    size_t column;
+
+    Tokenizer(std::string_view view, size_t line) noexcept:
             p(view.begin()), q(p),
             r(view.end()),
             line(line), column(0) {}
@@ -119,11 +115,14 @@ struct Tokenizer {
     [[nodiscard]] char peekc() const noexcept {
         return *q;
     }
-    [[nodiscard]] Token make(TokenType type) const noexcept {
-        return {.line = line, .column = column - (q - p), .width = size_t(q - p), .type = type};
-    }
     [[nodiscard]] bool remains() const noexcept {
         return q != r;
+    }
+    void step() noexcept {
+        p = q;
+    }
+    [[nodiscard]] Token make(TokenType type) const noexcept {
+        return {.line = line, .column = column - (q - p), .width = size_t(q - p), .type = type};
     }
     [[nodiscard]] std::vector<Token> tokenize() {
         std::vector<Token> tokens;
@@ -178,12 +177,12 @@ struct Tokenizer {
                         while (isIdentifierContinue(ch = getc()));
                         ungetc(ch);
                         std::string_view token{p, q};
-                        if (auto it = KEYWORDS.find(token); it != KEYWORDS.end()) [[unlikely]] {
+                        if (auto it = KEYWORDS.find(token); it != KEYWORDS.end()) {
                             tokens.push_back(make(it->second));
-                        } else [[likely]] {
+                        } else {
                             tokens.push_back(make(TokenType::IDENTIFIER));
                         }
-                    } else if (isNumberStart(ch)) {
+                    } else if (isNumberStart(ch) || (ch == '+' || ch == '-') && isNumberStart(peekc())) {
                         ungetc(ch);
                         tokens.push_back(scanNumber());
                     } else {
@@ -206,7 +205,7 @@ struct Tokenizer {
                     }
                 }
             }
-            p = q;
+            step();
         }
         tokens.push_back(make(TokenType::LINEBREAK));
         return tokens;
@@ -222,24 +221,29 @@ struct Tokenizer {
     }
 
     Token scanNumber() {
+        if (peekc() == '+' || peekc() == '-') getc();
         // scan number prefix
-        Base base = Base::DECIMAL;
+        TokenType base = TokenType::DECIMAL_INTEGER;
         bool (*pred)(char) noexcept = isDecimal;
         if (peekc() == '0') {
             getc();
-            switch (peekc()) {
+            switch (char ch = peekc()) {
                 case 'x': case 'X':
-                    base = Base::HEXADECIMAL; pred = isHexadecimal; getc(); break;
+                    base = TokenType::HEXADECIMAL_INTEGER; pred = isHexadecimal; getc(); break;
                 [[unlikely]] case 'o':
                 [[unlikely]] case 'O':
-                    base = Base::OCTAL; pred = isOctal; getc(); break;
+                    base = TokenType::OCTAL_INTEGER; pred = isOctal; getc(); break;
                 case 'b': case 'B':
-                    base = Base::BINARY; pred = isBinary; getc(); break;
-                default: ungetc('0');
+                    base = TokenType::BINARY_INTEGER; pred = isBinary; getc(); break;
+                default:
+                    if (isNumberStart(ch)) {
+                        throw TokenException("redundant 0 ahead is forbidden to avoid ambiguity, use 0o if octal", make(TokenType::INVALID));
+                    } else {
+                        ungetc('0');
+                    }
             }
         }
         // scan digits
-        const char* start = q;
         scanDigits(pred);
         bool flt = false;
         if (peekc() == '.') {
@@ -251,44 +255,24 @@ struct Tokenizer {
                 ungetc('.');
             }
         }
-        if (base == Base::DECIMAL && (peekc() == 'e' || peekc() == 'E')
-            || base == Base::HEXADECIMAL && (peekc() == 'p' || peekc() == 'P')) {
+        if (base == TokenType::DECIMAL_INTEGER && (peekc() == 'e' || peekc() == 'E')
+            || base == TokenType::HEXADECIMAL_INTEGER && (peekc() == 'p' || peekc() == 'P')) {
             flt = true;
             getc();
             if (peekc() == '+' || peekc() == '-') getc();
             scanDigits(isDecimal);
         }
-        if (*start == '0' && (flt ? start[1] != '.' : start + 1 != q))
-            throw TokenException("redundant 0 ahead is forbidden to avoid ambiguity, use 0o if octal", make(TokenType::INVALID));
-        if (isIdentifierContinue(peekc())) throw TokenException("invalid suffix of number", make(TokenType::INVALID));
+        if (isIdentifierContinue(peekc())) throw TokenException("invalid number suffix", make(TokenType::INVALID));
         // classification
-        TokenType type;
+        TokenType type = base;
         if (flt) {
             switch (base) {
-                [[unlikely]] case Base::BINARY:
-                [[unlikely]] case Base::OCTAL:
-                    throw TokenException("binary or octal float literal is unsupported", make(TokenType::INVALID));
-                [[likely]] case Base::DECIMAL:
-                    type = TokenType::DECIMAL_FLOAT;
-                    break;
-                case Base::HEXADECIMAL:
-                    type = TokenType::HEXADECIMAL_FLOAT;
-                    break;
-            }
-        } else {
-            switch (base) {
-                case Base::BINARY:
-                    type = TokenType::BINARY_INTEGER;
-                    break;
-                [[unlikely]] case Base::OCTAL:
-                    type = TokenType::OCTAL_INTEGER;
-                    break;
-                [[likely]] case Base::DECIMAL:
-                    type = TokenType::DECIMAL_INTEGER;
-                    break;
-                case Base::HEXADECIMAL:
-                    type = TokenType::HEXADECIMAL_INTEGER;
-                    break;
+                [[unlikely]] case TokenType::BINARY_INTEGER:
+                [[unlikely]] case TokenType::OCTAL_INTEGER:
+                    throw TokenException("binary or octal float literal is invalid", make(TokenType::INVALID));
+                [[likely]] case TokenType::DECIMAL_INTEGER:
+                case TokenType::HEXADECIMAL_INTEGER:
+                    type = TokenType::FLOATING_POINT;
             }
         }
         return make(type);
@@ -298,18 +282,12 @@ struct Tokenizer {
     void scan(const char* message) {
         while (char ch = getc()) {
             switch (ch) {
-                case '\\': getc();
                 case QUOTER: return;
+                case '\\': getc();
             }
         }
         throw TokenException(message, make(TokenType::INVALID));
     }
-
-
-private:
-    const size_t line;
-    const char *p, *q, *const r;
-    size_t column;
 };
 
 void SourceCode::split() {

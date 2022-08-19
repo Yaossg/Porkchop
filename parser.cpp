@@ -223,8 +223,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::OCTAL_INTEGER:
                 case TokenType::DECIMAL_INTEGER:
                 case TokenType::HEXADECIMAL_INTEGER:
-                case TokenType::DECIMAL_FLOAT:
-                case TokenType::HEXADECIMAL_FLOAT:
+                case TokenType::FLOATING_POINT:
                     return context.make<ConstExpr>(next());
 
                 case TokenType::KW_DEFAULT: {
@@ -333,13 +332,13 @@ ExprHandle Parser::parseWhile() {
     return context.make<WhileExpr>(token, std::move(cond), std::move(clause), popLoop());
 }
 
-void Parser::declaring(std::unique_ptr<IdExpr> const& lhs, TypeReference& designated, TypeReference const& type, Segment segment) {
+void Parser::declaring(IdExprHandle const& lhs, TypeReference& designated, TypeReference const& type, Segment segment) {
     if (designated == nullptr) designated = type;
     assignable(type, designated, segment);
     context.local(context.sourcecode->source(lhs->token), designated);
 }
 
-void Parser::destructuring(std::vector<std::unique_ptr<IdExpr>> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment) {
+void Parser::destructuring(std::vector<IdExprHandle> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment) {
     if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
         if (designated.size() != tuple->E.size()) {
             throw TypeException("expected " + std::to_string(designated.size()) + " elements but got " + std::to_string(tuple->E.size()), segment);
@@ -397,7 +396,7 @@ ExprHandle Parser::parseTry() {
     return context.make<TryExpr>(token, std::move(lhs), std::move(except), parseClause());
 }
 
-std::pair<std::unique_ptr<IdExpr>, TypeReference> Parser::parseParameter(const TypeReference& fallback) {
+std::pair<IdExprHandle, TypeReference> Parser::parseParameter(const TypeReference& fallback) {
     auto id = parseId(false);
     auto type = optionalType();
     bool underscore = sourcecode->source(id->token) == "_";
@@ -409,9 +408,9 @@ std::pair<std::unique_ptr<IdExpr>, TypeReference> Parser::parseParameter(const T
     return {std::move(id), std::move(type)};
 }
 
-std::pair<std::vector<std::unique_ptr<IdExpr>>, std::vector<TypeReference>> Parser::parseParameters(TypeReference const& fallback) {
+std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parseParameters(TypeReference const& fallback) {
     expect(TokenType::LPAREN, "'(' is expected");
-    std::vector<std::unique_ptr<IdExpr>> parameters;
+    std::vector<IdExprHandle> parameters;
     std::vector<TypeReference> P;
     while (true) {
         if (peek().type == TokenType::RPAREN) break;
@@ -586,7 +585,7 @@ TypeReference Parser::parseType() {
     }
 }
 
-std::unique_ptr<IdExpr> Parser::parseId(bool initialize) {
+IdExprHandle Parser::parseId(bool initialize) {
     auto token = next();
     if (token.type != TokenType::IDENTIFIER) throw TokenException("id-expression is expected", token);
     return initialize ? context.make<IdExpr>(token) : std::make_unique<IdExpr>(token);

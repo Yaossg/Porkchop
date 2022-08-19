@@ -1,4 +1,5 @@
 #include "tree.hpp"
+#include "literal.hpp"
 
 
 namespace Porkchop {
@@ -9,45 +10,27 @@ TypeReference ConstExpr::evalType(ReferenceContext& context) const {
         case TokenType::KW_TRUE:
             return ScalarTypes::BOOL;
         case TokenType::CHARACTER_LITERAL:
+            std::ignore = parseChar(*context.sourcecode, token);
             return ScalarTypes::CHAR;
         case TokenType::STRING_LITERAL:
+            std::ignore = parseString(*context.sourcecode, token);
             return ScalarTypes::STRING;
-        case TokenType::KW_LINE:
-        case TokenType::KW_EOF:
         case TokenType::BINARY_INTEGER:
         case TokenType::OCTAL_INTEGER:
         case TokenType::DECIMAL_INTEGER:
         case TokenType::HEXADECIMAL_INTEGER:
+            std::ignore = parseInt(*context.sourcecode, token);
+        case TokenType::KW_LINE:
+        case TokenType::KW_EOF:
             return ScalarTypes::INT;
         case TokenType::KW_NAN:
         case TokenType::KW_INF:
-        case TokenType::DECIMAL_FLOAT:
-        case TokenType::HEXADECIMAL_FLOAT:
+        case TokenType::FLOATING_POINT:
+            std::ignore = parseFloat(*context.sourcecode, token);
             return ScalarTypes::FLOAT;
         default:
             unreachable("invalid token is classified as const");
     }
-}
-
-int64_t parseInt(SourceCode& sourcecode, Token token) try {
-    int base;
-    std::string literal;
-    switch (token.type) {
-        case TokenType::BINARY_INTEGER: base = 2; break;
-        case TokenType::OCTAL_INTEGER: base = 8; break;
-        case TokenType::DECIMAL_INTEGER:  base = 10; break;
-        case TokenType::HEXADECIMAL_INTEGER: base = 16; break;
-    }
-    switch (token.type) {
-        case TokenType::BINARY_INTEGER:
-        case TokenType::OCTAL_INTEGER:
-        case TokenType::HEXADECIMAL_INTEGER: literal = sourcecode.source(token).substr(2); break;
-        case TokenType::DECIMAL_INTEGER: literal = sourcecode.source(token); break;
-    }
-    std::erase(literal, '_');
-    return std::stoll(literal, nullptr, base);
-} catch (std::out_of_range& e) {
-    throw TypeException("int literal out of range", token);
 }
 
 int64_t ConstExpr::evalConst(SourceCode& sourcecode) const {
@@ -141,11 +124,11 @@ TypeReference InfixExpr::evalType(ReferenceContext& context) const {
 }
 
 int64_t nonneg(int64_t value, Segment segment) {
-    if (value < 0) throw TypeException("non-negative constant is expected", segment);
+    if (value < 0) throw ConstException("non-negative constant is expected", segment);
     return value;
 }
 int64_t nonzero(int64_t value, Segment segment) {
-    if (value == 0) throw TypeException("non-zero constant is expected", segment);
+    if (value == 0) throw ConstException("non-zero constant is expected", segment);
     return value;
 }
 
@@ -325,7 +308,7 @@ TypeReference AsExpr::evalType(ReferenceContext& context) const {
 }
 
 int64_t AsExpr::evalConst(SourceCode& sourcecode) const {
-    if (!isCompileTime(T)) throw TypeException("compile-time evaluation only support bool and int", segment());
+    if (!isCompileTime(T)) throw ConstException("compile-time evaluation only support bool and int", segment());
     return lhs->evalConst(sourcecode);
 }
 
@@ -335,7 +318,7 @@ TypeReference IsExpr::evalType(ReferenceContext& context) const {
 }
 
 int64_t IsExpr::evalConst(SourceCode& sourcecode) const {
-    if (isAny(lhs->typeCache)) throw TypeException("dynamic type cannot be checked at compile-time", lhs->segment());
+    if (isAny(lhs->typeCache)) throw ConstException("dynamic type cannot be checked at compile-time", lhs->segment());
     return lhs->typeCache->equals(T);
 }
 
@@ -348,7 +331,7 @@ TypeReference DefaultExpr::evalType(ReferenceContext& context) const {
 }
 
 int64_t DefaultExpr::evalConst(SourceCode& sourcecode) const {
-    if (!isCompileTime(T)) throw TypeException("compile-time evaluation only support bool and int", segment());
+    if (!isCompileTime(T)) throw ConstException("compile-time evaluation only support bool and int", segment());
     return 0;
 }
 
@@ -392,13 +375,14 @@ TypeReference ClauseExpr::evalType(ReferenceContext& context) const {
 }
 
 int64_t ClauseExpr::evalConst(SourceCode& sourcecode) const {
-    if (lines.empty()) throw TypeException("compile-time evaluation is limited as int", segment());
+    if (lines.empty()) throw ConstException("compile-time evaluation only support bool and int", segment());
     int64_t value;
     for (auto&& expr : lines) value = expr->evalConst(sourcecode);
     return value;
 }
 
 TypeReference IfElseExpr::evalType(ReferenceContext& context) const {
+    if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     try {
         if (cond->evalConst(*context.sourcecode))
@@ -424,8 +408,7 @@ TypeReference YieldExpr::evalType(ReferenceContext& context) const {
 }
 
 TypeReference WhileExpr::evalType(ReferenceContext& context) const {
-    auto type = cond->typeCache;
-    if (isNever(type)) return ScalarTypes::NEVER;
+    if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     try {

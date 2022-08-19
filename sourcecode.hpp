@@ -12,7 +12,9 @@ namespace Porkchop {
 struct Type;
 using TypeReference = std::shared_ptr<Type>;
 struct Expr;
+struct IdExpr;
 using ExprHandle = std::unique_ptr<Expr>;
+using IdExprHandle = std::unique_ptr<IdExpr>;
 struct Token;
 
 struct SourceCode {

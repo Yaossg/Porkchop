@@ -14,7 +14,8 @@ struct Parser {
     std::vector<const FnExpr*> fns;
     ReferenceContext context;
 
-    explicit Parser(SourceCode* sourcecode, std::vector<Token> const& tokens): sourcecode(sourcecode), p(tokens.cbegin()), q(tokens.cend()), context(this->sourcecode) {}
+    explicit Parser(SourceCode* sourcecode, std::vector<Token> const& tokens):
+        sourcecode(sourcecode), p(tokens.cbegin()), q(tokens.cend()), context(this->sourcecode) {}
 
     Token next() {
         if (p != q) [[likely]]
@@ -35,15 +36,15 @@ struct Parser {
     ExprHandle parseExpression(Expr::Level level = Expr::Level::ASSIGNMENT);
     std::vector<ExprHandle> parseExpressions(TokenType stop);
     std::unique_ptr<ClauseExpr> parseClause();
-    std::unique_ptr<IdExpr> parseId(bool initialize);
+    IdExprHandle parseId(bool initialize);
     ExprHandle parseIf(), parseYieldClause(), parseWhile(), parseFor(), parseTry(), parseFn(), parseLet();
     TypeReference parseType(), parseParenType();
 
-    std::pair<std::unique_ptr<IdExpr>, TypeReference> parseParameter(TypeReference const& fallback);
-    std::pair<std::vector<std::unique_ptr<IdExpr>>, std::vector<TypeReference>> parseParameters(TypeReference const& fallback);
+    std::pair<IdExprHandle, TypeReference> parseParameter(TypeReference const& fallback);
+    std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters(TypeReference const& fallback);
 
-    void declaring(std::unique_ptr<IdExpr> const& lhs, TypeReference& designated, TypeReference const& type, Segment segment);
-    void destructuring(std::vector<std::unique_ptr<IdExpr>> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment);
+    void declaring(IdExprHandle const& lhs, TypeReference& designated, TypeReference const& type, Segment segment);
+    void destructuring(std::vector<IdExprHandle> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment);
 
     Token expect(TokenType type, const char* msg) {
         auto token = next();
