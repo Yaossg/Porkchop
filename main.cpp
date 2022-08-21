@@ -4,6 +4,10 @@
 #include "parser.hpp"
 
 int main(int argc, const char* argv[]) try {
+#ifdef _WIN32
+    system("chcp 65001");
+    system("cls");
+#endif
     if (argc < 2) {
         fprintf(stderr, "Too few arguments, input file expected\n");
         return 10;

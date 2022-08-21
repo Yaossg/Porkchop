@@ -11,6 +11,8 @@ std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& base) noex
     return nullptr;
 }
 
+SourceCode::SourceCode(std::string original) noexcept: original(std::move(original)) /* default-constructed members... */ {}
+
 void SourceCode::parse() {
     if (tokens.empty()) return;
     Parser parser(this, tokens);

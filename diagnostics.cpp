@@ -1,7 +1,15 @@
 #include "diagnostics.hpp"
 #include "tree.hpp"
+#include "unicode.hpp"
 
 namespace Porkchop {
+
+int digits10(size_t num) noexcept {
+    int digits = 1;
+    while (num /= 10)
+        ++digits;
+    return digits;
+}
 
 std::string SegmentException::message(const SourceCode &sourcecode) const {
     std::string result;
@@ -19,32 +27,41 @@ std::string SegmentException::message(const SourceCode &sourcecode) const {
     }
     result += std::to_string(segment.column2 + 1);
     result += "\n";
+    int digits = digits10(segment.line2 + 1);
     for (size_t line = segment.line1; line <= segment.line2; ++line) {
         auto lineNo = std::to_string(line + 1);
         auto code = sourcecode.lines.at(line);
-        result += "    ";
+        result += "   ";
         result += lineNo;
+        result += std::string(digits - lineNo.length() + 1, ' ');
         result += " | ";
-        result +=  code;
-        result += "\n    ";
-        result += std::string(lineNo.length(), ' ');
+        result += code;
+        result += "\n   ";
+        result += std::string(digits + 1, ' ');
         result += " | ";
-        size_t column1 = 0;
-        if (line == segment.line1) {
-            column1 = segment.column1;
+        size_t column1 = line == segment.line1 ? segment.column1 : code.find_first_not_of(' ');
+        size_t column2 = line == segment.line2 ? segment.column2 : code.length();
+        {
+            UnicodeParser up(code.substr(0, column1), line, 0);
+            size_t width = 0;
+            while (up.remains()) {
+                width += getUnicodeWidth(up.decodeUnicode());
+            }
+            result += std::string(width, ' ');
         }
-        size_t column2 = code.length();
-        if (line == segment.line2) {
-            column2 = segment.column2;
-        }
-        size_t width = column2 - column1;
-        result += std::string(column1, ' ');
-        if (line == segment.line1) {
-            result += '^';
-            if (width > 1)
-                result += std::string(width - 1, '~');
-        } else {
-            result += std::string(width, '~');
+        {
+            UnicodeParser up(code.substr(column1, column2 - column1), line, column1);
+            size_t width = 0;
+            while (up.remains()) {
+                width += getUnicodeWidth(up.decodeUnicode());
+            }
+            if (line == segment.line1) {
+                result += '^';
+                if (width > 1)
+                    result += std::string(width - 1, '~');
+            } else {
+                result += std::string(width, '~');
+            }
         }
         result += '\n';
     }

@@ -89,13 +89,11 @@ enum class TokenType {
     INVALID
 };
 
-struct Segment;
-
 struct Token {
     size_t line, column, width;
     TokenType type;
 
-    operator Segment() const noexcept;
+    operator struct Segment() const noexcept;
 };
 
 extern const std::unordered_map<std::string_view, TokenType> KEYWORDS;
