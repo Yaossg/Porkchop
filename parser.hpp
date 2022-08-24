@@ -40,8 +40,8 @@ struct Parser {
     ExprHandle parseIf(), parseYieldClause(), parseWhile(), parseFor(), parseTry(), parseFn(), parseLet();
     TypeReference parseType(), parseParenType();
 
-    std::pair<IdExprHandle, TypeReference> parseParameter(TypeReference const& fallback);
-    std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters(TypeReference const& fallback);
+    std::pair<IdExprHandle, TypeReference> parseParameter();
+    std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters();
 
     void declaring(IdExprHandle const& lhs, TypeReference& designated, TypeReference const& type, Segment segment);
     void destructuring(std::vector<IdExprHandle> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment);

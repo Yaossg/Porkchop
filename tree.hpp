@@ -310,6 +310,27 @@ struct ListExpr : Expr {
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 };
 
+struct SetExpr : Expr {
+    Token token1, token2;
+    std::vector<ExprHandle> elements;
+
+    SetExpr(Token token1, Token token2, std::vector<ExprHandle> elements):
+            token1(token1), token2(token2), elements(std::move(elements)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (auto&& e : elements) ret.push_back(e.get());
+        return ret;
+    }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[]"; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token1, token2);
+    }
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+};
+
 struct DictExpr : Expr {
     Token token1, token2;
     std::vector<std::pair<ExprHandle, ExprHandle>> elements;
@@ -325,7 +346,7 @@ struct DictExpr : Expr {
         }
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[]"; }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[:]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);

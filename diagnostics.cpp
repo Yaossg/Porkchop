@@ -90,9 +90,9 @@ std::string mismatch(const TypeReference &type, const char *msg, size_t index, c
     result += msg;
     result += ", the first one is '";
     result += expected->toString();
-    result += "', but the '";
-    result += std::to_string(index);
-    result += "'th one is '";
+    result += "', but ";
+    result += ordinal(index);
+    result += " one is '";
     result += type->toString();
     result += "'";
     return result;

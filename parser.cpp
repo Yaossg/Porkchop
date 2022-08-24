@@ -184,11 +184,15 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     next();
                     auto expr = parseExpressions(TokenType::RBRACKET);
                     auto token2 = next();
+                    if (expr.empty()) {
+                        throw ParserException("use default([T]) to create empty list", range(token, token2));
+                    }
                     return context.make<ListExpr>(token, token2, std::move(expr));
                 }
                 case TokenType::AT_BRACKET: {
                     next();
                     std::vector<std::pair<ExprHandle, ExprHandle>> elements;
+                    size_t values = 0;
                     while (true) {
                         if (peek().type == TokenType::RBRACKET) break;
                         auto key = parseExpression();
@@ -196,8 +200,9 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         if (peek().type == TokenType::OP_COLON) {
                             next();
                             value = parseExpression();
+                            ++values;
                         } else {
-                            value = context.make<ClauseExpr>(peek(), peek());
+                            value = nullptr;
                         }
                         elements.emplace_back(std::move(key), std::move(value));
                         if (peek().type == TokenType::RBRACKET) break;
@@ -205,7 +210,21 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     }
                     unexpectedComma(elements.size());
                     auto token2 = next();
-                    return context.make<DictExpr>(token, token2, std::move(elements));
+                    if (elements.empty()) {
+                        throw ParserException("use default(@[T]) or default(@[K: V]) to create empty set or dict", range(token, token2));
+                    }
+                    if (values == 0) {
+                        std::vector<ExprHandle> keys;
+                        keys.reserve(elements.size());
+                        for (auto&& [key, value] : elements) {
+                            keys.push_back(std::move(key));
+                        }
+                        return context.make<SetExpr>(token, token2, std::move(keys));
+                    } else if (values == elements.size()) {
+                        return context.make<DictExpr>(token, token2, std::move(elements));
+                    } else {
+                        throw ParserException("missing values for some keys to create dict", range(token, token2));
+                    }
                 }
                 case TokenType::LBRACE:
                     return parseClause();
@@ -362,7 +381,7 @@ void Parser::destructuring(std::vector<IdExprHandle> const& lhs, std::vector<Typ
 ExprHandle Parser::parseFor() {
     auto token = next();
     if (peek().type == TokenType::LPAREN) {
-        auto [lhs, designated] = parseParameters(nullptr);
+        auto [lhs, designated] = parseParameters();
         expect(TokenType::KW_IN, "'in' is expected");
         pushLoop();
         ReferenceContext::Guard guard(context);
@@ -374,7 +393,7 @@ ExprHandle Parser::parseFor() {
         }
         throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
     } else {
-        auto [lhs, designated] = parseParameter(nullptr);
+        auto [lhs, designated] = parseParameter();
         expect(TokenType::KW_IN, "'in' is expected");
         pushLoop();
         ReferenceContext::Guard guard(context);
@@ -398,25 +417,25 @@ ExprHandle Parser::parseTry() {
     return context.make<TryExpr>(token, std::move(lhs), std::move(except), parseClause());
 }
 
-std::pair<IdExprHandle, TypeReference> Parser::parseParameter(const TypeReference& fallback) {
+std::pair<IdExprHandle, TypeReference> Parser::parseParameter() {
     auto id = parseId(false);
     auto type = optionalType();
     bool underscore = sourcecode->source(id->token) == "_";
     if (type == nullptr) {
-        type = underscore ? ScalarTypes::NONE : fallback;
+        type = underscore ? ScalarTypes::NONE : nullptr;
     } else if (underscore && !isNone(type)) {
         throw ParserException("the type of '_' must be none", id->token);
     }
     return {std::move(id), std::move(type)};
 }
 
-std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parseParameters(TypeReference const& fallback) {
+std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parseParameters() {
     expect(TokenType::LPAREN, "'(' is expected");
     std::vector<IdExprHandle> parameters;
     std::vector<TypeReference> P;
     while (true) {
         if (peek().type == TokenType::RPAREN) break;
-        auto [id, type] = parseParameter(fallback);
+        auto [id, type] = parseParameter();
         parameters.emplace_back(std::move(id));
         P.emplace_back(std::move(type));
         neverGonnaGiveYouUp(P.back(), "as parameter or tuple element", rewind());
@@ -430,7 +449,12 @@ std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parsePa
 
 ExprHandle Parser::parseFn() {
     auto token = next();
-    auto [parameters, P] = parseParameters(ScalarTypes::ANY);
+    auto [parameters, P] = parseParameters();
+    for (size_t i = 0; i < parameters.size(); ++i) {
+        if (P[i] == nullptr) {
+            throw ParserException("missing type " + ordinal(i) + " parameter", parameters[i]->segment());
+        }
+    }
     auto R = optionalType();
     expect(TokenType::OP_ASSIGN, "'=' is expected before function body");
     auto _hooks = std::move(hooks);
@@ -452,13 +476,13 @@ ExprHandle Parser::parseFn() {
 ExprHandle Parser::parseLet() {
     auto token = next();
     if (peek().type == TokenType::LPAREN) {
-        auto [lhs, designated] = parseParameters(nullptr);
+        auto [lhs, designated] = parseParameters();
         expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
         auto rhs = parseExpression();
         destructuring(lhs, designated, rhs->typeCache, rhs->segment());
         return context.make<LetDestructuringExpr>(token, std::move(lhs), std::move(designated), std::move(rhs));
     } else {
-        auto [lhs, designated] = parseParameter(nullptr);
+        auto [lhs, designated] = parseParameter();
         expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
         auto rhs = parseExpression();
         declaring(lhs, designated, rhs->typeCache, rhs->segment());
@@ -492,6 +516,9 @@ TypeReference Parser::parseType() {
                 if (auto list = dynamic_cast<ListType*>(type.get())) {
                     expect(TokenType::RPAREN, "missing ')' to match '('");
                     return list->E;
+                } else if (auto set = dynamic_cast<SetType*>(type.get())) {
+                    expect(TokenType::RPAREN, "missing ')' to match '('");
+                    return set->E;
                 } else if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
                     expectComma();
                     auto expr = parseExpression();
@@ -556,12 +583,16 @@ TypeReference Parser::parseType() {
         }
         case TokenType::AT_BRACKET: {
             auto K = parseType();
-            neverGonnaGiveYouUp(K, "as dict key", rewind());
-            expectColon();
-            auto V = parseType();
-            neverGonnaGiveYouUp(V, "as dict value", rewind());
+            auto V = optionalType();
             expect(TokenType::RBRACKET, "missing ']' to match '@['");
-            return std::make_shared<DictType>(std::move(K), std::move(V));
+            if (V) {
+                neverGonnaGiveYouUp(K, "as dict key", rewind());
+                neverGonnaGiveYouUp(V, "as dict value", rewind());
+                return std::make_shared<DictType>(std::move(K), std::move(V));
+            } else {
+                neverGonnaGiveYouUp(K, "as set element", rewind());
+                return std::make_shared<SetType>(std::move(K));
+            }
         }
         case TokenType::LPAREN: {
             std::vector<TypeReference> P;
@@ -574,9 +605,7 @@ TypeReference Parser::parseType() {
             }
             unexpectedComma(P.size());
             auto token2 = next();
-            if (peek().type == TokenType::OP_COLON) {
-                next();
-                auto R = parseType();
+            if (auto R = optionalType()) {
                 return std::make_shared<FuncType>(std::move(P), std::move(R));
             } else if (P.size() > 1) {
                 return std::make_shared<TupleType>(std::move(P));

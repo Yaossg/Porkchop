@@ -151,6 +151,22 @@ const TypeReference BYTELIST = listOf(ScalarTypes::BYTE);
 const TypeReference CHARLIST = listOf(ScalarTypes::CHAR);
 }
 
+struct SetType : Type {
+    TypeReference E;
+    explicit SetType(TypeReference E): E(std::move(E)) {}
+    [[nodiscard]] std::string toString() const override {
+        return "@[" + E->toString() + ']';
+    }
+    [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
+        if (auto list = dynamic_cast<const SetType*>(type.get()))
+            return list->E->equals(E);
+        return false;
+    }
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[]"; }
+};
+
 struct DictType : Type {
     TypeReference K, V;
     explicit DictType(TypeReference K, TypeReference V): K(std::move(K)), V(std::move(V)) {}
@@ -164,7 +180,7 @@ struct DictType : Type {
     }
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {K.get(), V.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[]"; }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[:]"; }
 };
 
 struct FuncType : Type {
@@ -259,8 +275,8 @@ struct FuncType : Type {
 [[nodiscard]] inline TypeReference iterable(TypeReference const& type) noexcept {
     if (isString(type)) {
         return ScalarTypes::CHAR;
-    } else if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
-        return ScalarTypes::ANY;
+    } else if (auto set = dynamic_cast<SetType*>(type.get())) {
+        return set->E;
     } else if (auto list = dynamic_cast<ListType*>(type.get())) {
         return list->E;
     } else if (auto dict = dynamic_cast<DictType*>(type.get())) {

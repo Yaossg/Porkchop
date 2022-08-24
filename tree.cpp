@@ -110,7 +110,6 @@ TypeReference InfixExpr::evalType(ReferenceContext& context) const {
             expected(rhs.get(), ScalarTypes::INT);
             return type1;
         case TokenType::OP_ADD:
-            if (isString(type1) && !isNever(type2) || isString(type2) && !isNever(type1)) return ScalarTypes::STRING;
         case TokenType::OP_SUB:
         case TokenType::OP_MUL:
         case TokenType::OP_DIV:
@@ -192,7 +191,6 @@ TypeReference AssignExpr::evalType(ReferenceContext& context) const {
             expected(rhs.get(), ScalarTypes::INT);
             return type1;
         case TokenType::OP_ASSIGN_ADD:
-            if (isString(type1) || !isNever(type2)) return ScalarTypes::STRING;
         case TokenType::OP_ASSIGN_SUB:
         case TokenType::OP_ASSIGN_MUL:
         case TokenType::OP_ASSIGN_DIV:
@@ -228,12 +226,7 @@ TypeReference AccessExpr::evalType(ReferenceContext& context) const {
         return ScalarTypes::CHAR;
     } else if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
-        ssize_t index;
-        try {
-            index = rhs->evalConst(*context.sourcecode);
-        } catch (...) {
-            return ScalarTypes::ANY;
-        }
+        auto index = rhs->evalConst(*context.sourcecode);
         if (0 <= index && index < tuple->E.size()) {
             return tuple->E[index];
         } else {
@@ -256,7 +249,7 @@ TypeReference InvokeExpr::evalType(ReferenceContext& context) const {
         }
         for (size_t i = 0; i < rhs.size(); ++i) {
             if (auto type = rhs[i]->typeCache; !func->P[i]->assignableFrom(type)) {
-                throw TypeException(unassignable(type, func->P[i]) + " at the " + std::to_string(i + 1) + "th parameter", rhs[i]->segment());
+                throw TypeException(unassignable(type, func->P[i]) + " at " + ordinal(i) + " parameter", rhs[i]->segment());
             }
         }
         return func->R;
@@ -344,7 +337,6 @@ TypeReference TupleExpr::evalType(ReferenceContext &context) const {
 }
 
 TypeReference ListExpr::evalType(ReferenceContext& context) const {
-    if (elements.empty()) return listOf(ScalarTypes::ANY);
     auto type0 = elements.front()->typeCache;
     neverGonnaGiveYouUp(elements.front().get(), "as list element");
     for (size_t i = 1; i < elements.size(); ++i) {
@@ -354,8 +346,17 @@ TypeReference ListExpr::evalType(ReferenceContext& context) const {
     return listOf(type0);
 }
 
+TypeReference SetExpr::evalType(ReferenceContext &context) const {
+    auto type0 = elements.front()->typeCache;
+    neverGonnaGiveYouUp(elements.front().get(), "as set element");
+    for (size_t i = 1; i < elements.size(); ++i) {
+        auto type = elements[i]->typeCache;
+        if (!type0->equals(type)) throw TypeException(mismatch(type, "set's elements", i, type0), elements[i]->segment());
+    }
+    return std::make_shared<SetType>(type0);
+}
+
 TypeReference DictExpr::evalType(ReferenceContext& context) const {
-    if (elements.empty()) return listOf(ScalarTypes::ANY);
     auto key0 = elements.front().first->typeCache;
     auto value0 = elements.front().second->typeCache;
     neverGonnaGiveYouUp(elements.front().first.get(), "as dict key");
