@@ -37,7 +37,7 @@ struct SourceCode {
 
 
 [[noreturn]] inline void unreachable(const char* msg) {
-    fprintf(stderr, "%s(%s)", __func__, msg);
+    fprintf(stderr, "Unreachable is reached: %s", msg);
     __builtin_unreachable();
 }
 

@@ -6,6 +6,8 @@
 namespace Porkchop {
 
 enum class TokenType {
+    INVALID,
+
     IDENTIFIER,
     KW_FALSE,
     KW_TRUE,
@@ -84,9 +86,7 @@ enum class TokenType {
     HEXADECIMAL_INTEGER,
     FLOATING_POINT,
 
-    LINEBREAK,
-
-    INVALID
+    LINEBREAK
 };
 
 struct Token {
@@ -97,6 +97,6 @@ struct Token {
 };
 
 extern const std::unordered_map<std::string_view, TokenType> KEYWORDS;
-extern const std::unordered_map<std::string_view, TokenType> OPERATORS;
+extern const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS;
 
 }

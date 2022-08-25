@@ -11,6 +11,15 @@ int digits10(size_t num) noexcept {
     return digits;
 }
 
+size_t getUnicodeWidth(std::string_view view, size_t line, size_t column) {
+    size_t width = 0;
+    UnicodeParser up(view, line, column);
+    while (up.remains()) {
+        width += getUnicodeWidth(up.decodeUnicode());
+    }
+    return width;
+}
+
 std::string SegmentException::message(const SourceCode &sourcecode) const {
     std::string result;
     result += "Compilation Error: ";
@@ -41,27 +50,15 @@ std::string SegmentException::message(const SourceCode &sourcecode) const {
         result += " | ";
         size_t column1 = line == segment.line1 ? segment.column1 : code.find_first_not_of(' ');
         size_t column2 = line == segment.line2 ? segment.column2 : code.length();
-        {
-            UnicodeParser up(code.substr(0, column1), line, 0);
-            size_t width = 0;
-            while (up.remains()) {
-                width += getUnicodeWidth(up.decodeUnicode());
-            }
-            result += std::string(width, ' ');
-        }
-        {
-            UnicodeParser up(code.substr(column1, column2 - column1), line, column1);
-            size_t width = 0;
-            while (up.remains()) {
-                width += getUnicodeWidth(up.decodeUnicode());
-            }
-            if (line == segment.line1) {
-                result += '^';
-                if (width > 1)
-                    result += std::string(width - 1, '~');
-            } else {
-                result += std::string(width, '~');
-            }
+        size_t width1 = getUnicodeWidth(code.substr(0, column1), line, 0);
+        result += std::string(width1, ' ');
+        size_t width2 = getUnicodeWidth(code.substr(column1, column2 - column1), line, column1);
+        if (line == segment.line1) {
+            result += '^';
+            if (width2 > 1)
+                result += std::string(width2 - 1, '~');
+        } else {
+            result += std::string(width2, '~');
         }
         result += '\n';
     }

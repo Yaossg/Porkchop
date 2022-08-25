@@ -31,9 +31,11 @@ struct Tokenizer {
     const char *const o, *p, *q, *const r;
     const size_t line;
 
-    Tokenizer(std::string_view view, size_t line) noexcept:
+    std::vector<Token> tokens;
+
+    Tokenizer(std::string_view view, size_t line):
             o(view.begin()), p(o), q(p), r(view.end()),
-            line(line) {}
+            line(line) { tokenize(); }
 
     [[nodiscard]] size_t column() const noexcept {
         return q - o;
@@ -67,114 +69,105 @@ struct Tokenizer {
     [[nodiscard]] Token make(TokenType type) const noexcept {
         return {.line = line, .column = size_t(p - o), .width = size_t(q - p), .type = type};
     }
-    [[nodiscard]] std::vector<Token> tokenize() {
-        std::vector<Token> tokens;
+
+    void add(TokenType type) {
+        tokens.push_back(make(type));
+    }
+
+    void raise(const char* msg) const {
+        throw TokenException(msg, make(TokenType::INVALID));
+    }
+
+    void tokenize() {
         while (remains()) {
             switch (char ch = getc()) {
-                [[unlikely]] case '\\': {
+                [[unlikely]] case '\xFF':
+                [[unlikely]] case '\xFE': // BOM
+                [[unlikely]] case '\0':   // 0 paddings
+                    raise("sourcecode is expected to be encoded with UTF-8");
+                case '\\': {
                     if (remains()) {
-                        throw TokenException("stray '\\'", make(TokenType::INVALID));
+                        raise("stray '\\'");
                     } else {
-                        return tokens;
+                        return;
                     }
                 }
-                    [[unlikely]] case '\v':
-                    [[unlikely]] case '\f':
-                    [[unlikely]] case '\r':
-                    [[unlikely]] case '\n':
-
+                [[unlikely]] case '\n':
+                [[unlikely]] case '\r':
+                    unreachable("a newline within a line");
+                [[unlikely]] case '\v':
+                [[unlikely]] case '\f':
+                [[unlikely]] case '\t':
+                    raise("whitespaces other than space are not allowed");
                 case ' ':
-                case '\t':
                     break;
                 case *"'":
                     scan<*"'">("unterminated character literal");
-                    tokens.push_back(make(TokenType::CHARACTER_LITERAL));
+                    add(TokenType::CHARACTER_LITERAL);
                     break;
                 case '"':
                     scan<'"'>("unterminated string literal");
-                    tokens.push_back(make(TokenType::STRING_LITERAL));
-                    break;
-                case ';':
-                    tokens.push_back(make(TokenType::LINEBREAK));
-                    break;
-                case '(':
-                    tokens.push_back(make(TokenType::LPAREN));
-                    break;
-                case ')':
-                    tokens.push_back(make(TokenType::RPAREN));
-                    break;
-                case '[':
-                    tokens.push_back(make(TokenType::LBRACKET));
-                    break;
-                case ']':
-                    tokens.push_back(make(TokenType::RBRACKET));
-                    break;
-                case '{':
-                    tokens.push_back(make(TokenType::LBRACE));
-                    break;
-                case '}':
-                    tokens.push_back(make(TokenType::RBRACE));
+                    add(TokenType::STRING_LITERAL);
                     break;
                 default: {
+                    ungetc(ch);
                     if (isNumberStart(ch) || (ch == '+' || ch == '-') && isNumberStart(peekc())) {
-                        ungetc(ch);
-                        tokens.push_back(scanNumber());
+                        addNumber();
                     } else if (isPunctuation(ch)) {
-                        ungetc(ch);
-                        std::string_view remains{p, r};
-                        auto op = OPERATORS.end();
-                        for (auto it = OPERATORS.begin(); it != OPERATORS.end(); ++it) {
-                            if (remains.starts_with(it->first)
-                                && (op == OPERATORS.end() || it->first.length() > op->first.length())) {
-                                op = it;
-                            }
-                        }
-                        if (op != OPERATORS.end()) {
-                            q += op->first.length();
-                            tokens.push_back(make(op->second));
-                        } else {
-                            throw TokenException("invalid punctuation", make(TokenType::INVALID));
-                        }
+                        addPunct();
                     } else {
-                        ungetc(ch);
-                        std::string_view remains{p, r};
-                        UnicodeParser up(remains, line, column());
-                        if (!isIdentifierStart(up.decodeUnicode())) {
-                            throw TokenException("identifier start is expected", make(TokenType::INVALID));
-                        }
-                        q = up.q;
-                        while (up.remains()) {
-                            if (isIdentifierPart(up.decodeUnicode())) {
-                                q = up.q;
-                            } else {
-                                break;
-                            }
-                        }
-                        std::string_view token{p, q};
-                        if (auto it = KEYWORDS.find(token); it != KEYWORDS.end()) {
-                            tokens.push_back(make(it->second));
-                        } else {
-                            tokens.push_back(make(TokenType::IDENTIFIER));
-                        }
+                        addId();
                     }
                 }
             }
             step();
         }
-        tokens.push_back(make(TokenType::LINEBREAK));
-        return tokens;
+        add(TokenType::LINEBREAK);
+    }
+
+    void addId() {
+        std::string_view remains{p, r};
+        UnicodeParser up(remains, line, column());
+        if (!isIdentifierStart(up.decodeUnicode())) {
+            raise("invalid character");
+        }
+        do q = up.q;
+        while (up.remains() && isIdentifierPart(up.decodeUnicode()));
+        std::string_view token{p, q};
+        if (auto it = KEYWORDS.find(token); it != KEYWORDS.end()) {
+            add(it->second);
+        } else {
+            add(TokenType::IDENTIFIER);
+        }
+    }
+
+    void addPunct() {
+        std::string_view remains{p, r};
+        auto punct = PUNCTUATIONS.end();
+        for (auto it = PUNCTUATIONS.begin(); it != PUNCTUATIONS.end(); ++it) {
+            if (remains.starts_with(it->first)
+                && (punct == PUNCTUATIONS.end() || it->first.length() > punct->first.length())) {
+                punct = it;
+            }
+        }
+        if (punct != PUNCTUATIONS.end()) {
+            q += punct->first.length();
+            add(punct->second);
+        } else {
+            raise("invalid punctuation");
+        }
     }
 
     void scanDigits(bool pred(char)) {
         char ch = getc();
-        if (!pred(ch)) throw TokenException("invalid number literal", make(TokenType::INVALID));
+        if (!pred(ch)) raise("invalid number literal");
         do ch = getc();
         while (ch == '_' || pred(ch));
         ungetc(ch);
-        if (q[-1] == '_') throw TokenException("invalid number literal", make(TokenType::INVALID));
+        if (q[-1] == '_') raise("invalid number literal");
     }
 
-    Token scanNumber() {
+    void addNumber() {
         if (peekc() == '+' || peekc() == '-') getc();
         // scan number prefix
         TokenType base = TokenType::DECIMAL_INTEGER;
@@ -184,14 +177,14 @@ struct Tokenizer {
             switch (char ch = peekc()) {
                 case 'x': case 'X':
                     base = TokenType::HEXADECIMAL_INTEGER; pred = isHexadecimal; getc(); break;
-                    [[unlikely]] case 'o':
-                    [[unlikely]] case 'O':
+                [[unlikely]] case 'o':
+                [[unlikely]] case 'O':
                     base = TokenType::OCTAL_INTEGER; pred = isOctal; getc(); break;
                 case 'b': case 'B':
                     base = TokenType::BINARY_INTEGER; pred = isBinary; getc(); break;
                 default:
                     if (isNumberStart(ch)) {
-                        throw TokenException("redundant 0 ahead is forbidden to avoid ambiguity, use 0o if octal", make(TokenType::INVALID));
+                        raise("redundant 0 ahead is forbidden to avoid ambiguity, use 0o if octal");
                     } else {
                         ungetc('0');
                     }
@@ -216,21 +209,19 @@ struct Tokenizer {
             if (peekc() == '+' || peekc() == '-') getc();
             scanDigits(isDecimal);
         }
-        if (!isPunctuation(peekc())) // neither a number nor an operator, identifier is the only possible case
-            throw TokenException("invalid number suffix", make(TokenType::INVALID));
         // classification
         TokenType type = base;
         if (flt) {
             switch (base) {
                 [[unlikely]] case TokenType::BINARY_INTEGER:
-                    [[unlikely]] case TokenType::OCTAL_INTEGER:
-                    throw TokenException("binary or octal float literal is invalid", make(TokenType::INVALID));
-                    [[likely]] case TokenType::DECIMAL_INTEGER:
+                [[unlikely]] case TokenType::OCTAL_INTEGER:
+                    raise("binary or octal float literal is invalid");
+                [[likely]] case TokenType::DECIMAL_INTEGER:
                 case TokenType::HEXADECIMAL_INTEGER:
                     type = TokenType::FLOATING_POINT;
             }
         }
-        return make(type);
+        add(type);
     }
 
     template<char QUOTER>
@@ -241,9 +232,13 @@ struct Tokenizer {
                 case '\\': getc();
             }
         }
-        throw TokenException(message, make(TokenType::INVALID));
+        raise(message);
     }
 };
+
+[[nodiscard]] std::vector<Token> tokenize(std::string_view view, size_t line) {
+    return Tokenizer(view, line).tokens;
+}
 
 void SourceCode::split() {
     std::string_view view(original);
@@ -268,11 +263,8 @@ void SourceCode::split() {
 
 void SourceCode::tokenize() {
     for (size_t line = 0; line < lines.size(); ++line) {
-        if (std::string_view view = lines[line]; !view.empty()) {
-            Tokenizer tokenizer(view, line);
-            for (auto&& token : tokenizer.tokenize()) {
-                tokens.push_back(token);
-            }
+        for (auto&& token : Porkchop::tokenize(lines[line], line)) {
+            tokens.push_back(token);
         }
     }
 }

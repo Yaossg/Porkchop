@@ -55,12 +55,9 @@ struct Parser {
     void expectComma() {
         expect(TokenType::OP_COMMA, "',' is expected");
     }
-    void unexpectedComma(size_t size) const {
+    void optionalComma(size_t size) const {
         if (size == 1 && rewind().type == TokenType::OP_COMMA)
             throw ParserException("the additional comma is forbidden beside a single element", rewind());
-    }
-    void expectColon() {
-        expect(TokenType::OP_COLON, "':' is expected");
     }
     TypeReference optionalType() {
         if (peek().type != TokenType::OP_COLON) return nullptr;

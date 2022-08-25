@@ -27,7 +27,7 @@ const std::unordered_map<std::string_view, TokenType> KEYWORDS {
     {"in", TokenType::KW_IN}
 };
 
-const std::unordered_map<std::string_view, TokenType> OPERATORS {
+const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
     {"=", TokenType::OP_ASSIGN},
     {"&=", TokenType::OP_ASSIGN_AND},
     {"^=", TokenType::OP_ASSIGN_XOR},
@@ -64,7 +64,14 @@ const std::unordered_map<std::string_view, TokenType> OPERATORS {
     {",", TokenType::OP_COMMA},
     {"@[", TokenType::AT_BRACKET},
     {".", TokenType::OP_DOT},
-    {":", TokenType::OP_COLON}
+    {":", TokenType::OP_COLON},
+    {";", TokenType::LINEBREAK},
+    {"(", TokenType::LPAREN},
+    {")", TokenType::RPAREN},
+    {"[", TokenType::LBRACKET},
+    {"]", TokenType::RBRACKET},
+    {"{", TokenType::LBRACE},
+    {"}", TokenType::RBRACE}
 };
 
 std::string_view SourceCode::source(Token token) const noexcept {

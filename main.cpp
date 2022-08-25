@@ -5,8 +5,8 @@
 
 int main(int argc, const char* argv[]) try {
 #ifdef _WIN32
-    puts("Porkchop: UTF-8 will be adopted via 'chcp 65001' in Windows");
     system("chcp 65001");
+    puts("Porkchop: UTF-8 is adopted via 'chcp 65001' in Windows");
 #endif
     if (argc < 2) {
         fprintf(stderr, "Too few arguments, input file expected\n");

@@ -208,7 +208,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         if (peek().type == TokenType::RBRACKET) break;
                         expectComma();
                     }
-                    unexpectedComma(elements.size());
+                    optionalComma(elements.size());
                     auto token2 = next();
                     if (elements.empty()) {
                         throw ParserException("use default(@[T]) or default(@[K: V]) to create empty set or dict", range(token, token2));
@@ -299,9 +299,14 @@ std::unique_ptr<ClauseExpr> Parser::parseClause() {
     bool flag = true;
     while (flag) {
         switch (peek().type) {
-            case TokenType::RBRACE: flag = false;
-            case TokenType::LINEBREAK: next(); continue;
             default: rhs.emplace_back(parseExpression());
+            case TokenType::RBRACE:
+            case TokenType::LINEBREAK:
+                switch (peek().type) {
+                    default: throw ParserException("a linebreak is expected between expressions", peek());
+                    case TokenType::RBRACE: flag = false;
+                    case TokenType::LINEBREAK: next(); continue;
+                }
         }
     }
     return context.make<ClauseExpr>(token, rewind(), std::move(rhs));
@@ -315,7 +320,7 @@ std::vector<ExprHandle> Parser::parseExpressions(TokenType stop) {
         if (peek().type == stop) break;
         expectComma();
     }
-    unexpectedComma(expr.size());
+    optionalComma(expr.size());
     return expr;
 }
 
@@ -442,7 +447,7 @@ std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parsePa
         if (peek().type == TokenType::RPAREN) break;
         expectComma();
     }
-    unexpectedComma(P.size());
+    optionalComma(P.size());
     next();
     return {std::move(parameters), std::move(P)};
 }
@@ -603,7 +608,7 @@ TypeReference Parser::parseType() {
                 if (peek().type == TokenType::RPAREN) break;
                 expectComma();
             }
-            unexpectedComma(P.size());
+            optionalComma(P.size());
             auto token2 = next();
             if (auto R = optionalType()) {
                 return std::make_shared<FuncType>(std::move(P), std::move(R));
