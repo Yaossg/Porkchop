@@ -4,40 +4,28 @@
 
 namespace Porkchop {
 
+struct FnDeclExpr;
+
 struct ReferenceContext {
     std::vector<std::unordered_map<std::string_view, TypeReference>> scopes{{}};
+    std::vector<std::unordered_map<std::string_view, FnDeclExpr*>> decl_scopes{{}};
     SourceCode* sourcecode;
-    explicit ReferenceContext(SourceCode* sourcecode): sourcecode(sourcecode) {
-        global("println", std::make_shared<FuncType>(std::vector{ScalarTypes::STRING}, ScalarTypes::NONE));
-        global("exit", std::make_shared<FuncType>(std::vector{ScalarTypes::INT}, ScalarTypes::NEVER));
-    }
-    void push() {
-        scopes.emplace_back();
-    }
-    void pop() {
-        scopes.pop_back();
-    }
-    void global(std::string_view name, TypeReference const& type) {
-        scopes.front().emplace(name, type);
-    }
-    void local(std::string_view name, TypeReference const& type)  {
-        if (name == "_") return;
-        scopes.back().emplace(name, type);
-    }
-    [[nodiscard]] TypeReference lookup(std::string_view name) const noexcept {
-        if (name == "_") return ScalarTypes::NONE;
-        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
-            if (auto lookup = it->find(name); lookup != it->end())
-                return lookup->second;
-        }
-        return nullptr;
-    }
+    ReferenceContext* parent;
+
+    explicit ReferenceContext(SourceCode* sourcecode, ReferenceContext* parent = nullptr);
+    void push();
+    void pop();
+    void global(std::string_view name, TypeReference const& type);
+    void local(Token token, TypeReference const& type);
+    void decl(Token token, FnDeclExpr* decl);
+    [[nodiscard]] TypeReference lookup(Token token) const;
+
     struct Guard {
         ReferenceContext& context;
         explicit Guard(ReferenceContext& context): context(context) {
             context.push();
         }
-        ~Guard() {
+        ~Guard() noexcept(false) {
             context.pop();
         }
     };

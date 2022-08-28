@@ -72,8 +72,7 @@ struct IdExpr : LoadExpr {
     }
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override {
-        if (auto type = context.lookup(context.sourcecode->source(token))) return type;
-        throw TypeException("unable to find the object", token);
+        return context.lookup(token);
     }
 };
 
@@ -545,18 +544,41 @@ struct FnJumpExpr : Expr { // return throw
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 };
 
-struct FnExpr : Expr {
+struct FnDeclExpr : Expr {
+    Token token, token2;
+    IdExprHandle name;
+    std::shared_ptr<FuncType> T;
+
+    FnDeclExpr(Token token, Token token2, IdExprHandle name, std::shared_ptr<FuncType> T):
+            token(token), token2(token2), name(std::move(name)), T(std::move(T)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        return {name.get(), T.get()};
+    }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "fn"; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token, token2);
+    }
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+};
+
+struct FnDefExpr : Expr {
     Token token;
+    IdExprHandle name;
     std::vector<IdExprHandle> parameters;
     std::shared_ptr<FuncType> T;
     ExprHandle clause;
     std::vector<const FnJumpExpr*> returns;
 
-    FnExpr(Token token, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> T, ExprHandle clause, std::vector<const FnJumpExpr*> returns):
-        token(token), parameters(std::move(parameters)), T(std::move(T)), clause(std::move(clause)), returns(std::move(returns)) {}
+
+    FnDefExpr(Token token, IdExprHandle name, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> T, ExprHandle clause, std::vector<const FnJumpExpr*> returns):
+        token(token), name(std::move(name)), parameters(std::move(parameters)), T(std::move(T)), clause(std::move(clause)), returns(std::move(returns)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
+        if (name) ret.push_back(name.get());
         for (auto&& e : parameters) ret.push_back(e.get());
         ret.push_back(T.get());
         ret.push_back(clause.get());

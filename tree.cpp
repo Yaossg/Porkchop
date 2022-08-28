@@ -439,22 +439,11 @@ TypeReference FnJumpExpr::evalType(ReferenceContext& context) const {
     return ScalarTypes::NEVER;
 }
 
-TypeReference FnExpr::evalType(ReferenceContext& context) const {
-    TypeReference type0;
-    if (returns.empty()) {
-        type0 = clause->typeCache;
-    } else {
-        type0 = returns[0]->rhs->typeCache;
-        for (size_t i = 1; i < returns.size(); ++i) {
-            auto type = returns[i]->rhs->typeCache;
-            if (!type0->equals(type)) throw TypeException(mismatch(type, "fn's returns", i, type0), returns[i]->segment());
-        }
-        if (auto type = clause->typeCache; !isNever(type) && !type0->equals(type)) {
-            throw TypeException(mismatch(type, "fn's returns and expression body", type0), clause->segment());
-        }
-    }
-    if (T->R == nullptr) T->R = type0;
-    else if (!T->R->assignableFrom(type0)) throw TypeException(unassignable(type0, T->R), segment());
+TypeReference FnDeclExpr::evalType(ReferenceContext& context) const {
+    return T;
+}
+
+TypeReference FnDefExpr::evalType(ReferenceContext& context) const {
     return T;
 }
 

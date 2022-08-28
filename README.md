@@ -4,7 +4,7 @@ Porkchop Programming Language
 
 ```
 {
-	println("hello world")
+    println("hello world")
 }
 ```
 
@@ -56,7 +56,7 @@ graph
 
 ```
 {
-    let isPrime = fn(x: int): bool = {
+    fn isPrime(x: int): bool = {
         if x < 2 {
             return false
         }
@@ -77,89 +77,81 @@ graph
 graph
 0["{}"]
 0-->1
-1["let"]
+1["fn"]
 1-->2
 2["isPrime"]
 1-->3
-3["():"]
-3-->4
-4["int"]
-3-->5
-5["bool"]
-1-->6
-6["fn"]
-6-->7
-7["x"]
-6-->8
-8["():"]
+3["x"]
+1-->4
+4["():"]
+4-->5
+5["int"]
+4-->6
+6["bool"]
+1-->7
+7["{}"]
+7-->8
+8["if-else"]
 8-->9
-9["int"]
-8-->10
-10["bool"]
-6-->11
-11["{}"]
-11-->12
-12["if-else"]
+9["<"]
+9-->10
+10["x"]
+9-->11
+11["2"]
+8-->12
+12["{}"]
 12-->13
-13["<"]
+13["return"]
 13-->14
-14["x"]
-13-->15
-15["2"]
-12-->16
-16["{}"]
+14["false"]
+8-->15
+15["{}"]
+7-->16
+16["let"]
 16-->17
-17["return"]
-17-->18
-18["false"]
-12-->19
-19["{}"]
-11-->20
-20["let"]
+17["i"]
+16-->18
+18["int"]
+16-->19
+19["2"]
+7-->20
+20["while"]
 20-->21
-21["i"]
-20-->22
-22["int"]
-20-->23
-23["2"]
-11-->24
-24["while"]
-24-->25
-25["<="]
-25-->26
-26["*"]
+21["<="]
+21-->22
+22["*"]
+22-->23
+23["i"]
+22-->24
+24["i"]
+21-->25
+25["x"]
+20-->26
+26["{}"]
 26-->27
-27["i"]
-26-->28
-28["i"]
-25-->29
-29["x"]
-24-->30
-30["{}"]
-30-->31
-31["if-else"]
-31-->32
-32["=="]
-32-->33
-33["%"]
+27["if-else"]
+27-->28
+28["=="]
+28-->29
+29["%"]
+29-->30
+30["x"]
+29-->31
+31["i"]
+28-->32
+32["0"]
+27-->33
+33["{}"]
 33-->34
-34["x"]
-33-->35
-35["i"]
-32-->36
-36["0"]
-31-->37
-37["{}"]
+34["return"]
+34-->35
+35["false"]
+27-->36
+36["{}"]
+7-->37
+37["return"]
 37-->38
-38["return"]
-38-->39
-39["false"]
-31-->40
-40["{}"]
-11-->41
-41["return"]
-41-->42
-42["true"]
+38["true"]
 ```
 
 ## 源文件
@@ -179,9 +171,9 @@ println("world") # 非法：多于一个表达式
 
 ```
 {
-	println("hello")
-	println("world")
-	2 + 3
+    println("hello")
+    println("world")
+    2 + 3
 } # 这个表达式的值为 5
 ```
 
@@ -193,9 +185,9 @@ let 关键字引导变量声明，并进行初始化
 
 ```
 {
-	let a: int = 0 # int 类型的变量 a，初始化为 0
-	let b = 0.0    # 省略类型，b 自动推导为 float
-	# let 也是表达式，返回 b 的值
+    let a: int = 0 # int 类型的变量 a，初始化为 0
+    let b = 0.0    # 省略类型，b 自动推导为 float
+    # let 也是表达式，返回 b 的值
 } # 所以这个表达式的值为 0.0
 ```
 
@@ -240,14 +232,13 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 }
 ```
 
-复合类型有元组、列表、字典、函数
+复合类型有元组、列表、字典、函数（详见后文）
 
 ```
 {
-	let t: (int, string)    = (12, "apple")
-	let l: [int]            = [1, 2, 3]
-	let d: @[string: float] = @["pi": 3.14]
-	let f: (int): int       = fn(x: int) = x
+    let t: (int, string)    = (12, "apple")
+    let l: [int]            = [1, 2, 3]
+    let d: @[string: float] = @["pi": 3.14]
 }
 ```
 
@@ -257,7 +248,7 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 
 ```
 {
-	let e = default([int])
+    let e = default([int])
 }
 ```
 
@@ -265,10 +256,10 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 
 ```
 {
-	let a = 10                  # a is int
-	let b: typeof(a) = a        # b is int
-	let c: typeof(a as any) = a # c is any, even if a is actually int
-	let d: elementof([int]) = a # d is int
+    let a = 10                  # a is int
+    let b: typeof(a) = a        # b is int
+    let c: typeof(a as any) = a # c is any, even if a is actually int
+    let d: elementof([int]) = a # d is int
 }
 ```
 
@@ -280,10 +271,10 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 
 ```
 {
-	let a = 0 as any # 丢弃类型信息
-	if a is int {
-		println("a is int")
-	} # none
+    let a = 0 as any # 丢弃类型信息
+    if a is int {
+        println("a is int")
+    } # none
 }
 ```
 
@@ -291,9 +282,9 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 
 ```
 {
-	let a = 1
-	let b = 2
-	let m = if a > b { a } else { b }
+    let a = 1
+    let b = 2
+    let m = if a > b { a } else { b }
 }
 ```
 
@@ -301,16 +292,16 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 
 ```
 {
-	let i = 1
-	let s = 0
-	while i < 10 {
-		s += i
-		i += 1
-	} # none
-	
-	for g in ["hello", "my", "friends"] {
-		println(g)
-	} # none
+    let i = 1
+    let s = 0
+    while i < 10 {
+        s += i
+        i += 1
+    } # none
+    
+    for g in ["hello", "my", "friends"] {
+        println(g)
+    } # none
 }
 ```
 
@@ -318,16 +309,16 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 
 ```
 {
-	for x in [1, 2, 3] {
-		if x != 2 {
-			yield x * 2 + 1
-		}
-	} # 返回 [3, 7]
-	
-	# yield 也可以放在括号外面
-	for x in [1, 2, 3] yield {
-		x * 2 + 1
-	} # 返回 [3, 5, 7]
+    for x in [1, 2, 3] {
+        if x != 2 {
+            yield x * 2 + 1
+        }
+    } # 返回 [3, 7]
+    
+    # yield 也可以放在括号外面
+    for x in [1, 2, 3] yield {
+        x * 2 + 1
+    } # 返回 [3, 5, 7]
 }
 ```
 
@@ -337,11 +328,11 @@ try 表达式
 
 ```
 {
-	try {
-		throw "whatever"
-	} catch e { # e is any
-		println(e as string)
-	}
+    try {
+        throw "whatever"
+    } catch e { # e is any
+        println(e as string)
+    }
 }
 ```
 
@@ -353,20 +344,20 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 
 ```
 {
-	let square = fn(x: int) = {
-		x * x
-	}
+    fn square(x: int) = {
+        x * x
+    }
 }
 ```
 
-函数也可以作为参数传递
+函数也可以作为参数传递，匿名函数可以作为 lambda 表达式使用。
 
 ```
 {
-	let caller = fn(callback: (string): none) = {
-		callback("hello")
-	}
-	caller(println)
+    fn caller(callback: (string): none) = {
+        callback("hello")
+    }
+    caller(fn(x: string)=println(x))
 }
 ```
 
@@ -376,17 +367,17 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 
 ```
 {
-	# 下面两种形式等价：
-	println("hello")
-	"hello".println()
-	
-	let f = 0 as any as (int, int, int): none
+    # 下面两种形式等价：
+    println("hello")
+    "hello".println()
+    
+    let f = 0 as any as (int, int, int): none
 
     let f1 = 0.f
     let f2 = 0.f1
     let f3 = 0.f2
-	
-	f3() # 等价于 f(0, 0, 0)
+    
+    f3() # 等价于 f(0, 0, 0)
 }
 ```
 
@@ -394,13 +385,23 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 
 ```
 {
-	let f1 = fn()=1
-	let f2 = fn(x: int)=2
-	let f3 = fn(x: string)=3
-	let f = (f1, f2, f3)
-	f()    #1
-	f(0)   #2
-	f("0") #3
+    fn f1()=1
+    fn f2(x: int)=2
+    fn f3(x: string)=3
+    let f = (f1, f2, f3)
+    f()    #1
+    f(0)   #2
+    f("0") #3
+}
+```
+
+在定义之前使用函数，需要在函数定义同层位置声明：
+
+```
+{
+    fn f(x: string): none
+    f("hello")
+    fn f(x: string) = println(x)
 }
 ```
 
@@ -411,8 +412,8 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 元组可以被解构：
 ```
 {
-	let (a, b) = (1, 2)
-	a + b # 3
+    let (a, b) = (1, 2)
+    a + b # 3
 }
 ```
 
@@ -420,8 +421,8 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 
 ```
 {
-	let (a, _) = (1, 2) # 忽略第二个元素
-	let f = fn(_) = 0 # 忽略第一个参数
+    let (a, _) = (1, 2) # 忽略第二个元素
+    let f = fn(_) = 0 # 忽略第一个参数
 }
 ```
 
@@ -429,9 +430,9 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 
 ```
 {
-	for (key, value) in @[] {
-		# ...
-	}
+    for (key, value) in @[] {
+        # ...
+    }
 }
 ```
 
@@ -453,3 +454,4 @@ Compilation Error: 'string' is not assignable to 'int' at line 2 column 34 to 61
       |                              ^~~~~~~~~~~~~~~~~~~~~
 ```
 
+在对齐的等宽字体下可以看到更好的效果。

@@ -11,11 +11,12 @@ struct Parser {
     const std::vector<Token>::const_iterator q;
     std::vector<std::shared_ptr<LoopHook>> hooks;
     std::vector<const FnJumpExpr*> returns;
-    std::vector<const FnExpr*> fns;
     ReferenceContext context;
 
-    explicit Parser(SourceCode* sourcecode, std::vector<Token> const& tokens):
-        sourcecode(sourcecode), p(tokens.cbegin()), q(tokens.cend()), context(this->sourcecode) {}
+    Parser(SourceCode* sourcecode, std::vector<Token> const& tokens): Parser(sourcecode, tokens.cbegin(), tokens.cend(), nullptr) {}
+
+    Parser(SourceCode* sourcecode, std::vector<Token>::const_iterator p, const std::vector<Token>::const_iterator q, ReferenceContext* parent):
+            sourcecode(sourcecode), p(p), q(q), context(this->sourcecode, parent) {}
 
     Token next() {
         if (p != q) [[likely]]
@@ -39,6 +40,7 @@ struct Parser {
     IdExprHandle parseId(bool initialize);
     ExprHandle parseIf(), parseYieldClause(), parseWhile(), parseFor(), parseTry(), parseFn(), parseLet();
     TypeReference parseType(), parseParenType();
+    std::pair<ExprHandle, TypeReference> parseFnBody();
 
     std::pair<IdExprHandle, TypeReference> parseParameter();
     std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters();

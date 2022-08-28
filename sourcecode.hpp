@@ -16,6 +16,8 @@ struct IdExpr;
 using ExprHandle = std::unique_ptr<Expr>;
 using IdExprHandle = std::unique_ptr<IdExpr>;
 struct Token;
+struct FnDefExpr;
+struct FnDeclExpr;
 
 struct SourceCode {
     std::string original;
@@ -23,6 +25,8 @@ struct SourceCode {
     std::vector<Token> tokens;
     ExprHandle tree;
     TypeReference type;
+
+    std::vector<const FnDefExpr*> fns;
 
     explicit SourceCode(std::string original) noexcept;
 
