@@ -439,12 +439,8 @@ TypeReference FnJumpExpr::evalType(ReferenceContext& context) const {
     return ScalarTypes::NEVER;
 }
 
-TypeReference FnDeclExpr::evalType(ReferenceContext& context) const {
-    return T;
-}
-
-TypeReference FnDefExpr::evalType(ReferenceContext& context) const {
-    return T;
+TypeReference FnExprBase::evalType(ReferenceContext &context) const {
+    return prototype;
 }
 
 TypeReference LetExpr::evalType(ReferenceContext& context) const {

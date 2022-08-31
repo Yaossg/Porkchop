@@ -267,6 +267,8 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     return parseFor();
                 case TokenType::KW_FN:
                     return parseFn();
+                case TokenType::OP_DOLLAR:
+                    return parseLambda();
                 case TokenType::KW_LET:
                     return parseLet();
 
@@ -467,10 +469,9 @@ std::pair<ExprHandle, TypeReference> Parser::parseFnBody() {
     return {std::move(clause), std::move(type0)};
 }
 
-ExprHandle Parser::parseFn() { // TODO bullshit code
+ExprHandle Parser::parseFn() {
     auto token = next();
-    IdExprHandle name;
-    if (peek().type == TokenType::IDENTIFIER) name = parseId(false);
+    IdExprHandle name = parseId(false);
     auto [parameters, P] = parseParameters();
     for (size_t i = 0; i < parameters.size(); ++i) {
         if (P[i] == nullptr) {
@@ -482,9 +483,7 @@ ExprHandle Parser::parseFn() { // TODO bullshit code
     if (peek().type == TokenType::OP_ASSIGN) {
         auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), F);
         next();
-        if (decl->name) {
-            context.decl(decl->name->token, decl.get());
-        }
+        context.declare(decl->name->token, decl.get());
         Parser child(sourcecode, p, q, &context);
         for (size_t i = 0; i < parameters.size(); ++i) {
             child.context.local(parameters[i]->token, F->P[i]);
@@ -494,23 +493,53 @@ ExprHandle Parser::parseFn() { // TODO bullshit code
         if (F->R == nullptr) F->R = type0;
         assignable(type0, F->R, range(token, clause->segment()));
         name = std::move(decl->name);
-        if (name) {
-            context.local(name->token, F);
-        }
-        auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F), std::move(clause), std::move(returns));
+        auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F), std::move(clause));
+        context.define(fn->name->token, fn.get());
         sourcecode->fns.push_back(fn.get());
         return fn;
     } else {
-        if (name == nullptr) {
-            throw ParserException("either define or name this function", range(token, rewind()));
-        }
         if (F->R == nullptr) {
             throw ParserException("return type of declared function is missing", rewind());
         }
         auto fn = context.make<FnDeclExpr>(token, rewind(), std::move(name), std::move(F));
-        context.decl(fn->name->token, fn.get());
+        context.declare(fn->name->token, fn.get());
         return fn;
     }
+}
+
+ExprHandle Parser::parseLambda() {
+    auto token = next();
+    std::vector<IdExprHandle> captures;
+    while (true) {
+        if (peek().type == TokenType::LPAREN) break;
+        captures.emplace_back(parseId(true));
+        if (peek().type == TokenType::LPAREN) break;
+        expectComma();
+    }
+    optionalComma(captures.size());
+    auto [parameters, P] = parseParameters();
+    for (size_t i = 0; i < parameters.size(); ++i) {
+        if (P[i] == nullptr) {
+            throw ParserException("missing type for " + ordinal(i) + " parameter", parameters[i]->segment());
+        }
+    }
+    auto R = optionalType();
+    auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
+    expect(TokenType::OP_ASSIGN, "'=' is expected before lambda body");
+    Parser child(sourcecode, p, q, &context);
+    for (size_t i = 0; i < captures.size(); ++i) {
+        child.context.local(captures[i]->token, F->P[i]);
+    }
+    for (size_t i = 0; i < parameters.size(); ++i) {
+        child.context.local(parameters[i]->token, F->P[i]);
+    }
+    auto [clause, type0] = child.parseFnBody();
+    p = child.p;
+    if (F->R == nullptr) F->R = type0;
+    assignable(type0, F->R, range(token, clause->segment()));
+    auto fn = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F), std::move(clause));
+    sourcecode->fns.push_back(fn.get());
+    return fn;
 }
 
 ExprHandle Parser::parseLet() {

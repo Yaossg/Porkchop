@@ -38,7 +38,7 @@ struct Parser {
     std::vector<ExprHandle> parseExpressions(TokenType stop);
     std::unique_ptr<ClauseExpr> parseClause();
     IdExprHandle parseId(bool initialize);
-    ExprHandle parseIf(), parseYieldClause(), parseWhile(), parseFor(), parseTry(), parseFn(), parseLet();
+    ExprHandle parseIf(), parseYieldClause(), parseWhile(), parseFor(), parseTry(), parseFn(), parseLambda(), parseLet();
     TypeReference parseType(), parseParenType();
     std::pair<ExprHandle, TypeReference> parseFnBody();
 

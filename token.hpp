@@ -73,6 +73,7 @@ enum class TokenType {
     OP_NOT,
     OP_INV,
     OP_COMMA,
+    OP_DOLLAR,
 
     AT_BRACKET,
     OP_DOT,

@@ -4,19 +4,19 @@
 
 namespace Porkchop {
 
-[[nodiscard]] constexpr bool isNumberStart(char ch) noexcept {
-    return '0' <= ch && ch <= '9';
-}
-
 [[nodiscard]] constexpr bool isBinary(char ch) noexcept { return ch == '0' || ch == '1'; }
 [[nodiscard]] constexpr bool isOctal(char ch) noexcept { return ch >= '0' && ch <= '7'; }
 [[nodiscard]] constexpr bool isDecimal(char ch) noexcept { return ch >= '0' && ch <= '9'; }
 [[nodiscard]] constexpr bool isHexadecimal(char ch) noexcept { return ch >= '0' && ch <= '9' || ch >= 'a' && ch <= 'f' || ch >= 'A' && ch <= 'F'; }
 
-// not a punctuation: ` ? $ _ #
-// unused: ` ? $
+[[nodiscard]] constexpr bool isNumberStart(char ch) noexcept {
+    return isDecimal(ch);
+}
+
+// not a punctuation: _ #
+// unused: ` ?
 [[nodiscard]] constexpr bool isPunctuation(char ch) {
-    return ch == '!' || ch == '"' || ch == '@' || '%' <= ch && ch <= '/' || ':' <= ch && ch <= '>' || '[' <= ch && ch <= '^' || '{' <= ch && ch <= '~';
+    return ch == '!' || ch == '"' || ch == '@' || '$' <= ch && ch <= '/' || ':' <= ch && ch <= '>' || '[' <= ch && ch <= '^' || '{' <= ch && ch <= '~';
 }
 
 [[nodiscard]] bool isIdentifierStart(char32_t ch) {
@@ -84,7 +84,7 @@ struct Tokenizer {
                 [[unlikely]] case '\xFF':
                 [[unlikely]] case '\xFE': // BOM
                 [[unlikely]] case '\0':   // 0 paddings
-                    raise("sourcecode is expected to be encoded with UTF-8");
+                    raise("sourcecode of Porkchop is required to be encoded with UTF-8");
                 case '\\': {
                     if (remains()) {
                         raise("stray '\\'");
@@ -110,13 +110,16 @@ struct Tokenizer {
                     add(TokenType::STRING_LITERAL);
                     break;
                 default: {
-                    ungetc(ch);
                     if (isNumberStart(ch) || (ch == '+' || ch == '-') && isNumberStart(peekc())) {
+                        ungetc(ch);
                         addNumber();
-                    } else if (isPunctuation(ch)) {
-                        addPunct();
                     } else {
-                        addId();
+                        ungetc(ch);
+                        if (isPunctuation(ch)) {
+                            addPunct();
+                        } else {
+                            addId();
+                        }
                     }
                 }
             }

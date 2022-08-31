@@ -5,20 +5,23 @@
 namespace Porkchop {
 
 struct FnDeclExpr;
+struct FnDefExpr;
 
 struct ReferenceContext {
     std::vector<std::unordered_map<std::string_view, TypeReference>> scopes{{}};
     std::vector<std::unordered_map<std::string_view, FnDeclExpr*>> decl_scopes{{}};
+    std::vector<std::unordered_map<std::string_view, FnDefExpr*>> def_scopes{{}};
     SourceCode* sourcecode;
     ReferenceContext* parent;
 
-    explicit ReferenceContext(SourceCode* sourcecode, ReferenceContext* parent = nullptr);
+    explicit ReferenceContext(SourceCode* sourcecode, ReferenceContext* parent);
     void push();
     void pop();
     void global(std::string_view name, TypeReference const& type);
     void local(Token token, TypeReference const& type);
-    void decl(Token token, FnDeclExpr* decl);
-    [[nodiscard]] TypeReference lookup(Token token) const;
+    void declare(Token token, FnDeclExpr* decl);
+    void define(Token token, FnDefExpr* def);
+    [[nodiscard]] TypeReference lookup(Token token, bool captured = true) const;
 
     struct Guard {
         ReferenceContext& context;

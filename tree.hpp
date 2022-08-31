@@ -544,53 +544,80 @@ struct FnJumpExpr : Expr { // return throw
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 };
 
-struct FnDeclExpr : Expr {
-    Token token, token2;
-    IdExprHandle name;
-    std::shared_ptr<FuncType> T;
+struct FnExprBase : Expr {
+    Token token;
+    std::shared_ptr<FuncType> prototype;
+    FnExprBase(Token token, std::shared_ptr<FuncType> prototype): token(token), prototype(std::move(prototype)) {}
 
-    FnDeclExpr(Token token, Token token2, IdExprHandle name, std::shared_ptr<FuncType> T):
-            token(token), token2(token2), name(std::move(name)), T(std::move(T)) {}
-
-    [[nodiscard]] std::vector<const Descriptor*> children() const override {
-        return {name.get(), T.get()};
-    }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "fn"; }
-
-    [[nodiscard]] Segment segment() const override {
-        return range(token, token2);
-    }
-
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(ReferenceContext &context) const override;
 };
 
-struct FnDefExpr : Expr {
-    Token token;
+struct NamedFnExpr : virtual FnExprBase {
     IdExprHandle name;
-    std::vector<IdExprHandle> parameters;
-    std::shared_ptr<FuncType> T;
-    ExprHandle clause;
-    std::vector<const FnJumpExpr*> returns;
 
+    explicit NamedFnExpr(IdExprHandle name): name(std::move(name)) {}
 
-    FnDefExpr(Token token, IdExprHandle name, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> T, ExprHandle clause, std::vector<const FnJumpExpr*> returns):
-        token(token), name(std::move(name)), parameters(std::move(parameters)), T(std::move(T)), clause(std::move(clause)), returns(std::move(returns)) {}
-
-    [[nodiscard]] std::vector<const Descriptor*> children() const override {
-        std::vector<const Descriptor*> ret;
-        if (name) ret.push_back(name.get());
-        for (auto&& e : parameters) ret.push_back(e.get());
-        ret.push_back(T.get());
-        ret.push_back(clause.get());
-        return ret;
-    }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "fn"; }
+};
+
+struct DefinedFnExpr : virtual FnExprBase {
+    std::vector<IdExprHandle> parameters;
+    ExprHandle clause;
+
+    DefinedFnExpr(std::vector<IdExprHandle> parameters, ExprHandle clause):
+            parameters(std::move(parameters)), clause(std::move(clause)) {}
+
 
     [[nodiscard]] Segment segment() const override {
         return range(token, clause->segment());
     }
+};
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+struct FnDeclExpr : NamedFnExpr {
+    Token token2;
+
+    FnDeclExpr(Token token, Token token2, IdExprHandle name, std::shared_ptr<FuncType> prototype):
+            FnExprBase(token, std::move(prototype)), NamedFnExpr(std::move(name)), token2(token2) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        return {name.get(), prototype.get()};
+    }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token, token2);
+    }
+};
+
+struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
+
+    FnDefExpr(Token token, IdExprHandle name, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> prototype, ExprHandle clause):
+            FnExprBase(token, std::move(prototype)), NamedFnExpr(std::move(name)), DefinedFnExpr(std::move(parameters), std::move(clause)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        ret.push_back(name.get());
+        for (auto&& e : parameters) ret.push_back(e.get());
+        ret.push_back(prototype.get());
+        ret.push_back(clause.get());
+        return ret;
+    }
+};
+
+struct LambdaExpr : DefinedFnExpr {
+    std::vector<IdExprHandle> captures;
+
+    LambdaExpr(Token token, std::vector<IdExprHandle> captures, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> prototype, ExprHandle clause):
+            FnExprBase(token, std::move(prototype)), captures(std::move(captures)), DefinedFnExpr(std::move(parameters), std::move(clause)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (auto&& e : captures) ret.push_back(e.get());
+        for (auto&& e : parameters) ret.push_back(e.get());
+        ret.push_back(prototype.get());
+        ret.push_back(clause.get());
+        return ret;
+    }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "$"; }
 };
 
 struct LetExpr : Expr {

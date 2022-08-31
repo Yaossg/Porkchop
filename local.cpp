@@ -11,6 +11,7 @@ ReferenceContext::ReferenceContext(SourceCode *sourcecode, ReferenceContext *par
 void ReferenceContext::push() {
     scopes.emplace_back();
     decl_scopes.emplace_back();
+    def_scopes.emplace_back();
 }
 
 void ReferenceContext::pop() {
@@ -18,6 +19,7 @@ void ReferenceContext::pop() {
         throw TypeException("undefined function", decl_scopes.back().begin()->second->segment());
     scopes.pop_back();
     decl_scopes.pop_back();
+    def_scopes.pop_back();
 }
 
 void ReferenceContext::global(std::string_view name, const TypeReference &type) {
@@ -28,37 +30,45 @@ void ReferenceContext::local(Token token, const TypeReference &type) {
     std::string_view name = sourcecode->source(token);
     if (name == "_") return;
     scopes.back().emplace(name, type);
-    if (auto it = decl_scopes.back().find(name); it != decl_scopes.back().end()) {
-        if (it->second->T->equals(type)) {
-            decl_scopes.back().erase(it);
-        } else {
-            expected(it->second, type);
-        }
-    }
 }
 
-void ReferenceContext::decl(Token token, FnDeclExpr* decl) {
+void ReferenceContext::declare(Token token, FnDeclExpr* decl) {
     std::string_view name = sourcecode->source(token);
     if (name == "_") throw TypeException("function name must not be '_'", decl->segment());
     decl_scopes.back().emplace(name, decl);
 }
 
-TypeReference ReferenceContext::lookup(Token token) const {
+void ReferenceContext::define(Token token, FnDefExpr* def) {
+    std::string_view name = sourcecode->source(token);
+    if (name == "_") throw TypeException("function name must not be '_'", def->segment());
+    if (auto it = decl_scopes.back().find(name); it != decl_scopes.back().end()) {
+        expected(it->second, def->prototype);
+        decl_scopes.back().erase(it);
+    }
+    def_scopes.back().emplace(name, def);
+}
+
+TypeReference ReferenceContext::lookup(Token token, bool captured) const {
     std::string_view name = sourcecode->source(token);
     if (name == "_") return ScalarTypes::NONE;
-    for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
-        if (auto lookup = it->find(name); lookup != it->end())
-            return lookup->second;
+    if (captured) {
+        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+            if (auto lookup = it->find(name); lookup != it->end())
+                return lookup->second;
+        }
     }
     for (auto it = decl_scopes.rbegin(); it != decl_scopes.rend(); ++it) {
         if (auto lookup = it->find(name); lookup != it->end()) {
-            if (auto func = dynamic_cast<FuncType*>(lookup->second->T.get())) {
-                if (func->R == nullptr)
-                    throw TypeException("recursive function without specified return type", lookup->second->segment());
-            }
-            return lookup->second->T;
+            if (lookup->second->prototype->R == nullptr)
+                throw TypeException("recursive function without specified return type", lookup->second->segment());
+            return lookup->second->prototype;
         }
     }
-    return parent ? parent->lookup(token) : throw TypeException("unable to resolve this identifier", token);
+    for (auto it = def_scopes.rbegin(); it != def_scopes.rend(); ++it) {
+        if (auto lookup = it->find(name); lookup != it->end()) {
+            return lookup->second->prototype;
+        }
+    }
+    return parent ? parent->lookup(token, false) : throw TypeException("unable to resolve this identifier", token);
 }
 }
