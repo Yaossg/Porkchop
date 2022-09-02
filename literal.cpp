@@ -13,7 +13,7 @@ int64_t parseInt(SourceCode &sourcecode, Token token) try {
         case TokenType::HEXADECIMAL_INTEGER: base = 16; break;
     }
     std::string literal; // default-constructed
-    literal = sourcecode.source(token);
+    literal = sourcecode.of(token);
     std::erase(literal, '_');
     if (base != 10) {
         literal.erase(literal.front() == '+' || literal.front() == '-', 2);
@@ -25,7 +25,7 @@ int64_t parseInt(SourceCode &sourcecode, Token token) try {
 
 double parseFloat(SourceCode &sourcecode, Token token) try {
     std::string literal; // default-constructed
-    literal = sourcecode.source(token);
+    literal = sourcecode.of(token);
     std::erase(literal, '_');
     return std::stod(literal);
 } catch (std::out_of_range& e) {
@@ -137,11 +137,11 @@ std::string UnicodeParser::unquoteString() {
 }
 
 char32_t parseChar(SourceCode& sourcecode, Token token) {
-    return UnicodeParser(sourcecode.source(token), token).unquoteChar(token);
+    return UnicodeParser(sourcecode.of(token), token).unquoteChar(token);
 }
 
 std::string parseString(SourceCode& sourcecode, Token token) {
-    return UnicodeParser(sourcecode.source(token), token).unquoteString();
+    return UnicodeParser(sourcecode.of(token), token).unquoteString();
 }
 
 }

@@ -72,10 +72,12 @@ const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
     {"]", TokenType::RBRACKET},
     {"{", TokenType::LBRACE},
     {"}", TokenType::RBRACE},
-    {"$", TokenType::OP_DOLLAR}
+    {"$", TokenType::OP_DOLLAR},
+    {"++", TokenType::OP_INC},
+    {"--", TokenType::OP_DEC}
 };
 
-std::string_view SourceCode::source(Token token) const noexcept {
+std::string_view SourceCode::of(Token token) const noexcept {
     return lines.at(token.line).substr(token.column, token.width);
 }
 

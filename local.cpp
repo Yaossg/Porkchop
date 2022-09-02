@@ -23,33 +23,33 @@ void ReferenceContext::pop() {
 }
 
 void ReferenceContext::global(std::string_view name, const TypeReference &type) {
-    scopes.front().emplace(name, type);
+    scopes.front().insert_or_assign(name, type);
 }
 
 void ReferenceContext::local(Token token, const TypeReference &type) {
-    std::string_view name = sourcecode->source(token);
+    std::string_view name = sourcecode->of(token);
     if (name == "_") return;
-    scopes.back().emplace(name, type);
+    scopes.back().insert_or_assign(name, type);
 }
 
 void ReferenceContext::declare(Token token, FnDeclExpr* decl) {
-    std::string_view name = sourcecode->source(token);
+    std::string_view name = sourcecode->of(token);
     if (name == "_") throw TypeException("function name must not be '_'", decl->segment());
-    decl_scopes.back().emplace(name, decl);
+    decl_scopes.back().insert_or_assign(name, decl);
 }
 
 void ReferenceContext::define(Token token, FnDefExpr* def) {
-    std::string_view name = sourcecode->source(token);
+    std::string_view name = sourcecode->of(token);
     if (name == "_") throw TypeException("function name must not be '_'", def->segment());
     if (auto it = decl_scopes.back().find(name); it != decl_scopes.back().end()) {
         expected(it->second, def->prototype);
         decl_scopes.back().erase(it);
     }
-    def_scopes.back().emplace(name, def);
+    def_scopes.back().insert_or_assign(name, def);
 }
 
 TypeReference ReferenceContext::lookup(Token token, bool captured) const {
-    std::string_view name = sourcecode->source(token);
+    std::string_view name = sourcecode->of(token);
     if (name == "_") return ScalarTypes::NONE;
     if (captured) {
         for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {

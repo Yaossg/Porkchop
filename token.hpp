@@ -74,7 +74,8 @@ enum class TokenType {
     OP_INV,
     OP_COMMA,
     OP_DOLLAR,
-
+    OP_INC,
+    OP_DEC,
     AT_BRACKET,
     OP_DOT,
     OP_COLON,

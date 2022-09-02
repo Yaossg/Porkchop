@@ -118,6 +118,16 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     auto rhs = parseExpression(level);
                     return context.make<PrefixExpr>(token, std::move(rhs));
                 }
+                case TokenType::OP_INC:
+                case TokenType::OP_DEC: {
+                    next();
+                    auto rhs = parseExpression(level);
+                    if (auto load = dynamic_pointer_cast<LoadExpr>(std::move(rhs))) {
+                        return context.make<IdPrefixExpr>(token, std::move(load));
+                    } else {
+                        throw ParserException("id-expression or access expression is expected", token);
+                    }
+                }
                 default: {
                     return parseExpression(Expr::upper(level));
                 }
@@ -149,12 +159,24 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     }
                     case TokenType::KW_AS: {
                         auto token = next();
-                        lhs = context.make<AsExpr>(token, rewind(), std::move(lhs), parseType());
+                        auto type = parseType();
+                        lhs = context.make<AsExpr>(token, rewind(), std::move(lhs), std::move(type));
                         break;
                     }
                     case TokenType::KW_IS: {
                         auto token = next();
-                        lhs = context.make<IsExpr>(token, rewind(), std::move(lhs), parseType());
+                        auto type = parseType();
+                        lhs = context.make<IsExpr>(token, rewind(), std::move(lhs), std::move(type));
+                        break;
+                    }
+                    case TokenType::OP_INC:
+                    case TokenType::OP_DEC: {
+                        auto token = next();
+                        if (auto load = dynamic_pointer_cast<LoadExpr>(std::move(lhs))) {
+                            lhs = context.make<IdPostfixExpr>(token, std::move(load));
+                        } else {
+                            throw ParserException("id-expression or access expression is expected", token);
+                        }
                         break;
                     }
                     default: flag = false;
@@ -424,7 +446,7 @@ ExprHandle Parser::parseTry() {
 std::pair<IdExprHandle, TypeReference> Parser::parseParameter() {
     auto id = parseId(false);
     auto type = optionalType();
-    bool underscore = sourcecode->source(id->token) == "_";
+    bool underscore = sourcecode->of(id->token) == "_";
     if (type == nullptr) {
         type = underscore ? ScalarTypes::NONE : nullptr;
     } else if (underscore && !isNone(type)) {
@@ -569,7 +591,7 @@ TypeReference Parser::parseParenType() {
 TypeReference Parser::parseType() {
     switch (Token token = next(); token.type) {
         case TokenType::IDENTIFIER: {
-            auto id = sourcecode->source(token);
+            auto id = sourcecode->of(token);
             if (auto it = TYPE_KINDS.find(id); it != TYPE_KINDS.end()) {
                 return std::make_shared<ScalarType>(it->second);
             }

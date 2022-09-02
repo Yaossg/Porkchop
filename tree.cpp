@@ -23,10 +23,10 @@ TypeReference ConstExpr::evalType(ReferenceContext& context) const {
         case TokenType::KW_LINE:
         case TokenType::KW_EOF:
             return ScalarTypes::INT;
-        case TokenType::KW_NAN:
-        case TokenType::KW_INF:
         case TokenType::FLOATING_POINT:
             std::ignore = parseFloat(*context.sourcecode, token);
+        case TokenType::KW_NAN:
+        case TokenType::KW_INF:
             return ScalarTypes::FLOAT;
         default:
             unreachable("invalid token is classified as const");
@@ -84,6 +84,16 @@ int64_t PrefixExpr::evalConst(SourceCode& sourcecode) const {
         default:
             unreachable("invalid token is classified as prefix operator");
     }
+}
+
+TypeReference IdPrefixExpr::evalType(ReferenceContext& context) const {
+    expected(rhs.get(), ScalarTypes::INT);
+    return ScalarTypes::INT;
+}
+
+TypeReference IdPostfixExpr::evalType(ReferenceContext& context) const {
+    expected(lhs.get(), ScalarTypes::INT);
+    return ScalarTypes::INT;
 }
 
 TypeReference InfixExpr::evalType(ReferenceContext& context) const {
@@ -156,7 +166,7 @@ int64_t InfixExpr::evalConst(SourceCode& sourcecode) const {
         case TokenType::OP_SHR:
             return lhs->evalConst(sourcecode) >> nonneg(rhs->evalConst(sourcecode), rhs->segment());
         case TokenType::OP_USHR:
-            return ssize_t(size_t(lhs->evalConst(sourcecode)) >> nonneg(rhs->evalConst(sourcecode), rhs->segment()));
+            return int64_t(uint64_t(lhs->evalConst(sourcecode)) >> nonneg(rhs->evalConst(sourcecode), rhs->segment()));
         case TokenType::OP_ADD:
             return lhs->evalConst(sourcecode) + rhs->evalConst(sourcecode);
         case TokenType::OP_SUB:

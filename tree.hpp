@@ -47,7 +47,7 @@ struct ConstExpr : Expr {
 
     explicit ConstExpr(Token token): token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -65,7 +65,7 @@ struct IdExpr : LoadExpr {
 
     explicit IdExpr(Token token): token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -83,7 +83,7 @@ struct PrefixExpr : Expr {
     PrefixExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -92,6 +92,38 @@ struct PrefixExpr : Expr {
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+};
+
+struct IdPrefixExpr : Expr {
+    Token token;
+    std::unique_ptr<LoadExpr> rhs;
+
+    IdPrefixExpr(Token token, std::unique_ptr<LoadExpr> rhs): token(token), rhs(std::move(rhs)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token, rhs->segment());
+    }
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+};
+
+struct IdPostfixExpr : Expr {
+    Token token;
+    std::unique_ptr<LoadExpr> lhs;
+
+    IdPostfixExpr(Token token, std::unique_ptr<LoadExpr> lhs): token(token), lhs(std::move(lhs)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get()}; }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(lhs->segment(), token);
+    }
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 };
 
 struct InfixExpr : Expr {
@@ -103,7 +135,7 @@ struct InfixExpr : Expr {
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -123,7 +155,7 @@ struct AssignExpr : Expr {
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -141,7 +173,7 @@ struct LogicalExpr : Expr {
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -407,7 +439,7 @@ struct BreakExpr : Expr {
 
     explicit BreakExpr(Token token): token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "break"; }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -424,7 +456,7 @@ struct YieldExpr : Expr {
     YieldExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "yield"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -535,7 +567,7 @@ struct FnJumpExpr : Expr { // return throw
     FnJumpExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.source(token); }
+    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());

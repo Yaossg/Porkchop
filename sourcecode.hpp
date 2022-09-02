@@ -35,7 +35,7 @@ struct SourceCode {
 
     void parse();
 
-    [[nodiscard]] std::string_view source(Token token) const noexcept;
+    [[nodiscard]] std::string_view of(Token token) const noexcept;
 };
 
 
