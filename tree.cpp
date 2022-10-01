@@ -4,53 +4,52 @@
 
 namespace Porkchop {
 
-TypeReference ConstExpr::evalType(ReferenceContext& context) const {
-    switch (token.type) {
-        case TokenType::KW_FALSE:
-        case TokenType::KW_TRUE:
-            return ScalarTypes::BOOL;
-        case TokenType::CHARACTER_LITERAL:
-            std::ignore = parseChar(*context.sourcecode, token);
-            return ScalarTypes::CHAR;
-        case TokenType::STRING_LITERAL:
-            std::ignore = parseString(*context.sourcecode, token);
-            return ScalarTypes::STRING;
-        case TokenType::BINARY_INTEGER:
-        case TokenType::OCTAL_INTEGER:
-        case TokenType::DECIMAL_INTEGER:
-        case TokenType::HEXADECIMAL_INTEGER:
-            std::ignore = parseInt(*context.sourcecode, token);
-        case TokenType::KW_LINE:
-        case TokenType::KW_EOF:
-            return ScalarTypes::INT;
-        case TokenType::FLOATING_POINT:
-            std::ignore = parseFloat(*context.sourcecode, token);
-        case TokenType::KW_NAN:
-        case TokenType::KW_INF:
-            return ScalarTypes::FLOAT;
-        default:
-            unreachable("invalid token is classified as const");
-    }
+TypeReference BoolConstExpr::evalType(ReferenceContext& context) const {
+    parsed = token.type == TokenType::KW_FALSE;
+    return ScalarTypes::BOOL;
 }
 
-int64_t ConstExpr::evalConst(SourceCode& sourcecode) const {
+int64_t BoolConstExpr::evalConst(SourceCode& sourcecode) const {
+    return parsed;
+}
+
+TypeReference CharConstExpr::evalType(ReferenceContext& context) const {
+    parsed = parseChar(*context.sourcecode, token);
+    return ScalarTypes::CHAR;
+}
+
+TypeReference StringConstExpr::evalType(ReferenceContext &context) const {
+    parsed = parseString(*context.sourcecode, token);
+    return ScalarTypes::STRING;
+}
+
+TypeReference IntConstExpr::evalType(ReferenceContext &context) const {
     switch (token.type) {
-        case TokenType::KW_FALSE:
-            return 0;
-        case TokenType::KW_TRUE:
-            return 1;
         case TokenType::KW_LINE:
-            return token.line;
+            parsed = token.line;
+            break;
         case TokenType::KW_EOF:
-            return -1;
+            parsed = -1;
+            break;
         case TokenType::BINARY_INTEGER:
         case TokenType::OCTAL_INTEGER:
         case TokenType::DECIMAL_INTEGER:
         case TokenType::HEXADECIMAL_INTEGER:
-            return parseInt(sourcecode, token);
+            parsed = parseInt(*context.sourcecode, token);
+            break;
         default:
-            return Expr::evalConst(sourcecode);
+            unreachable("invalid token is classified as prefix operator");
     }
+    return ScalarTypes::INT;
+}
+
+int64_t IntConstExpr::evalConst(SourceCode &sourcecode) const {
+    return parsed;
+}
+
+TypeReference FloatConstExpr::evalType(ReferenceContext &context) const {
+    parsed = parseFloat(*context.sourcecode, token);
+    return ScalarTypes::FLOAT;
 }
 
 TypeReference PrefixExpr::evalType(ReferenceContext& context) const {
@@ -120,6 +119,8 @@ TypeReference InfixExpr::evalType(ReferenceContext& context) const {
             expected(rhs.get(), ScalarTypes::INT);
             return type1;
         case TokenType::OP_ADD:
+            if (isString(lhs->typeCache) && isString(rhs->typeCache))
+                return ScalarTypes::STRING;
         case TokenType::OP_SUB:
         case TokenType::OP_MUL:
         case TokenType::OP_DIV:
@@ -201,6 +202,8 @@ TypeReference AssignExpr::evalType(ReferenceContext& context) const {
             expected(rhs.get(), ScalarTypes::INT);
             return type1;
         case TokenType::OP_ASSIGN_ADD:
+            if (isString(lhs->typeCache) && isString(rhs->typeCache))
+                return ScalarTypes::STRING;
         case TokenType::OP_ASSIGN_SUB:
         case TokenType::OP_ASSIGN_MUL:
         case TokenType::OP_ASSIGN_DIV:
@@ -231,10 +234,7 @@ int64_t LogicalExpr::evalConst(SourceCode& sourcecode) const {
 
 TypeReference AccessExpr::evalType(ReferenceContext& context) const {
     TypeReference type1 = lhs->typeCache, type2 = rhs->typeCache;
-    if (isString(type1)) {
-        expected(rhs.get(), ScalarTypes::INT);
-        return ScalarTypes::CHAR;
-    } else if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
+    if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
         auto index = rhs->evalConst(*context.sourcecode);
         if (0 <= index && index < tuple->E.size()) {
@@ -303,9 +303,6 @@ TypeReference AsExpr::evalType(ReferenceContext& context) const {
         || isSimilar(isIntegral, type, T)
         || isSimilar(isCharLike, type, T)
         || isSimilar(isCharListLike, type, T)
-        || isSimilar(isIntOrByteList, type, T)
-        || isSimilar(isFloatOrByteList, type, T)
-        || isSimilar(isCharOrByteList, type, T)
         || isSimilar(isStringOrByteList, type, T)) return T;
     throw TypeException("cannot cast the expression from " + type->toString() + " to " + T->toString(), segment());
 }

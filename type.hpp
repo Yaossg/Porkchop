@@ -244,18 +244,6 @@ struct FuncType : Type {
     return isString(type) || ListTypes::CHARLIST->equals(type);
 }
 
-[[nodiscard]] inline bool isIntOrByteList(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT; }) || ListTypes::BYTELIST->equals(type);
-}
-
-[[nodiscard]] inline bool isFloatOrByteList(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::FLOAT; }) || ListTypes::BYTELIST->equals(type);
-}
-
-[[nodiscard]] inline bool isCharOrByteList(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::CHAR; }) || ListTypes::BYTELIST->equals(type);
-}
-
 [[nodiscard]] inline bool isStringOrByteList(TypeReference const& type) noexcept {
     return isString(type) || ListTypes::BYTELIST->equals(type);
 }

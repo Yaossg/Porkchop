@@ -52,10 +52,50 @@ struct ConstExpr : Expr {
     [[nodiscard]] Segment segment() const override {
         return token;
     }
+};
+
+struct BoolConstExpr : ConstExpr {
+    mutable bool parsed;
+
+    explicit BoolConstExpr(Token token): ConstExpr(token) {}
 
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+};
+
+struct CharConstExpr : ConstExpr {
+    mutable char32_t parsed;
+
+    explicit CharConstExpr(Token token): ConstExpr(token) {}
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+};
+
+struct StringConstExpr : ConstExpr {
+    mutable std::string parsed;
+
+    explicit StringConstExpr(Token token): ConstExpr(token) {}
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+};
+
+struct IntConstExpr : ConstExpr {
+    mutable int64_t parsed;
+
+    explicit IntConstExpr(Token token): ConstExpr(token) {}
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+};
+
+struct FloatConstExpr : ConstExpr {
+    mutable double parsed;
+
+    explicit FloatConstExpr(Token token): ConstExpr(token) {}
+
+    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;\
 };
 
 struct LoadExpr : Expr {};

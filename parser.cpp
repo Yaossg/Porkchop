@@ -249,18 +249,22 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
                 case TokenType::KW_FALSE:
                 case TokenType::KW_TRUE:
-                case TokenType::KW_LINE:
-                case TokenType::KW_EOF:
-                case TokenType::KW_NAN:
-                case TokenType::KW_INF:
+                    return context.make<BoolConstExpr>(next());
                 case TokenType::CHARACTER_LITERAL:
+                    return context.make<CharConstExpr>(next());
                 case TokenType::STRING_LITERAL:
+                    return context.make<StringConstExpr>(next());
                 case TokenType::BINARY_INTEGER:
                 case TokenType::OCTAL_INTEGER:
                 case TokenType::DECIMAL_INTEGER:
                 case TokenType::HEXADECIMAL_INTEGER:
+                case TokenType::KW_LINE:
+                case TokenType::KW_EOF:
+                    return context.make<IntConstExpr>(next());
                 case TokenType::FLOATING_POINT:
-                    return context.make<ConstExpr>(next());
+                case TokenType::KW_NAN:
+                case TokenType::KW_INF:
+                    return context.make<FloatConstExpr>(next());
 
                 case TokenType::KW_DEFAULT: {
                     next();
