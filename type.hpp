@@ -273,9 +273,7 @@ struct FuncType : Type {
 }
 
 [[nodiscard]] inline TypeReference iterable(TypeReference const& type) noexcept {
-    if (isString(type)) {
-        return ScalarTypes::CHAR;
-    } else if (auto set = dynamic_cast<SetType*>(type.get())) {
+    if (auto set = dynamic_cast<SetType*>(type.get())) {
         return set->E;
     } else if (auto list = dynamic_cast<ListType*>(type.get())) {
         return list->E;

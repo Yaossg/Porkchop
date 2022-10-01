@@ -53,13 +53,9 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
             switch (Token token = peek(); token.type) {
                 case TokenType::KW_RETURN: {
                     next();
-                    auto expr = context.make<FnJumpExpr>(token, parseExpression(level));
+                    auto expr = context.make<ReturnExpr>(token, parseExpression(level));
                     returns.push_back(expr.get());
                     return expr;
-                }
-                case TokenType::KW_THROW: {
-                    next();
-                    return context.make<FnJumpExpr>(token, parseExpression(level));
                 }
                 case TokenType::KW_YIELD: {
                     next();
@@ -283,8 +279,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     return parseWhile();
                 case TokenType::KW_IF:
                     return parseIf();
-                case TokenType::KW_TRY:
-                    return parseTry();
                 case TokenType::KW_FOR:
                     return parseFor();
                 case TokenType::KW_FN:
@@ -296,11 +290,8 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
                 case TokenType::KW_ELSE:
                     throw ParserException("stray 'else'", next());
-                case TokenType::KW_CATCH:
-                    throw ParserException("stray 'catch'", next());
 
                 case TokenType::KW_RETURN:
-                case TokenType::KW_THROW:
                 case TokenType::KW_YIELD:
                     return parseExpression();
 
@@ -431,16 +422,6 @@ ExprHandle Parser::parseFor() {
         }
         throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
     }
-}
-
-ExprHandle Parser::parseTry() {
-    auto token = next();
-    auto lhs = parseClause();
-    expect(TokenType::KW_CATCH, "'catch' is expected");
-    auto except = parseId(false);
-    ReferenceContext::Guard guard(context);
-    context.local(except->token, ScalarTypes::ANY);
-    return context.make<TryExpr>(token, std::move(lhs), std::move(except), parseClause());
 }
 
 std::pair<IdExprHandle, TypeReference> Parser::parseParameter() {

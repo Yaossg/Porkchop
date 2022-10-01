@@ -439,12 +439,7 @@ TypeReference ForDestructuringExpr::evalType(ReferenceContext& context) const {
     return hook->yield();
 }
 
-TypeReference TryExpr::evalType(ReferenceContext& context) const {
-    if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) return either;
-    throw TypeException(mismatch(rhs->typeCache, "both clause", lhs->typeCache), segment());
-}
-
-TypeReference FnJumpExpr::evalType(ReferenceContext& context) const {
+TypeReference ReturnExpr::evalType(ReferenceContext& context) const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return ScalarTypes::NEVER;
 }

@@ -10,7 +10,7 @@ struct Parser {
     std::vector<Token>::const_iterator p;
     const std::vector<Token>::const_iterator q;
     std::vector<std::shared_ptr<LoopHook>> hooks;
-    std::vector<const FnJumpExpr*> returns;
+    std::vector<const ReturnExpr*> returns;
     ReferenceContext context;
 
     Parser(SourceCode* sourcecode, std::vector<Token> const& tokens): Parser(sourcecode, tokens.cbegin(), tokens.cend(), nullptr) {}

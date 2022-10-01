@@ -324,20 +324,6 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 
 支持 break 但是不支持 continue，这里从略
 
-try 表达式
-
-```
-{
-    try {
-        throw "whatever"
-    } catch e { # e is any
-        println(e as string)
-    }
-}
-```
-
-因为还没有具体的后端实现，异常部分的内容还比较模糊。这里从略
-
 ## 函数
 
 fn 关键字引导，参数如下所示，返回值可以指定也可以推导，参数类型必须指定。

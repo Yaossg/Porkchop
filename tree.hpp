@@ -541,30 +541,11 @@ struct ForDestructuringExpr : LoopExpr {
     [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
 };
 
-struct TryExpr : Expr {
-    Token token;
-    ExprHandle lhs;
-    IdExprHandle except;
-    ExprHandle rhs;
-
-    TryExpr(Token token, ExprHandle lhs, IdExprHandle except, ExprHandle rhs):
-        token(token), lhs(std::move(lhs)), except(std::move(except)), rhs(std::move(rhs)) {}
-
-    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), except.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "try-catch"; }
-
-    [[nodiscard]] Segment segment() const override {
-        return range(token, rhs->segment());
-    }
-
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
-};
-
-struct FnJumpExpr : Expr { // return throw
+struct ReturnExpr : Expr {
     Token token;
     ExprHandle rhs;
 
-    FnJumpExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
+    ReturnExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
