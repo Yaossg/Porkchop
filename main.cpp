@@ -6,7 +6,8 @@
 std::unordered_map<std::string, std::string> parseArgs(int argc, const char* argv[]) {
     std::unordered_map<std::string, std::string> args;
     if (argc < 2) {
-        fprintf(stderr, "Too few arguments, input file expected\n");
+        fprintf(stderr, "Fatal: Too few arguments, input file expected\n");
+        fprintf(stderr, "Usage: Porkchop <input> [options...]\n");
         exit(10);
     }
     args["this"] = argv[0];
@@ -19,12 +20,18 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
         } else if (!strcmp("-m", argv[i]) || !strcmp("--mermaid", argv[i])) {
             args["type"] = "mermaid";
         } else {
-            fprintf(stderr, "Unknown flag: %s\n", argv[i]);
+            fprintf(stderr, "Fatal: Unknown flag: %s\n", argv[i]);
             exit(11);
         }
     }
     if (!args.contains("output")) {
-        args["output"] = args["input"] + ".mermaid";
+        std::string suffix;
+        if (args["type"] == "mermaid") {
+            suffix = ".mermaid";
+        } else {
+            suffix = ".output";
+        }
+        args["output"] = args["input"] + suffix;
     }
     return args;
 }
@@ -54,7 +61,7 @@ int main(int argc, const char* argv[]) try {
         c.split();
         c.tokenize();
         if (c.tokens.empty()) {
-            fprintf(stderr, "Compilation Error: nothing to input");
+            fprintf(stderr, "Compilation Error: Empty input with nothing to compile");
             return -2;
         }
         c.parse();
@@ -76,15 +83,15 @@ int main(int argc, const char* argv[]) try {
         fclose(output_file);
     }
     fprintf(stdout, "Compilation is done successfully: %s\n", output_filename.c_str());
-    return 0;
+    return EXIT_SUCCESS;
 }  catch (std::bad_alloc& e) {
-    fprintf(stderr, "Program run out of memory: %s\n", e.what());
-    return -100;
+    fprintf(stderr, "Compilation Failed: Compiler run out of memory: %s\n", e.what());
+    return -2;
 } catch (std::exception& e) {
-    fprintf(stderr, "Unclassified std::exception occurred: %s\n", e.what());
-    return -998;
+    fprintf(stderr, "Compiler Internal Error: Unclassified std::exception occurred: %s\n", e.what());
+    return -1000;
 } catch (...) {
-    fprintf(stderr, "Unknown exception occurred\n");
-    return -999;
+    fprintf(stderr, "Compiler Internal Error: Unknown naked exception occurred\n");
+    return -1001;
 }
 
