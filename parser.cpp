@@ -534,8 +534,8 @@ ExprHandle Parser::parseLambda() {
     auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
     expect(TokenType::OP_ASSIGN, "'=' is expected before lambda body");
     Parser child(sourcecode, p, q, &context);
-    for (size_t i = 0; i < captures.size(); ++i) {
-        child.context.local(captures[i]->token, F->P[i]);
+    for (auto&& capture : captures) {
+        child.context.local(capture->token, capture->typeCache);
     }
     for (size_t i = 0; i < parameters.size(); ++i) {
         child.context.local(parameters[i]->token, F->P[i]);

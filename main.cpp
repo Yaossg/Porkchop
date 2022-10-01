@@ -3,19 +3,42 @@
 
 #include "parser.hpp"
 
+std::unordered_map<std::string, std::string> parseArgs(int argc, const char* argv[]) {
+    std::unordered_map<std::string, std::string> args;
+    if (argc < 2) {
+        fprintf(stderr, "Too few arguments, input file expected\n");
+        exit(10);
+    }
+    args["this"] = argv[0];
+    args["input"] = argv[1];
+    args["type"] = "default";
+    for (int i = 2; i < argc; ++i) {
+        if (!strcmp("-o", argv[i])) {
+            ++i;
+            args["output"] = argv[i];
+        } else if (!strcmp("-m", argv[i]) || !strcmp("--mermaid", argv[i])) {
+            args["type"] = "mermaid";
+        } else {
+            fprintf(stderr, "Unknown flag: %s\n", argv[i]);
+            exit(11);
+        }
+    }
+    if (!args.contains("output")) {
+        args["output"] = args["input"] + ".mermaid";
+    }
+    return args;
+}
+
 int main(int argc, const char* argv[]) try {
 #ifdef _WIN32
     system("chcp 65001");
     puts("Porkchop: UTF-8 is adopted via 'chcp 65001' in Windows");
 #endif
-    if (argc < 2) {
-        fprintf(stderr, "Too few arguments, input file expected\n");
-        return 10;
-    }
-    const char* input_filename = argv[1];
-    FILE* input_file = fopen(input_filename, "r");
+    auto args = parseArgs(argc, argv);
+    auto const& input_filename = args["input"];
+    FILE* input_file = fopen(input_filename.c_str(), "r");
     if (input_file == nullptr) {
-        fprintf(stderr, "Failed to open input file: %s\n", input_filename);
+        fprintf(stderr, "Failed to open input file: %s\n", input_filename.c_str());
         return 20;
     }
     std::string script;
@@ -39,31 +62,16 @@ int main(int argc, const char* argv[]) try {
         fprintf(stderr, "%s\n", e.message(c).c_str());
         return -1;
     }
-    std::string output_filename;
-    if (argc > 2) {
-        if (strcmp(argv[2], "-o") != 0) {
-            fprintf(stderr, "Unknown flag, -o expected\n");
-            return 11;
-        }
-        if (argc < 4) {
-            fprintf(stderr, "Too few arguments, output file expected\n");
-            return 12;
-        }
-        if (argc > 4) {
-            fprintf(stderr, "Too many arguments\n");
-            return 13;
-        }
-        output_filename = argv[3];
-    } else {
-        output_filename = input_filename;
-        output_filename += ".mermaid";
-    }
+    auto const& output_filename = args["output"];
     FILE* output_file = output_filename == "<stdout>" ? stdout : fopen(output_filename.c_str(), "w");
     if (output_file == nullptr) {
-        fprintf(stderr, "Failed to open output file: %s\n", input_filename);
+        fprintf(stderr, "Failed to open output file: %s\n", output_filename.c_str());
         return 21;
     }
-    fputs(c.tree->walkDescriptor(c).c_str(), output_file);
+    auto const& output_type = args["type"];
+    if (output_type == "mermaid") {
+        fputs(c.tree->walkDescriptor(c).c_str(), output_file);
+    }
     if (output_file != stdout) {
         fclose(output_file);
     }
