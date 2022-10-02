@@ -310,7 +310,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
 std::unique_ptr<ClauseExpr> Parser::parseClause() {
     auto token = expect(TokenType::LBRACE, "'{' is expected");
-    ReferenceContext::Guard guard(context);
+    LocalContext::Guard guard(context);
     std::vector<ExprHandle> rhs;
     bool flag = true;
     while (flag) {
@@ -342,7 +342,7 @@ std::vector<ExprHandle> Parser::parseExpressions(TokenType stop) {
 
 ExprHandle Parser::parseIf() {
     auto token = next();
-    ReferenceContext::Guard guard(context);
+    LocalContext::Guard guard(context);
     auto cond = parseExpression();
     auto clause = parseClause();
     if (peek().type == TokenType::KW_ELSE) {
@@ -368,7 +368,7 @@ ExprHandle Parser::parseYieldClause() {
 ExprHandle Parser::parseWhile() {
     auto token = next();
     pushLoop();
-    ReferenceContext::Guard guard(context);
+    LocalContext::Guard guard(context);
     auto cond = parseExpression();
     auto clause = parseYieldClause();
     return context.make<WhileExpr>(token, std::move(cond), std::move(clause), popLoop());
@@ -405,7 +405,7 @@ ExprHandle Parser::parseFor() {
         auto [lhs, designated] = parseParameters();
         expect(TokenType::KW_IN, "'in' is expected");
         pushLoop();
-        ReferenceContext::Guard guard(context);
+        LocalContext::Guard guard(context);
         auto rhs = parseExpression();
         if (auto element = iterable(rhs->typeCache)) {
             destructuring(lhs, designated, element, rhs->segment());
@@ -417,7 +417,7 @@ ExprHandle Parser::parseFor() {
         auto [lhs, designated] = parseParameter();
         expect(TokenType::KW_IN, "'in' is expected");
         pushLoop();
-        ReferenceContext::Guard guard(context);
+        LocalContext::Guard guard(context);
         auto rhs = parseExpression();
         if (auto element = iterable(rhs->typeCache)) {
             declaring(lhs, designated, element, rhs->segment());
@@ -502,15 +502,14 @@ ExprHandle Parser::parseFn() {
         name = std::move(decl->name);
         auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F), std::move(clause));
         context.define(fn->name->token, fn.get());
-        sourcecode->fns.push_back(fn.get());
         return fn;
     } else {
         if (F->R == nullptr) {
             throw ParserException("return type of declared function is missing", rewind());
         }
-        auto fn = context.make<FnDeclExpr>(token, rewind(), std::move(name), std::move(F));
-        context.declare(fn->name->token, fn.get());
-        return fn;
+        auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), std::move(F));
+        context.declare(decl->name->token, decl.get());
+        return decl;
     }
 }
 
@@ -544,9 +543,9 @@ ExprHandle Parser::parseLambda() {
     p = child.p;
     if (F->R == nullptr) F->R = type0;
     assignable(type0, F->R, range(token, clause->segment()));
-    auto fn = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F), std::move(clause));
-    sourcecode->fns.push_back(fn.get());
-    return fn;
+    auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F), std::move(clause));
+    context.lambda(lambda.get());
+    return lambda;
 }
 
 ExprHandle Parser::parseLet() {

@@ -6,6 +6,7 @@
 #include <vector>
 #include <string_view>
 #include <stdexcept>
+#include <deque>
 
 namespace Porkchop {
 
@@ -16,7 +17,7 @@ struct IdExpr;
 using ExprHandle = std::unique_ptr<Expr>;
 using IdExprHandle = std::unique_ptr<IdExpr>;
 struct Token;
-struct DefinedFnExpr;
+struct Function;
 
 struct SourceCode {
     std::string original;
@@ -25,7 +26,7 @@ struct SourceCode {
     ExprHandle tree;
     TypeReference type;
 
-    std::vector<const DefinedFnExpr*> fns;
+    std::vector<std::unique_ptr<Function>> functions;
 
     explicit SourceCode(std::string original) noexcept;
 

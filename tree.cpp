@@ -4,7 +4,7 @@
 
 namespace Porkchop {
 
-TypeReference BoolConstExpr::evalType(ReferenceContext& context) const {
+TypeReference BoolConstExpr::evalType(LocalContext& context) const {
     parsed = token.type == TokenType::KW_FALSE;
     return ScalarTypes::BOOL;
 }
@@ -13,17 +13,17 @@ int64_t BoolConstExpr::evalConst(SourceCode& sourcecode) const {
     return parsed;
 }
 
-TypeReference CharConstExpr::evalType(ReferenceContext& context) const {
+TypeReference CharConstExpr::evalType(LocalContext& context) const {
     parsed = parseChar(*context.sourcecode, token);
     return ScalarTypes::CHAR;
 }
 
-TypeReference StringConstExpr::evalType(ReferenceContext &context) const {
+TypeReference StringConstExpr::evalType(LocalContext &context) const {
     parsed = parseString(*context.sourcecode, token);
     return ScalarTypes::STRING;
 }
 
-TypeReference IntConstExpr::evalType(ReferenceContext &context) const {
+TypeReference IntConstExpr::evalType(LocalContext &context) const {
     switch (token.type) {
         case TokenType::KW_LINE:
             parsed = token.line;
@@ -47,12 +47,17 @@ int64_t IntConstExpr::evalConst(SourceCode &sourcecode) const {
     return parsed;
 }
 
-TypeReference FloatConstExpr::evalType(ReferenceContext &context) const {
+TypeReference FloatConstExpr::evalType(LocalContext &context) const {
     parsed = parseFloat(*context.sourcecode, token);
     return ScalarTypes::FLOAT;
 }
 
-TypeReference PrefixExpr::evalType(ReferenceContext& context) const {
+TypeReference IdExpr::evalType(LocalContext& context) const {
+    lookup = context.lookup(token);
+    return lookup.type;
+}
+
+TypeReference PrefixExpr::evalType(LocalContext& context) const {
     switch (token.type) {
         case TokenType::OP_ADD:
         case TokenType::OP_SUB:
@@ -85,17 +90,17 @@ int64_t PrefixExpr::evalConst(SourceCode& sourcecode) const {
     }
 }
 
-TypeReference IdPrefixExpr::evalType(ReferenceContext& context) const {
+TypeReference IdPrefixExpr::evalType(LocalContext& context) const {
     expected(rhs.get(), ScalarTypes::INT);
     return ScalarTypes::INT;
 }
 
-TypeReference IdPostfixExpr::evalType(ReferenceContext& context) const {
+TypeReference IdPostfixExpr::evalType(LocalContext& context) const {
     expected(lhs.get(), ScalarTypes::INT);
     return ScalarTypes::INT;
 }
 
-TypeReference InfixExpr::evalType(ReferenceContext& context) const {
+TypeReference InfixExpr::evalType(LocalContext& context) const {
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_OR:
@@ -183,7 +188,7 @@ int64_t InfixExpr::evalConst(SourceCode& sourcecode) const {
     }
 }
 
-TypeReference AssignExpr::evalType(ReferenceContext& context) const {
+TypeReference AssignExpr::evalType(LocalContext& context) const {
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_ASSIGN:
@@ -215,7 +220,7 @@ TypeReference AssignExpr::evalType(ReferenceContext& context) const {
     }
 }
 
-TypeReference LogicalExpr::evalType(ReferenceContext& context) const {
+TypeReference LogicalExpr::evalType(LocalContext& context) const {
     expected(lhs.get(), ScalarTypes::BOOL);
     expected(rhs.get(), ScalarTypes::BOOL);
     return ScalarTypes::BOOL;
@@ -232,7 +237,7 @@ int64_t LogicalExpr::evalConst(SourceCode& sourcecode) const {
     }
 }
 
-TypeReference AccessExpr::evalType(ReferenceContext& context) const {
+TypeReference AccessExpr::evalType(LocalContext& context) const {
     TypeReference type1 = lhs->typeCache, type2 = rhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
@@ -252,7 +257,7 @@ TypeReference AccessExpr::evalType(ReferenceContext& context) const {
     throw TypeException(unexpected(type1, "iterable type"), lhs->segment());
 }
 
-TypeReference InvokeExpr::evalType(ReferenceContext& context) const {
+TypeReference InvokeExpr::evalType(LocalContext& context) const {
     if (auto func = dynamic_cast<FuncType*>(lhs->typeCache.get())) {
         if (rhs.size() != func->P.size()) {
             throw TypeException("expected " + std::to_string(func->P.size()) + " parameters but got " + std::to_string(rhs.size()), range(token1, token2));
@@ -263,30 +268,11 @@ TypeReference InvokeExpr::evalType(ReferenceContext& context) const {
             }
         }
         return func->R;
-    } else if (auto tuple = dynamic_cast<TupleType*>(lhs->typeCache.get())) {
-        std::vector<FuncType*> candidates;
-        for (auto&& e : tuple->E) {
-            if (auto func0 = dynamic_cast<FuncType*>(e.get())) {
-                if (std::equal(func0->P.begin(), func0->P.end(), rhs.begin(), rhs.end(), [](TypeReference const& type0, ExprHandle const& expr) {
-                    return type0->assignableFrom(expr->typeCache);
-                })) candidates.push_back(func0);
-            } else {
-                throw TypeException("all elements of tuple are required to be invocable for functional tuple", lhs->segment());
-            }
-        }
-        switch (candidates.size()) {
-            case 0:
-                throw TypeException("none of overloaded candidates fits the parameters", lhs->segment());
-            case 1:
-                return candidates.front()->R;
-            default:
-                throw TypeException("multiple ambiguous overloaded candidates fit the parameters", lhs->segment());
-        }
     }
     throw TypeException(unexpected(lhs->typeCache, "invocable type"), lhs->segment());
 }
 
-TypeReference DotExpr::evalType(ReferenceContext& context) const {
+TypeReference DotExpr::evalType(LocalContext& context) const {
     if (auto func = dynamic_cast<FuncType*>(rhs->typeCache.get())) {
         if (func->P.empty()) throw TypeException(unexpected(rhs->typeCache, "fn with at least one parameter"), rhs->segment());
         if (func->P[0]->assignableFrom(lhs->typeCache))
@@ -296,7 +282,7 @@ TypeReference DotExpr::evalType(ReferenceContext& context) const {
     throw TypeException(unexpected(rhs->typeCache, "invocable type"), rhs->segment());
 }
 
-TypeReference AsExpr::evalType(ReferenceContext& context) const {
+TypeReference AsExpr::evalType(LocalContext& context) const {
     auto type = lhs->typeCache;
     if (T->assignableFrom(type) || isAny(type) && !isNever(T)
         || isSimilar(isArithmetic, type, T)
@@ -312,7 +298,7 @@ int64_t AsExpr::evalConst(SourceCode& sourcecode) const {
     return lhs->evalConst(sourcecode);
 }
 
-TypeReference IsExpr::evalType(ReferenceContext& context) const {
+TypeReference IsExpr::evalType(LocalContext& context) const {
     neverGonnaGiveYouUp(lhs.get(), "");
     return ScalarTypes::BOOL;
 }
@@ -322,7 +308,7 @@ int64_t IsExpr::evalConst(SourceCode& sourcecode) const {
     return lhs->typeCache->equals(T);
 }
 
-TypeReference DefaultExpr::evalType(ReferenceContext& context) const {
+TypeReference DefaultExpr::evalType(LocalContext& context) const {
     neverGonnaGiveYouUp(T, "for it has no instance at all", segment());
     if (isAny(T)) throw TypeException("any has no default instance", segment());
     if (auto tuple = dynamic_cast<TupleType*>(T.get())) throw TypeException("tuple has no default instance", segment());
@@ -335,7 +321,7 @@ int64_t DefaultExpr::evalConst(SourceCode& sourcecode) const {
     return 0;
 }
 
-TypeReference TupleExpr::evalType(ReferenceContext &context) const {
+TypeReference TupleExpr::evalType(LocalContext &context) const {
     std::vector<TypeReference> E;
     for (auto&& expr: elements) {
         E.push_back(expr->typeCache);
@@ -343,7 +329,7 @@ TypeReference TupleExpr::evalType(ReferenceContext &context) const {
     return std::make_shared<TupleType>(std::move(E));
 }
 
-TypeReference ListExpr::evalType(ReferenceContext& context) const {
+TypeReference ListExpr::evalType(LocalContext& context) const {
     auto type0 = elements.front()->typeCache;
     neverGonnaGiveYouUp(elements.front().get(), "as list element");
     for (size_t i = 1; i < elements.size(); ++i) {
@@ -353,7 +339,7 @@ TypeReference ListExpr::evalType(ReferenceContext& context) const {
     return listOf(type0);
 }
 
-TypeReference SetExpr::evalType(ReferenceContext &context) const {
+TypeReference SetExpr::evalType(LocalContext &context) const {
     auto type0 = elements.front()->typeCache;
     neverGonnaGiveYouUp(elements.front().get(), "as set element");
     for (size_t i = 1; i < elements.size(); ++i) {
@@ -363,7 +349,7 @@ TypeReference SetExpr::evalType(ReferenceContext &context) const {
     return std::make_shared<SetType>(type0);
 }
 
-TypeReference DictExpr::evalType(ReferenceContext& context) const {
+TypeReference DictExpr::evalType(LocalContext& context) const {
     auto key0 = elements.front().first->typeCache;
     auto value0 = elements.front().second->typeCache;
     neverGonnaGiveYouUp(elements.front().first.get(), "as dict key");
@@ -377,7 +363,7 @@ TypeReference DictExpr::evalType(ReferenceContext& context) const {
     return std::make_shared<DictType>(std::move(key0), std::move(value0));
 }
 
-TypeReference ClauseExpr::evalType(ReferenceContext& context) const {
+TypeReference ClauseExpr::evalType(LocalContext& context) const {
     for (auto&& expr : lines) if (isNever(expr->typeCache)) return ScalarTypes::NEVER;
     return lines.empty() ? ScalarTypes::NONE : lines.back()->typeCache;
 }
@@ -389,7 +375,7 @@ int64_t ClauseExpr::evalConst(SourceCode& sourcecode) const {
     return value;
 }
 
-TypeReference IfElseExpr::evalType(ReferenceContext& context) const {
+TypeReference IfElseExpr::evalType(LocalContext& context) const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     try {
@@ -406,16 +392,16 @@ int64_t IfElseExpr::evalConst(SourceCode& sourcecode) const {
     return cond->evalConst(sourcecode) ? lhs->evalConst(sourcecode) : rhs->evalConst(sourcecode);
 }
 
-TypeReference BreakExpr::evalType(ReferenceContext& context) const {
+TypeReference BreakExpr::evalType(LocalContext& context) const {
     return ScalarTypes::NEVER;
 }
 
-TypeReference YieldExpr::evalType(ReferenceContext& context) const {
+TypeReference YieldExpr::evalType(LocalContext& context) const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return rhs->typeCache;
 }
 
-TypeReference WhileExpr::evalType(ReferenceContext& context) const {
+TypeReference WhileExpr::evalType(LocalContext& context) const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
@@ -426,30 +412,30 @@ TypeReference WhileExpr::evalType(ReferenceContext& context) const {
     return hook->yield();
 }
 
-TypeReference ForExpr::evalType(ReferenceContext& context) const {
+TypeReference ForExpr::evalType(LocalContext& context) const {
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     return hook->yield();
 }
 
-TypeReference ForDestructuringExpr::evalType(ReferenceContext& context) const {
+TypeReference ForDestructuringExpr::evalType(LocalContext& context) const {
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     return hook->yield();
 }
 
-TypeReference ReturnExpr::evalType(ReferenceContext& context) const {
+TypeReference ReturnExpr::evalType(LocalContext& context) const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return ScalarTypes::NEVER;
 }
 
-TypeReference FnExprBase::evalType(ReferenceContext &context) const {
+TypeReference FnExprBase::evalType(LocalContext &context) const {
     return prototype;
 }
 
-TypeReference LetExpr::evalType(ReferenceContext& context) const {
+TypeReference LetExpr::evalType(LocalContext& context) const {
     return designated;
 }
 
-TypeReference LetDestructuringExpr::evalType(ReferenceContext& context) const {
+TypeReference LetDestructuringExpr::evalType(LocalContext& context) const {
     return std::make_shared<TupleType>(designated);
 }
 

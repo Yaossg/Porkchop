@@ -6,26 +6,37 @@ namespace Porkchop {
 
 struct FnDeclExpr;
 struct FnDefExpr;
+struct LambdaExpr;
 
-struct ReferenceContext {
-    std::vector<std::unordered_map<std::string_view, TypeReference>> scopes{{}};
-    std::vector<std::unordered_map<std::string_view, FnDeclExpr*>> decl_scopes{{}};
-    std::vector<std::unordered_map<std::string_view, FnDefExpr*>> def_scopes{{}};
+struct LocalContext {
+    std::deque<std::unordered_map<std::string_view, size_t>> localIndices;
+    std::vector<TypeReference> localTypes;
+
+    std::deque<std::unordered_map<std::string_view, size_t>> declaredIndices{{}};
+    std::deque<std::unordered_map<std::string_view, size_t>> definedIndices{{}};
+
     SourceCode* sourcecode;
-    ReferenceContext* parent;
+    LocalContext* parent;
 
-    explicit ReferenceContext(SourceCode* sourcecode, ReferenceContext* parent);
+    explicit LocalContext(SourceCode* sourcecode, LocalContext* parent);
     void push();
     void pop();
-    void global(std::string_view name, TypeReference const& type);
     void local(Token token, TypeReference const& type);
     void declare(Token token, FnDeclExpr* decl);
     void define(Token token, FnDefExpr* def);
-    [[nodiscard]] TypeReference lookup(Token token, bool captured = true) const;
+    void lambda(LambdaExpr* lambda) const;
+
+    struct LookupResult {
+        TypeReference type;
+        bool function;
+        size_t index;
+    };
+
+    [[nodiscard]] LookupResult lookup(Token token, bool local = true) const;
 
     struct Guard {
-        ReferenceContext& context;
-        explicit Guard(ReferenceContext& context): context(context) {
+        LocalContext& context;
+        explicit Guard(LocalContext& context): context(context) {
             context.push();
         }
         ~Guard() noexcept(false) {

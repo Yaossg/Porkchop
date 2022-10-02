@@ -3,70 +3,97 @@
 
 namespace Porkchop {
 
-ReferenceContext::ReferenceContext(SourceCode *sourcecode, ReferenceContext *parent) : sourcecode(sourcecode), parent(parent) {
-    global("println", std::make_shared<FuncType>(std::vector{ScalarTypes::STRING}, ScalarTypes::NONE));
-    global("exit", std::make_shared<FuncType>(std::vector{ScalarTypes::INT}, ScalarTypes::NEVER));
+LocalContext::LocalContext(SourceCode *sourcecode, LocalContext *parent) : sourcecode(sourcecode), parent(parent) {}
+
+void LocalContext::push() {
+    localIndices.emplace_back();
+    declaredIndices.emplace_back();
+    definedIndices.emplace_back();
 }
 
-void ReferenceContext::push() {
-    scopes.emplace_back();
-    decl_scopes.emplace_back();
-    def_scopes.emplace_back();
+void LocalContext::pop() {
+    if (!declaredIndices.back().empty() && std::uncaught_exceptions() == 0) {
+        size_t index = declaredIndices.back().begin()->second;
+        auto function = dynamic_cast<NamedFunction*>(sourcecode->functions[index].get());
+        throw TypeException("undefined declared function", function->decl->segment());
+    }
+    localIndices.pop_back();
+    declaredIndices.pop_back();
+    definedIndices.pop_back();
 }
 
-void ReferenceContext::pop() {
-    if (!decl_scopes.back().empty() && std::uncaught_exceptions() == 0)
-        throw TypeException("undefined function", decl_scopes.back().begin()->second->segment());
-    scopes.pop_back();
-    decl_scopes.pop_back();
-    def_scopes.pop_back();
-}
-
-void ReferenceContext::global(std::string_view name, const TypeReference &type) {
-    scopes.front().insert_or_assign(name, type);
-}
-
-void ReferenceContext::local(Token token, const TypeReference &type) {
+void LocalContext::local(Token token, const TypeReference& type) {
     std::string_view name = sourcecode->of(token);
     if (name == "_") return;
-    scopes.back().insert_or_assign(name, type);
+    localIndices.back().insert_or_assign(name, localTypes.size());
+    localTypes.push_back(type);
 }
 
-void ReferenceContext::declare(Token token, FnDeclExpr* decl) {
+void LocalContext::declare(Token token, FnDeclExpr* decl) {
     std::string_view name = sourcecode->of(token);
     if (name == "_") throw TypeException("function name must not be '_'", decl->segment());
-    decl_scopes.back().insert_or_assign(name, decl);
+    auto function = std::make_unique<NamedFunction>();
+    function->decl = decl;
+    size_t index = sourcecode->functions.size();
+    declaredIndices.back().insert_or_assign(name, index);
+    sourcecode->functions.emplace_back(std::move(function));
+    decl->index = index;
 }
 
-void ReferenceContext::define(Token token, FnDefExpr* def) {
+void LocalContext::define(Token token, FnDefExpr* def) {
     std::string_view name = sourcecode->of(token);
     if (name == "_") throw TypeException("function name must not be '_'", def->segment());
-    if (auto it = decl_scopes.back().find(name); it != decl_scopes.back().end()) {
-        expected(it->second, def->prototype);
-        decl_scopes.back().erase(it);
+    if (auto it = declaredIndices.back().find(name); it != declaredIndices.back().end()) {
+        size_t index = it->second;
+        auto function = dynamic_cast<NamedFunction*>(sourcecode->functions[index].get());
+        expected(function->decl, def->prototype);
+        function->def = def;
+        declaredIndices.back().erase(it);
+        definedIndices.back().insert_or_assign(name, index);
+        def->index = index;
+    } else {
+        auto function = std::make_unique<NamedFunction>();
+        function->def = def;
+        size_t index = sourcecode->functions.size();
+        definedIndices.back().insert_or_assign(name, index);
+        sourcecode->functions.emplace_back(std::move(function));
+        def->index = index;
     }
-    def_scopes.back().insert_or_assign(name, def);
 }
 
-TypeReference ReferenceContext::lookup(Token token, bool captured) const {
+void LocalContext::lambda(LambdaExpr* lambda) const {
+    auto function = std::make_unique<LambdaFunction>();
+    function->lambda = lambda;
+    size_t index = sourcecode->functions.size();
+    sourcecode->functions.emplace_back(std::move(function));
+    lambda->index = index;
+}
+
+LocalContext::LookupResult LocalContext::lookup(Token token, bool local) const {
     std::string_view name = sourcecode->of(token);
-    if (name == "_") return ScalarTypes::NONE;
-    if (captured) {
-        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
-            if (auto lookup = it->find(name); lookup != it->end())
-                return lookup->second;
+    if (name == "_") return {ScalarTypes::NONE, false, 0};
+    if (local) {
+        for (auto it = localIndices.rbegin(); it != localIndices.rend(); ++it) {
+            if (auto lookup = it->find(name); lookup != it->end()) {
+                size_t index = lookup->second;
+                return {localTypes[index], false, index};
+            }
         }
     }
-    for (auto it = decl_scopes.rbegin(); it != decl_scopes.rend(); ++it) {
+    for (auto it = declaredIndices.rbegin(); it != declaredIndices.rend(); ++it) {
         if (auto lookup = it->find(name); lookup != it->end()) {
-            if (lookup->second->prototype->R == nullptr)
-                throw TypeException("recursive function without specified return type", lookup->second->segment());
-            return lookup->second->prototype;
+            size_t index = lookup->second;
+            auto function = dynamic_cast<NamedFunction*>(sourcecode->functions[index].get());
+            if (function->decl->prototype->R == nullptr)
+                throw TypeException("recursive function without specified return type", function->decl->segment());
+            return {function->decl->prototype, true, index};
         }
     }
-    for (auto it = def_scopes.rbegin(); it != def_scopes.rend(); ++it) {
+    for (auto it = definedIndices.rbegin(); it != definedIndices.rend(); ++it) {
         if (auto lookup = it->find(name); lookup != it->end()) {
-            return lookup->second->prototype;
+            size_t index = lookup->second;
+            auto function = dynamic_cast<NamedFunction*>(sourcecode->functions[index].get());
+            return {function->decl->prototype, true, index};
         }
     }
     return parent ? parent->lookup(token, false) : throw TypeException("unable to resolve this identifier", token);

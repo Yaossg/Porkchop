@@ -29,13 +29,13 @@ struct Expr : Descriptor {
     }
 
     TypeReference typeCache;
-    void initialize(ReferenceContext& context) {
+    void initialize(LocalContext& context) {
         typeCache = evalType(context);
     }
 
     [[nodiscard]] virtual Segment segment() const = 0;
 
-    [[nodiscard]] virtual TypeReference evalType(ReferenceContext& context) const = 0;
+    [[nodiscard]] virtual TypeReference evalType(LocalContext& context) const = 0;
 
     [[nodiscard]] virtual int64_t evalConst(SourceCode& sourcecode) const {
         throw ConstException("cannot evaluate at compile-time", segment());
@@ -59,7 +59,7 @@ struct BoolConstExpr : ConstExpr {
 
     explicit BoolConstExpr(Token token): ConstExpr(token) {}
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -69,7 +69,7 @@ struct CharConstExpr : ConstExpr {
 
     explicit CharConstExpr(Token token): ConstExpr(token) {}
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct StringConstExpr : ConstExpr {
@@ -77,7 +77,7 @@ struct StringConstExpr : ConstExpr {
 
     explicit StringConstExpr(Token token): ConstExpr(token) {}
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct IntConstExpr : ConstExpr {
@@ -85,7 +85,7 @@ struct IntConstExpr : ConstExpr {
 
     explicit IntConstExpr(Token token): ConstExpr(token) {}
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -95,13 +95,14 @@ struct FloatConstExpr : ConstExpr {
 
     explicit FloatConstExpr(Token token): ConstExpr(token) {}
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;\
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct LoadExpr : Expr {};
 
 struct IdExpr : LoadExpr {
     Token token;
+    mutable LocalContext::LookupResult lookup;
 
     explicit IdExpr(Token token): token(token) {}
 
@@ -111,9 +112,7 @@ struct IdExpr : LoadExpr {
         return token;
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override {
-        return context.lookup(token);
-    }
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct PrefixExpr : Expr {
@@ -129,7 +128,7 @@ struct PrefixExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -147,7 +146,7 @@ struct IdPrefixExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct IdPostfixExpr : Expr {
@@ -163,7 +162,7 @@ struct IdPostfixExpr : Expr {
         return range(lhs->segment(), token);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct InfixExpr : Expr {
@@ -181,7 +180,7 @@ struct InfixExpr : Expr {
         return range(lhs->segment(), rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -201,7 +200,7 @@ struct AssignExpr : Expr {
         return range(lhs->segment(), rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct LogicalExpr : Expr {
@@ -219,7 +218,7 @@ struct LogicalExpr : Expr {
         return range(lhs->segment(), rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -239,7 +238,7 @@ struct AccessExpr : LoadExpr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct InvokeExpr : Expr {
@@ -261,7 +260,7 @@ struct InvokeExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct DotExpr : Expr {
@@ -277,7 +276,7 @@ struct DotExpr : Expr {
         return range(lhs->segment(), rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct AsExpr : Expr {
@@ -295,7 +294,7 @@ struct AsExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -311,7 +310,7 @@ struct IsExpr : Expr {
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), T.get()}; }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "is"; }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
@@ -334,7 +333,7 @@ struct DefaultExpr : Expr {
         return range(token, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -357,7 +356,7 @@ struct TupleExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct ListExpr : Expr {
@@ -378,7 +377,7 @@ struct ListExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct SetExpr : Expr {
@@ -399,7 +398,7 @@ struct SetExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct DictExpr : Expr {
@@ -423,7 +422,7 @@ struct DictExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct ClauseExpr : Expr {
@@ -444,7 +443,7 @@ struct ClauseExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -465,7 +464,7 @@ struct IfElseExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 };
@@ -485,7 +484,7 @@ struct BreakExpr : Expr {
         return token;
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct YieldExpr : Expr {
@@ -502,7 +501,7 @@ struct YieldExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct LoopHook {
@@ -543,7 +542,7 @@ struct WhileExpr : LoopExpr {
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "while"; }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct ForExpr : LoopExpr {
@@ -557,7 +556,7 @@ struct ForExpr : LoopExpr {
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), designated.get(), rhs.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "for"; }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct ForDestructuringExpr : LoopExpr {
@@ -578,7 +577,7 @@ struct ForDestructuringExpr : LoopExpr {
     }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "for"; }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct ReturnExpr : Expr {
@@ -594,15 +593,16 @@ struct ReturnExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct FnExprBase : Expr {
     Token token;
     std::shared_ptr<FuncType> prototype;
+    size_t index;
     FnExprBase(Token token, std::shared_ptr<FuncType> prototype): token(token), prototype(std::move(prototype)) {}
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext &context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext &context) const override;
 };
 
 struct NamedFnExpr : virtual FnExprBase {
@@ -673,6 +673,23 @@ struct LambdaExpr : DefinedFnExpr {
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "$"; }
 };
 
+struct Function {
+    virtual ~Function() = default;
+};
+
+struct NamedFunction : Function {
+    FnDeclExpr* decl;
+    FnDefExpr* def;
+};
+
+struct LambdaFunction : Function {
+    LambdaExpr* lambda;
+};
+
+struct ExternalFunction : Function {
+
+};
+
 struct LetExpr : Expr {
     Token token;
     IdExprHandle lhs;
@@ -689,7 +706,7 @@ struct LetExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 struct LetDestructuringExpr : Expr {
@@ -714,7 +731,7 @@ struct LetDestructuringExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(ReferenceContext& context) const override;
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 };
 
 }

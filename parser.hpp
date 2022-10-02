@@ -11,11 +11,11 @@ struct Parser {
     const std::vector<Token>::const_iterator q;
     std::vector<std::shared_ptr<LoopHook>> hooks;
     std::vector<const ReturnExpr*> returns;
-    ReferenceContext context;
+    LocalContext context;
 
     Parser(SourceCode* sourcecode, std::vector<Token> const& tokens): Parser(sourcecode, tokens.cbegin(), tokens.cend(), nullptr) {}
 
-    Parser(SourceCode* sourcecode, std::vector<Token>::const_iterator p, const std::vector<Token>::const_iterator q, ReferenceContext* parent):
+    Parser(SourceCode* sourcecode, std::vector<Token>::const_iterator p, const std::vector<Token>::const_iterator q, LocalContext* parent):
             sourcecode(sourcecode), p(p), q(q), context(this->sourcecode, parent) {}
 
     Token next() {
