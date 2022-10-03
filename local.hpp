@@ -9,7 +9,7 @@ struct FnDefExpr;
 struct LambdaExpr;
 
 struct LocalContext {
-    std::deque<std::unordered_map<std::string_view, size_t>> localIndices;
+    std::deque<std::unordered_map<std::string_view, size_t>> localIndices{{}};
     std::vector<TypeReference> localTypes;
 
     std::deque<std::unordered_map<std::string_view, size_t>> declaredIndices{{}};
@@ -24,6 +24,7 @@ struct LocalContext {
     void local(Token token, TypeReference const& type);
     void declare(Token token, FnDeclExpr* decl);
     void define(Token token, FnDefExpr* def);
+    void defineExternal(std::string_view name, TypeReference const& prototype);
     void lambda(LambdaExpr* lambda) const;
 
     struct LookupResult {

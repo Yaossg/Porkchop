@@ -110,16 +110,13 @@ struct Tokenizer {
                     add(TokenType::STRING_LITERAL);
                     break;
                 default: {
-                    if (isNumberStart(ch) || (ch == '+' || ch == '-') && isNumberStart(peekc())) {
-                        ungetc(ch);
+                    ungetc(ch);
+                    if (isNumberStart(ch)) {
                         addNumber();
+                    } else if (isPunctuation(ch)) {
+                        addPunct();
                     } else {
-                        ungetc(ch);
-                        if (isPunctuation(ch)) {
-                            addPunct();
-                        } else {
-                            addId();
-                        }
+                        addId();
                     }
                 }
             }
@@ -241,35 +238,6 @@ struct Tokenizer {
 
 [[nodiscard]] std::vector<Token> tokenize(std::string_view view, size_t line) {
     return Tokenizer(view, line).tokens;
-}
-
-void SourceCode::split() {
-    std::string_view view(original);
-    const char *p = view.begin(), *q = p, *r = view.end();
-    while (q != r) {
-        switch (*q++) {
-            [[unlikely]] case '#': {
-                lines.emplace_back(p, q - 1);
-                while (q != r && *q++ != '\n');
-                p = q;
-                break;
-            }
-                [[unlikely]] case '\n': {
-                lines.emplace_back(p, q - 1);
-                p = q;
-                break;
-            }
-        }
-    }
-    if (p != q) lines.emplace_back(p, q);
-}
-
-void SourceCode::tokenize() {
-    for (size_t line = 0; line < lines.size(); ++line) {
-        for (auto&& token : Porkchop::tokenize(lines[line], line)) {
-            tokens.push_back(token);
-        }
-    }
 }
 
 }

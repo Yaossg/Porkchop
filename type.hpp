@@ -93,8 +93,51 @@ const TypeReference STRING = std::make_shared<ScalarType>(ScalarTypeKind::STRING
     return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::NEVER; });
 }
 
+[[nodiscard]] inline bool isByte(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::BYTE; });
+}
+
+[[nodiscard]] inline bool isInt(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT; });
+}
+
+[[nodiscard]] inline bool isFloat(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::FLOAT; });
+}
+
+[[nodiscard]] inline bool isChar(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::CHAR; });
+}
+
 [[nodiscard]] inline bool isString(TypeReference const& type) noexcept {
     return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::STRING; });
+}
+
+[[nodiscard]] inline bool isSimilar(bool pred(TypeReference const&), TypeReference const& type1, TypeReference const& type2) noexcept {
+    return pred(type1) && pred(type2);
+}
+
+[[nodiscard]] inline bool isArithmetic(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT || kind == ScalarTypeKind::FLOAT; });
+}
+
+[[nodiscard]] inline bool isIntegral(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT || kind == ScalarTypeKind::BYTE; });
+}
+
+[[nodiscard]] inline bool isCharLike(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT || kind == ScalarTypeKind::CHAR; });
+}
+
+[[nodiscard]] inline bool isCompileTime(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::BOOL || kind == ScalarTypeKind::INT; });
+}
+
+[[nodiscard]] inline bool isValueBased(TypeReference const& type) noexcept {
+    return isScalar(type, [](ScalarTypeKind kind) noexcept { return
+        kind == ScalarTypeKind::NONE || kind == ScalarTypeKind::BOOL || kind == ScalarTypeKind::BYTE
+        || kind == ScalarTypeKind::CHAR || kind == ScalarTypeKind::INT || kind == ScalarTypeKind::FLOAT;
+    });
 }
 
 struct TupleType : Type {
@@ -223,34 +266,6 @@ struct FuncType : Type {
     }
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "():"; }
 };
-
-[[nodiscard]] inline bool isSimilar(bool pred(TypeReference const&), TypeReference const& type1, TypeReference const& type2) noexcept {
-    return pred(type1) && pred(type2);
-}
-
-[[nodiscard]] inline bool isArithmetic(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT || kind == ScalarTypeKind::FLOAT; });
-}
-
-[[nodiscard]] inline bool isIntegral(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT || kind == ScalarTypeKind::BYTE; });
-}
-
-[[nodiscard]] inline bool isCharLike(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT || kind == ScalarTypeKind::CHAR; });
-}
-
-[[nodiscard]] inline bool isCharListLike(TypeReference const& type) noexcept {
-    return isString(type) || ListTypes::CHARLIST->equals(type);
-}
-
-[[nodiscard]] inline bool isStringOrByteList(TypeReference const& type) noexcept {
-    return isString(type) || ListTypes::BYTELIST->equals(type);
-}
-
-[[nodiscard]] inline bool isCompileTime(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::BOOL || kind == ScalarTypeKind::INT; });
-}
 
 [[nodiscard]] inline TypeReference eithertype(TypeReference const& type1, TypeReference const& type2) noexcept {
     if (type1->equals(type2)) return type1;

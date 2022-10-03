@@ -25,8 +25,11 @@ struct SourceCode {
     std::vector<Token> tokens;
     ExprHandle tree;
     TypeReference type;
-
     std::vector<std::unique_ptr<Function>> functions;
+    std::vector<std::string> bytecode;
+
+    size_t locals;
+    size_t nextLabelIndex = 0;
 
     explicit SourceCode(std::string original) noexcept;
 
@@ -35,6 +38,8 @@ struct SourceCode {
     void tokenize();
 
     void parse();
+
+    void compile();
 
     [[nodiscard]] std::string_view of(Token token) const noexcept;
 };

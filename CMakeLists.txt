@@ -9,7 +9,7 @@ add_executable(Porkchop
         main.cpp
         type.hpp lexer.cpp
         token.hpp token.cpp
-        sourcecode.hpp
+        sourcecode.hpp sourcecode.cpp
         local.hpp local.cpp
         parser.hpp parser.cpp
         tree.hpp tree.cpp
@@ -17,4 +17,5 @@ add_executable(Porkchop
         literal.hpp literal.cpp
         unicode.hpp unicode.cpp
         unicode-id.cpp unicode-width.cpp
+        function.hpp
 )

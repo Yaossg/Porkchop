@@ -1,4 +1,6 @@
 #include "token.hpp"
+#include "sourcecode.hpp"
+
 
 namespace Porkchop {
 
@@ -43,7 +45,7 @@ const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
     {"^", TokenType::OP_XOR},
     {"|", TokenType::OP_OR},
     {"==", TokenType::OP_EQ},
-    {"!=", TokenType::OP_NEQ},
+    {"!=", TokenType::OP_NE},
     {"<", TokenType::OP_LT},
     {">", TokenType::OP_GT},
     {"<=", TokenType::OP_LE},

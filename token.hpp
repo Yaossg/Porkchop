@@ -54,7 +54,7 @@ enum class TokenType {
     OP_XOR,
     OP_AND,
     OP_EQ,
-    OP_NEQ,
+    OP_NE,
     OP_LT,
     OP_GT,
     OP_LE,

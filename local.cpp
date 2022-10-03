@@ -1,5 +1,5 @@
 #include "local.hpp"
-#include "tree.hpp"
+#include "function.hpp"
 
 namespace Porkchop {
 
@@ -69,6 +69,14 @@ void LocalContext::lambda(LambdaExpr* lambda) const {
     lambda->index = index;
 }
 
+void LocalContext::defineExternal(std::string_view name, TypeReference const& prototype) {
+    auto function = std::make_unique<ExternalFunction>();
+    function->type = prototype;
+    size_t index = sourcecode->functions.size();
+    definedIndices.back().insert_or_assign(name, index);
+    sourcecode->functions.emplace_back(std::move(function));
+}
+
 LocalContext::LookupResult LocalContext::lookup(Token token, bool local) const {
     std::string_view name = sourcecode->of(token);
     if (name == "_") return {ScalarTypes::NONE, false, 0};
@@ -92,10 +100,10 @@ LocalContext::LookupResult LocalContext::lookup(Token token, bool local) const {
     for (auto it = definedIndices.rbegin(); it != definedIndices.rend(); ++it) {
         if (auto lookup = it->find(name); lookup != it->end()) {
             size_t index = lookup->second;
-            auto function = dynamic_cast<NamedFunction*>(sourcecode->functions[index].get());
-            return {function->decl->prototype, true, index};
+            return {sourcecode->functions[index]->prototype(), true, index};
         }
     }
     return parent ? parent->lookup(token, false) : throw TypeException("unable to resolve this identifier", token);
 }
+
 }

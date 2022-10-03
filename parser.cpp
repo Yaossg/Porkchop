@@ -11,17 +11,6 @@ std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& base) noex
     return nullptr;
 }
 
-SourceCode::SourceCode(std::string original) noexcept: original(std::move(original)) /* default-constructed members... */ {}
-
-void SourceCode::parse() { // TODO
-    if (tokens.empty()) return;
-    Parser parser(this, tokens);
-    std::tie(tree, type) = parser.parseFnBody();
-    parser.expect(TokenType::LINEBREAK, "a linebreak is expected");
-    if (parser.remains())
-        throw ParserException("unterminated tokens", parser.peek());
-}
-
 bool isInLevel(TokenType type, Expr::Level level) {
     switch (type) {
         case TokenType::OP_LOR: return level == Expr::Level::LOR;
@@ -30,7 +19,7 @@ bool isInLevel(TokenType type, Expr::Level level) {
         case TokenType::OP_XOR: return level == Expr::Level::XOR;
         case TokenType::OP_AND: return level == Expr::Level::AND;
         case TokenType::OP_EQ:
-        case TokenType::OP_NEQ: return level == Expr::Level::EQUALITY;
+        case TokenType::OP_NE: return level == Expr::Level::EQUALITY;
         case TokenType::OP_LT:
         case TokenType::OP_GT:
         case TokenType::OP_LE:
@@ -107,7 +96,17 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
         case Expr::Level::PREFIX: {
             switch (Token token = peek(); token.type) {
                 case TokenType::OP_ADD:
-                case TokenType::OP_SUB:
+                case TokenType::OP_SUB: {
+                    next();
+                    auto rhs = parseExpression(level);
+                    if (auto number = dynamic_cast<IntConstExpr*>(rhs.get())) {
+                        auto token2 = number->token;
+                        if (!number->merged && token.line == token2.line && token.column + token.width == token2.column) {
+                            return context.make<IntConstExpr>(Token{token.line, token.column, token.width + token2.width, token2.type}, true);
+                        }
+                    }
+                    return context.make<PrefixExpr>(token, std::move(rhs));
+                }
                 case TokenType::OP_NOT:
                 case TokenType::OP_INV: {
                     next();
@@ -378,6 +377,7 @@ void Parser::declaring(IdExprHandle const& lhs, TypeReference& designated, TypeR
     if (designated == nullptr) designated = type;
     assignable(type, designated, segment);
     context.local(lhs->token, designated);
+    lhs->initLookup(context);
 }
 
 void Parser::destructuring(std::vector<IdExprHandle> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment) {
@@ -395,8 +395,12 @@ void Parser::destructuring(std::vector<IdExprHandle> const& lhs, std::vector<Typ
         for (size_t i = 0; i < designated.size(); ++i) {
             context.local(lhs[i]->token, designated[i]);
         }
+        for (auto&& e : lhs) {
+            e->initLookup(context);
+        }
+    } else {
+        throw TypeException(unexpected(type, "tuple type"), segment);
     }
-    throw TypeException(unexpected(type, "tuple type"), segment);
 }
 
 ExprHandle Parser::parseFor() {
@@ -501,6 +505,7 @@ ExprHandle Parser::parseFn() {
         assignable(type0, F->R, range(token, clause->segment()));
         name = std::move(decl->name);
         auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F), std::move(clause));
+        fn->locals = child.context.localTypes.size();
         context.define(fn->name->token, fn.get());
         return fn;
     } else {
@@ -544,6 +549,7 @@ ExprHandle Parser::parseLambda() {
     if (F->R == nullptr) F->R = type0;
     assignable(type0, F->R, range(token, clause->segment()));
     auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F), std::move(clause));
+    lambda->locals = child.context.localTypes.size();
     context.lambda(lambda.get());
     return lambda;
 }
