@@ -10,33 +10,25 @@ Porkchop Programming Language
 
 ## 说明
 
-目前编译器只有前端，只能用来检查语法错误、生成语法树。
-
-编译器后端和虚拟机绝赞企划中...
+极个别功能暂时不能编译成字节码，运行时正在打磨，敬请期待！
 
 ## 编译器使用
 
 ```
-porkchop source.txt
+Porkchop <input> [options...]
 ```
 
-编译当前文件夹下的 source.txt，编译器不要求后缀名，默认在当前文件夹下输出 source.txt.mermaid
+第一个参数为输入源代码文件。
 
-```
-porkchop source.txt -o hello.mermaid
-```
+参数：
 
-指定输出文件名
+- `-o <output>` 指定输出文件名。如果缺省，则根据输入文件名和输出类型自动合成。`-o <stdout>` 表示输出到控制台，`-o <null>` 表示只检查语法，不输出。
+- `-m` 或 `--mermaid` 输出语法树。
+- `-b` 或 `--bytecode` 输出字节码。
 
-```
-porkchop source.txt -o <stdout>
-```
+### Mermaid 的使用
 
-指定控制台为输出
-
-## 输出文件的使用
-
-如果你有 Typora，可以新建一个 markdown 文件，并把生成的内容放置于下面的代码里：
+语法树是使用 mermaid 格式输出的。如果你有 Typora，可以新建一个 markdown 文件，并把生成的内容放置于下面的代码里：
 
 ````
 ```mermaid
@@ -71,7 +63,7 @@ graph
 }
 ```
 
-编译结果：
+语法树编译结果：
 
 ```mermaid
 graph
@@ -152,6 +144,60 @@ graph
 37["return"]
 37-->38
 38["true"]
+```
+
+字节码编译结果：
+
+```
+(
+local 0
+func 9
+return
+)
+(
+local 2
+load 0
+const 2
+ilt
+jmp0 L0
+const 0
+return
+jmp L1
+L0: nop
+const 0
+L1: nop
+pop
+const 2
+store 1
+pop
+L2: nop
+load 1
+load 1
+imul
+load 0
+ile
+jmp0 L3
+load 0
+load 1
+irem
+const 0
+ieq
+jmp0 L4
+const 0
+return
+jmp L5
+L4: nop
+const 0
+L5: nop
+pop
+jmp L2
+L3: nop
+const 0
+pop
+const 1
+return
+return
+)
 ```
 
 ## 源文件
@@ -322,7 +368,9 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 }
 ```
 
-支持 break 但是不支持 continue，这里从略
+还可以 break，这里从略。
+
+> 说明：for 循环和 yield 的字节码输出暂未实现，敬请期待
 
 ## 函数
 
@@ -336,18 +384,18 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 }
 ```
 
-函数也可以作为参数传递，匿名函数可以作为 lambda 表达式使用。
+函数也可以作为参数传递
 
 ```
 {
     fn caller(callback: (string): none) = {
         callback("hello")
     }
-    caller(fn(x: string)=println(x))
+    caller(println)
 }
 ```
 
-可以用 return 提前返回，也可以直接利用表达式求得。（例子见前面的 isPrime）
+可以用 return 提前返回（例子见前面的 isPrime），也可以直接利用表达式求得。
 
 提供了一种绑定机制，成员函数实际上是调用对象作为第一个参数的函数，如下所示：
 
@@ -356,13 +404,13 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
     # 下面两种形式等价：
     println("hello")
     "hello".println()
-    
-    let f = 0 as any as (int, int, int): none
+
+    fn f(a: int, b: int, c: int) = {}
 
     let f1 = 0.f
     let f2 = 0.f1
     let f3 = 0.f2
-    
+
     f3() # 等价于 f(0, 0, 0)
 }
 ```
@@ -377,7 +425,35 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 }
 ```
 
-更多细节这里从略
+此外还有 lambda 表达式：
+
+```
+{
+    fn withdraw(balance: int) = {
+        let balance = [balance] # shadowing
+        $ balance (amount: int) = {
+            if (balance[0] >= amount) {
+                balance[0] -= amount
+                if (amount >= 0) {
+                    println(toString(balance[0] as any))
+                }
+            } else {
+                println("v50")
+            }
+        }
+    }
+    fn v50(account: (int): none) = account(-50)
+    let w1 = withdraw(100)
+    let w2 = withdraw(100)
+    w1(50)
+    w2(50)
+    w1(70)
+    v50(w1)
+    w1(70)
+}
+```
+
+美元符号和参数列表之间的就是捕获的变量。变量是按值捕获的，且每次函数调用时值都与捕获时相同。
 
 ## 解构
 
@@ -407,6 +483,8 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
     }
 }
 ```
+
+> 说明：for 循环结构的字节码输出暂未实现，敬请期待
 
 ## Unicode 支持
 
