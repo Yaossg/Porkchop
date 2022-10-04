@@ -51,7 +51,7 @@ struct ScalarType : Type {
         switch (S) {
             case ScalarTypeKind::NEVER:
                 return false;
-            case ScalarTypeKind::ANY:
+            // case ScalarTypeKind::ANY: // TODO allow this?
             case ScalarTypeKind::NONE:
                 return !isNever(type);
             default:

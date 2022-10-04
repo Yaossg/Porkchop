@@ -5,7 +5,7 @@
 namespace Porkchop {
 
 TypeReference BoolConstExpr::evalType(LocalContext& context) const {
-    parsed = token.type == TokenType::KW_FALSE;
+    parsed = token.type == TokenType::KW_TRUE;
     return ScalarTypes::BOOL;
 }
 
@@ -115,8 +115,6 @@ void IdExpr::walkStoreBytecode(SourceCode &sourcecode, std::vector<std::string> 
         char s[30];
         sprintf(s, "store %zu", lookup.index);
         bytecode.emplace_back(s);
-        sprintf(s, "load %zu", lookup.index);
-        bytecode.emplace_back(s);
     }
 }
 
@@ -181,7 +179,6 @@ void IdPrefixExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string>
     rhs->walkBytecode(sourcecode, bytecode);
     bytecode.emplace_back("const 1");
     bytecode.emplace_back(token.type == TokenType::OP_INC ? "iadd" : "isub");
-    bytecode.emplace_back("dup");
     rhs->walkStoreBytecode(sourcecode, bytecode);
 }
 
@@ -196,6 +193,7 @@ void IdPostfixExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string
     bytecode.emplace_back("const 1");
     bytecode.emplace_back(token.type == TokenType::OP_INC ? "iadd" : "isub");
     lhs->walkStoreBytecode(sourcecode, bytecode);
+    bytecode.emplace_back("pop");
 }
 
 TypeReference InfixExpr::evalType(LocalContext& context) const {
@@ -321,7 +319,7 @@ void InfixExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &b
             bytecode.emplace_back(s ? "sne" : i ? "ine" : "fne");
             break;
         case TokenType::OP_LT:
-            bytecode.emplace_back(s ? "slt" : i ? "ilt" : "feq");
+            bytecode.emplace_back(s ? "slt" : i ? "ilt" : "flt");
             break;
         case TokenType::OP_GT:
             bytecode.emplace_back(s ? "sgt" : i ? "igt" : "fgt");
@@ -379,6 +377,7 @@ TypeReference AssignExpr::evalType(LocalContext& context) const {
         case TokenType::OP_ASSIGN_REM:
             expected(lhs.get(), isArithmetic, "arithmetic type");
             expected(rhs.get(), type1);
+            return type1;
         default:
             unreachable("invalid token is classified as assignment operator");
     }
@@ -485,15 +484,16 @@ TypeReference AccessExpr::evalType(LocalContext& context) const {
 
 void AccessExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &bytecode) const {
     lhs->walkBytecode(sourcecode, bytecode);
-    rhs->walkBytecode(sourcecode, bytecode);
     TypeReference type1 = lhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         char s[30];
         sprintf(s, "tload %zu", rhs->evalConst(sourcecode));
         bytecode.emplace_back(s);
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
+        rhs->walkBytecode(sourcecode, bytecode);
         bytecode.emplace_back("lload");
     } else if (auto dict = dynamic_cast<DictType*>(type1.get())) {
+        rhs->walkBytecode(sourcecode, bytecode);
         bytecode.emplace_back("dload");
     } else {
         unreachable("..."); // TODO message
@@ -502,15 +502,17 @@ void AccessExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &
 
 void AccessExpr::walkStoreBytecode(SourceCode &sourcecode, std::vector<std::string> &bytecode) const {
     lhs->walkBytecode(sourcecode, bytecode);
-    rhs->walkBytecode(sourcecode, bytecode);
     TypeReference type1 = lhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         char s[30];
-        sprintf(s, "tstore %zu", rhs->evalConst(sourcecode));
+        size_t index = rhs->evalConst(sourcecode);
+        sprintf(s, "tstore %zu", index);
         bytecode.emplace_back(s);
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
+        rhs->walkBytecode(sourcecode, bytecode);
         bytecode.emplace_back("lstore");
     } else if (auto dict = dynamic_cast<DictType*>(type1.get())) {
+        rhs->walkBytecode(sourcecode, bytecode);
         bytecode.emplace_back("dstore");
     } else {
         unreachable("..."); // TODO message
@@ -538,8 +540,9 @@ void InvokeExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &
         e->walkBytecode(sourcecode, bytecode);
     }
     char s[30];
-    sprintf(s, "call %zu", rhs.size());
+    sprintf(s, "bind %zu", rhs.size());
     bytecode.emplace_back(s);
+    bytecode.emplace_back("call");
 }
 
 TypeReference DotExpr::evalType(LocalContext& context) const {
@@ -553,14 +556,14 @@ TypeReference DotExpr::evalType(LocalContext& context) const {
 }
 
 void DotExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &bytecode) const {
-    lhs->walkBytecode(sourcecode, bytecode);
     rhs->walkBytecode(sourcecode, bytecode);
-    bytecode.emplace_back("capture 1");
+    lhs->walkBytecode(sourcecode, bytecode);
+    bytecode.emplace_back("bind 1");
 }
 
 TypeReference AsExpr::evalType(LocalContext& context) const {
     auto type = lhs->typeCache;
-    if (T->assignableFrom(type) || isAny(type) && !isNever(T)
+    if (T->assignableFrom(type) || isAny(T) && !isNever(type) || isAny(type) && !isNever(T)
         || isSimilar(isArithmetic, type, T)
         || isSimilar(isIntegral, type, T)
         || isSimilar(isCharLike, type, T)) return T;
@@ -578,21 +581,21 @@ void AsExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &byte
     if (isAny(lhs->typeCache)) {
         bytecode.emplace_back("as " + T->toString());
     } else if (isAny(T)) {
-        bytecode.emplace_back("any " + T->toString());
+        bytecode.emplace_back("any " + lhs->typeCache->toString());
     } else if (isNone(T)) {
         bytecode.emplace_back("pop");
         bytecode.emplace_back("const 0");
     } else if (isInt(lhs->typeCache)) {
         if (isByte(T)) {
-            bytecode.emplace_back("int2byte");
+            bytecode.emplace_back("i2b");
         } else if (isChar(T)) {
-            bytecode.emplace_back("int2char");
+            bytecode.emplace_back("i2c");
         } else if (isFloat(T)) {
-            bytecode.emplace_back("int2float");
+            bytecode.emplace_back("i2f");
         }
     } else if (isInt(T)) {
         if (isFloat(lhs->typeCache)) {
-            bytecode.emplace_back("float2int");
+            bytecode.emplace_back("f2i");
         }
     }
 }
@@ -609,6 +612,7 @@ int64_t IsExpr::evalConst(SourceCode& sourcecode) const {
 
 void IsExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &bytecode) const {
     if (isAny(lhs->typeCache)) {
+        lhs->walkBytecode(sourcecode, bytecode);
         bytecode.emplace_back("is " + T->toString());
     } else {
         char s[30];
@@ -824,7 +828,7 @@ void WhileExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &b
     sprintf(s, "L%zu: nop", A);
     bytecode.emplace_back(s);
     cond->walkBytecode(sourcecode, bytecode);
-    sprintf(s, "jmp0 L%zu:", B);
+    sprintf(s, "jmp0 L%zu", B);
     bytecode.emplace_back(s);
     clause->walkBytecode(sourcecode, bytecode);
     bytecode.emplace_back("pop");
@@ -880,13 +884,13 @@ void FnDefExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &b
 }
 
 void LambdaExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &bytecode) const {
-    for (auto&& e : captures) {
-        e->walkBytecode(sourcecode, bytecode);
-    }
     char s[30];
     sprintf(s, "func %zu", index);
     bytecode.emplace_back(s);
-    sprintf(s, "capture %zu", captures.size());
+    for (auto&& e : captures) {
+        e->walkBytecode(sourcecode, bytecode);
+    }
+    sprintf(s, "bind %zu", captures.size());
     bytecode.emplace_back(s);
 }
 

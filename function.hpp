@@ -18,10 +18,6 @@ struct NamedFunction : Function {
         bytecode.emplace_back("(");
         sprintf(s, "local %zu", def->locals);
         bytecode.emplace_back(s);
-        for (size_t i = 0; i < def->locals; ++i) {
-            sprintf(s, "store %zu", i);
-            bytecode.emplace_back(s);
-        }
         def->clause->walkBytecode(sourcecode, bytecode);
         bytecode.emplace_back("return");
         bytecode.emplace_back(")");
@@ -39,10 +35,6 @@ struct LambdaFunction : Function {
         bytecode.emplace_back("(");
         sprintf(s, "local %zu", lambda->locals);
         bytecode.emplace_back(s);
-        for (size_t i = 0; i < lambda->locals; ++i) {
-            sprintf(s, "store %zu", i);
-            bytecode.emplace_back(s);
-        }
         lambda->clause->walkBytecode(sourcecode, bytecode);
         bytecode.emplace_back("return");
         bytecode.emplace_back(")");
