@@ -817,7 +817,7 @@ TypeReference WhileExpr::evalType(LocalContext& context) const {
         if (cond->evalConst(*context.sourcecode) && hook->breaks.empty())
             return ScalarTypes::NEVER;
     } catch (...) {}
-    return hook->yield();
+    return ScalarTypes::NONE;
 }
 
 void WhileExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &bytecode) const {
@@ -841,7 +841,7 @@ void WhileExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &b
 
 TypeReference ForExpr::evalType(LocalContext& context) const {
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
-    return hook->yield();
+    return ScalarTypes::NONE;
 }
 
 void ForExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &bytecode) const {
@@ -850,7 +850,7 @@ void ForExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &byt
 
 TypeReference ForDestructuringExpr::evalType(LocalContext& context) const {
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
-    return hook->yield();
+    return ScalarTypes::NONE;
 }
 
 void ForDestructuringExpr::walkBytecode(SourceCode &sourcecode, std::vector<std::string> &bytecode) const {

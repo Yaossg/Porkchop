@@ -10,7 +10,9 @@ Porkchop Programming Language
 
 ## 说明
 
-极个别功能暂时不能编译成字节码，运行时正在打磨，敬请期待！
+yield 关键字还在设计中
+
+for 循环的字节码输出还未实现
 
 ## 编译器使用
 
@@ -278,12 +280,13 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 }
 ```
 
-复合类型有元组、列表、字典、函数（详见后文）
+复合类型有元组、列表、集合、字典、函数（详见后文）
 
 ```
 {
     let t: (int, string)    = (12, "apple")
     let l: [int]            = [1, 2, 3]
+    let s: @[int]           = @[1, 2, 3]
     let d: @[string: float] = @["pi": 3.14]
 }
 ```
@@ -351,26 +354,19 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 }
 ```
 
-但是如果循环里含有 yield 表达式，那么会返回对应类型的列表
+可以使用 break 来跳出循环，如果无限循环不跳出则视为 never
 
 ```
 {
-    for x in [1, 2, 3] {
-        if x != 2 {
-            yield x * 2 + 1
-        }
-    } # 返回 [3, 7]
+    while true {
+        break
+    } # none
     
-    # yield 也可以放在括号外面
-    for x in [1, 2, 3] yield {
-        x * 2 + 1
-    } # 返回 [3, 5, 7]
+    while true {
+    
+    } # never
 }
 ```
-
-还可以 break，这里从略。
-
-> 说明：for 循环和 yield 的字节码输出暂未实现，敬请期待
 
 ## 函数
 
@@ -483,8 +479,6 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
     }
 }
 ```
-
-> 说明：for 循环结构的字节码输出暂未实现，敬请期待
 
 ## Unicode 支持
 

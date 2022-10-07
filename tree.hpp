@@ -555,7 +555,6 @@ struct BreakExpr : Expr {
 struct YieldExpr : Expr {
     Token token;
     ExprHandle rhs;
-    std::shared_ptr<LoopHook> hook;
 
     YieldExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
 
@@ -573,18 +572,7 @@ struct YieldExpr : Expr {
 
 struct LoopHook {
     std::vector<BreakExpr*> breaks;
-    std::vector<YieldExpr*> yields;
     const LoopExpr* loop;
-
-    [[nodiscard]] TypeReference yield() const {
-        if (yields.empty()) return ScalarTypes::NONE;
-        auto type0 = yields.front()->typeCache;
-        for (size_t i = 1; i < yields.size(); ++i) {
-            auto type = yields[i]->typeCache;
-            if (!type0->equals(type)) throw TypeException(mismatch(type, "loop's yields", i, type0), yields[i]->segment());
-        }
-        return listOf(type0);
-    }
 };
 
 struct LoopExpr : Expr {
@@ -596,9 +584,6 @@ struct LoopExpr : Expr {
     LoopExpr(Token token, ExprHandle clause, std::shared_ptr<LoopHook> hook): token(token), clause(std::move(clause)), hook(std::move(hook)) {
         this->hook->loop = this;
         for (auto&& e : this->hook->breaks) {
-            e->hook = this->hook;
-        }
-        for (auto&& e : this->hook->yields) {
             e->hook = this->hook;
         }
     }

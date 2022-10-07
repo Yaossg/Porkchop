@@ -49,8 +49,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::KW_YIELD: {
                     next();
                     auto expr = context.make<YieldExpr>(token, parseExpression(level));
-                    if (hooks.empty()) throw ParserException("wild yield", token);
-                    hooks.back()->yields.push_back(expr.get());
                     return expr;
                 }
                 default: {
@@ -352,24 +350,12 @@ ExprHandle Parser::parseIf() {
     return context.make<IfElseExpr>(token, std::move(cond), std::move(clause), context.make<ClauseExpr>(rewind(), rewind()));
 }
 
-ExprHandle Parser::parseYieldClause() {
-    if (peek().type == TokenType::KW_YIELD) {
-        auto token = next();
-        auto expr = context.make<YieldExpr>(token, parseClause());
-        if (hooks.empty()) throw ParserException("wild yield", token);
-        hooks.back()->yields.push_back(expr.get());
-        return expr;
-    } else {
-        return parseClause();
-    }
-}
-
 ExprHandle Parser::parseWhile() {
     auto token = next();
     pushLoop();
     LocalContext::Guard guard(context);
     auto cond = parseExpression();
-    auto clause = parseYieldClause();
+    auto clause = parseClause();
     return context.make<WhileExpr>(token, std::move(cond), std::move(clause), popLoop());
 }
 
@@ -413,7 +399,7 @@ ExprHandle Parser::parseFor() {
         auto rhs = parseExpression();
         if (auto element = iterable(rhs->typeCache)) {
             destructuring(lhs, designated, element, rhs->segment());
-            auto clause = parseYieldClause();
+            auto clause = parseClause();
             return context.make<ForDestructuringExpr>(token, std::move(lhs), std::move(designated), std::move(rhs), std::move(clause), popLoop());
         }
         throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
@@ -425,7 +411,7 @@ ExprHandle Parser::parseFor() {
         auto rhs = parseExpression();
         if (auto element = iterable(rhs->typeCache)) {
             declaring(lhs, designated, element, rhs->segment());
-            auto clause = parseYieldClause();
+            auto clause = parseClause();
             return context.make<ForExpr>(token, std::move(lhs), std::move(designated), std::move(rhs), std::move(clause), popLoop());
         }
         throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
