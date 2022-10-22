@@ -431,7 +431,7 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
             if (balance[0] >= amount) {
                 balance[0] -= amount
                 if (amount >= 0) {
-                    println(toString(balance[0] as any))
+                    println(i2s(balance[0]))
                 }
             } else {
                 println("v50")
