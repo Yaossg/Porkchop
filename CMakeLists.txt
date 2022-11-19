@@ -19,4 +19,15 @@ add_executable(Porkchop
         unicode-id.cpp unicode-width.cpp
         function.hpp
         opcode.hpp
+        io.hpp)
+
+add_executable(PorkchopRuntime
+        runtime/main.cpp
+        runtime/assembly.hpp
+        runtime/external.hpp
+        runtime/runtime.hpp
+        runtime/text-asm.hpp
+        opcode.hpp
+        io.hpp
 )
+

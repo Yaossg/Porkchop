@@ -33,8 +33,6 @@ struct SourceCode {
 
     explicit SourceCode(std::string original) noexcept;
 
-    void split();
-
     void tokenize();
 
     void parse();

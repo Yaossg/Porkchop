@@ -1,8 +1,7 @@
-#include <cstdio>
-#include <cstring>
-
 #include "parser.hpp"
 #include "function.hpp"
+
+#include "io.hpp"
 
 std::unordered_map<std::string, std::string> parseArgs(int argc, const char* argv[]) {
     std::unordered_map<std::string, std::string> args;
@@ -78,32 +77,11 @@ struct OutputFile {
     }
 };
 
-std::string readAll(std::string const& filename) {
-    FILE* input_file = fopen(filename.c_str(), "r");
-    if (input_file == nullptr) {
-        fprintf(stderr, "Failed to open input file: %s\n", filename.c_str());
-        exit(20);
-    }
-    std::string content;
-    do {
-        char line[1024];
-        memset(line, 0, sizeof line);
-        fgets(line, sizeof line, input_file);
-        content += line;
-    } while (!feof(input_file));
-    fclose(input_file);
-    return content;
-}
-
 int main(int argc, const char* argv[]) try {
-#ifdef _WIN32
-    system("chcp 65001");
-    puts("Porkchop: UTF-8 is adopted via 'chcp 65001' in Windows");
-#endif
+    forceUTF8();
     auto args = parseArgs(argc, argv);
     Porkchop::SourceCode c(readAll(args["input"]));
     try {
-        c.split();
         c.tokenize();
         if (c.tokens.empty()) {
             fprintf(stderr, "Compilation Error: Empty input with nothing to compile");

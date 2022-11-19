@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include "function.hpp"
+#include "io.hpp"
 
 namespace Porkchop {
 
@@ -7,29 +8,9 @@ SourceCode::SourceCode(std::string original) noexcept: original(std::move(origin
     functions.emplace_back(std::make_unique<ExternalFunction>()); // main function
 }
 
-void SourceCode::split() {
-    std::string_view view(original);
-    const char *p = view.begin(), *q = p, *r = view.end();
-    while (q != r) {
-        switch (*q++) {
-            [[unlikely]] case '#': {
-                lines.emplace_back(p, q - 1);
-                while (q != r && *q++ != '\n');
-                p = q;
-                break;
-            }
-                [[unlikely]] case '\n': {
-                lines.emplace_back(p, q - 1);
-                p = q;
-                break;
-            }
-        }
-    }
-    if (p != q) lines.emplace_back(p, q);
-}
-
 [[nodiscard]] std::vector<Token> tokenize(std::string_view view, size_t line);
 void SourceCode::tokenize() {
+    lines = ::splitLines(original);
     for (size_t line = 0; line < lines.size(); ++line) {
         for (auto&& token : Porkchop::tokenize(lines[line], line)) {
             tokens.push_back(token);
