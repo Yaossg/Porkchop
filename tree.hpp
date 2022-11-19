@@ -4,6 +4,7 @@
 #include "local.hpp"
 #include "type.hpp"
 #include "diagnostics.hpp"
+#include "opcode.hpp"
 
 namespace Porkchop {
 
@@ -41,7 +42,7 @@ struct Expr : Descriptor {
         throw ConstException("cannot evaluate at compile-time", segment());
     }
 
-    virtual void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const = 0;
+    virtual void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const = 0;
 };
 
 struct ConstExpr : Expr {
@@ -65,7 +66,7 @@ struct BoolConstExpr : ConstExpr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct CharConstExpr : ConstExpr {
@@ -75,7 +76,7 @@ struct CharConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct StringConstExpr : ConstExpr {
@@ -85,7 +86,7 @@ struct StringConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct IntConstExpr : ConstExpr {
@@ -98,7 +99,7 @@ struct IntConstExpr : ConstExpr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct FloatConstExpr : ConstExpr {
@@ -108,11 +109,11 @@ struct FloatConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct LoadExpr : Expr {
-    virtual void walkStoreBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const = 0;
+    virtual void walkStoreBytecode(SourceCode& sourcecode, Assembler* assembler) const = 0;
 };
 
 struct IdExpr : LoadExpr {
@@ -133,9 +134,9 @@ struct IdExpr : LoadExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 
-    void walkStoreBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkStoreBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct PrefixExpr : Expr {
@@ -155,7 +156,7 @@ struct PrefixExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct IdPrefixExpr : Expr {
@@ -173,7 +174,7 @@ struct IdPrefixExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct IdPostfixExpr : Expr {
@@ -191,7 +192,7 @@ struct IdPostfixExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct InfixExpr : Expr {
@@ -213,7 +214,7 @@ struct InfixExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct AssignExpr : Expr {
@@ -233,7 +234,7 @@ struct AssignExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct LogicalExpr : Expr {
@@ -255,7 +256,7 @@ struct LogicalExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct AccessExpr : LoadExpr {
@@ -275,9 +276,9 @@ struct AccessExpr : LoadExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 
-    void walkStoreBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkStoreBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct InvokeExpr : Expr {
@@ -301,7 +302,7 @@ struct InvokeExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct DotExpr : Expr {
@@ -319,7 +320,7 @@ struct DotExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct AsExpr : Expr {
@@ -341,7 +342,7 @@ struct AsExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct IsExpr : Expr {
@@ -363,7 +364,7 @@ struct IsExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct DefaultExpr : Expr {
@@ -384,7 +385,7 @@ struct DefaultExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct TupleExpr : Expr {
@@ -407,7 +408,7 @@ struct TupleExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct ListExpr : Expr {
@@ -430,7 +431,7 @@ struct ListExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct SetExpr : Expr {
@@ -453,7 +454,7 @@ struct SetExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct DictExpr : Expr {
@@ -479,7 +480,7 @@ struct DictExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct ClauseExpr : Expr {
@@ -504,7 +505,7 @@ struct ClauseExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct IfElseExpr : Expr {
@@ -527,9 +528,9 @@ struct IfElseExpr : Expr {
 
     [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 
-    static void walkBytecode(Expr* cond, Expr* lhs, Expr* rhs, SourceCode& sourcecode, std::vector<std::string>& bytecode);
+    static void walkBytecode(Expr* cond, Expr* lhs, Expr* rhs, SourceCode& sourcecode, Assembler* assembler);
 };
 
 struct LoopHook;
@@ -549,7 +550,7 @@ struct BreakExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct YieldExpr : Expr {
@@ -567,7 +568,7 @@ struct YieldExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct LoopHook {
@@ -604,7 +605,7 @@ struct WhileExpr : LoopExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct ForExpr : LoopExpr {
@@ -620,7 +621,7 @@ struct ForExpr : LoopExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct ForDestructuringExpr : LoopExpr {
@@ -643,7 +644,7 @@ struct ForDestructuringExpr : LoopExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct ReturnExpr : Expr {
@@ -661,7 +662,7 @@ struct ReturnExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct FnExprBase : Expr {
@@ -709,7 +710,7 @@ struct FnDeclExpr : NamedFnExpr {
         return range(token, token2);
     }
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
@@ -726,7 +727,7 @@ struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
         return ret;
     }
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct LambdaExpr : DefinedFnExpr {
@@ -746,7 +747,7 @@ struct LambdaExpr : DefinedFnExpr {
 
     [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "$"; }
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct LetExpr : Expr {
@@ -767,7 +768,7 @@ struct LetExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 struct LetDestructuringExpr : Expr {
@@ -794,7 +795,7 @@ struct LetDestructuringExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override;
+    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
 };
 
 }

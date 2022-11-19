@@ -71,6 +71,11 @@ struct OutputFile {
         if (file != nullptr)
             fputs(str, file);
     }
+
+    void write(Porkchop::Assembler* assembler) const {
+        if (file != nullptr)
+            assembler->write(file);
+    }
 };
 
 std::string readAll(std::string const& filename) {
@@ -111,11 +116,9 @@ int main(int argc, const char* argv[]) try {
         if (output_type == "mermaid") {
             of.puts(c.tree->walkDescriptor(c).c_str());
         } else if (output_type == "bytecode") {
-            c.compile();
-            for (auto&& line : c.bytecode) {
-                of.puts(line.c_str());
-                of.puts("\n");
-            }
+            auto assembler = std::make_unique<Porkchop::TextAssembler>();
+            c.compile(assembler.get());
+            of.write(assembler.get());
         }
         fprintf(stdout, "Compilation is done successfully\n");
         return EXIT_SUCCESS;

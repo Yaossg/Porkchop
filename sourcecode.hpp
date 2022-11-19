@@ -18,6 +18,7 @@ using ExprHandle = std::unique_ptr<Expr>;
 using IdExprHandle = std::unique_ptr<IdExpr>;
 struct Token;
 struct Function;
+struct Assembler;
 
 struct SourceCode {
     std::string original;
@@ -26,7 +27,6 @@ struct SourceCode {
     ExprHandle tree;
     TypeReference type;
     std::vector<std::unique_ptr<Function>> functions;
-    std::vector<std::string> bytecode;
 
     size_t locals;
     size_t nextLabelIndex = 0;
@@ -39,7 +39,7 @@ struct SourceCode {
 
     void parse();
 
-    void compile();
+    void compile(Assembler* assembler);
 
     [[nodiscard]] std::string_view of(Token token) const noexcept;
 };

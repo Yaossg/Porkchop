@@ -55,16 +55,14 @@ void SourceCode::parse() {
     locals = parser.context.localTypes.size();
 }
 
-void SourceCode::compile() {
-    char s[30];
-    bytecode.emplace_back("(");
-    sprintf(s, "local %zu", locals);
-    bytecode.emplace_back(s);
-    tree->walkBytecode(*this, bytecode);
-    bytecode.emplace_back("return");
-    bytecode.emplace_back(")");
+void SourceCode::compile(Assembler* assembler) {
+    assembler->beginFunction();
+    assembler->indexed(Opcode::LOCAL, locals);
+    tree->walkBytecode(*this, assembler);
+    assembler->opcode(Opcode::RETURN);
+    assembler->endFunction();
     for (auto&& function : functions) {
-        function->compile(*this, bytecode);
+        function->compile(*this, assembler);
     }
 }
 

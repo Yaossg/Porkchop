@@ -7,20 +7,18 @@ namespace Porkchop {
 struct Function {
     virtual ~Function() = default;
     [[nodiscard]] virtual TypeReference prototype() const = 0;
-    virtual void compile(SourceCode& sourcecode, std::vector<std::string>& bytecode) const = 0;
+    virtual void compile(SourceCode& sourcecode, Assembler* assembler) const = 0;
 };
 
 struct NamedFunction : Function {
     FnDeclExpr* decl;
     FnDefExpr* def;
-    void compile(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override {
-        char s[30];
-        bytecode.emplace_back("(");
-        sprintf(s, "local %zu", def->locals);
-        bytecode.emplace_back(s);
-        def->clause->walkBytecode(sourcecode, bytecode);
-        bytecode.emplace_back("return");
-        bytecode.emplace_back(")");
+    void compile(SourceCode& sourcecode, Assembler* assembler) const override {
+        assembler->beginFunction();
+        assembler->indexed(Opcode::LOCAL, def->locals);
+        def->clause->walkBytecode(sourcecode, assembler);
+        assembler->opcode(Opcode::RETURN);
+        assembler->endFunction();
     }
 
     [[nodiscard]] TypeReference prototype() const override {
@@ -30,14 +28,12 @@ struct NamedFunction : Function {
 
 struct LambdaFunction : Function {
     LambdaExpr* lambda;
-    void compile(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override {
-        char s[30];
-        bytecode.emplace_back("(");
-        sprintf(s, "local %zu", lambda->locals);
-        bytecode.emplace_back(s);
-        lambda->clause->walkBytecode(sourcecode, bytecode);
-        bytecode.emplace_back("return");
-        bytecode.emplace_back(")");
+    void compile(SourceCode& sourcecode, Assembler* assembler) const override {
+        assembler->beginFunction();
+        assembler->indexed(Opcode::LOCAL, lambda->locals);
+        lambda->clause->walkBytecode(sourcecode, assembler);
+        assembler->opcode(Opcode::RETURN);
+        assembler->endFunction();
     }
 
     [[nodiscard]] TypeReference prototype() const override {
@@ -47,7 +43,7 @@ struct LambdaFunction : Function {
 
 struct ExternalFunction : Function {
     TypeReference type;
-    void compile(SourceCode& sourcecode, std::vector<std::string>& bytecode) const override {}
+    void compile(SourceCode& sourcecode, Assembler* assembler) const override {}
 
     [[nodiscard]] TypeReference prototype() const override {
         return type;
