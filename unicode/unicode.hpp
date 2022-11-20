@@ -1,7 +1,7 @@
 #pragma once
 
-#include "token.hpp"
-#include "diagnostics.hpp"
+#include "../token.hpp"
+#include "../diagnostics.hpp"
 
 namespace Porkchop {
 

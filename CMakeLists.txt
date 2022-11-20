@@ -15,8 +15,8 @@ add_executable(Porkchop
         tree.hpp tree.cpp
         diagnostics.hpp diagnostics.cpp
         literal.hpp literal.cpp
-        unicode.hpp unicode.cpp
-        unicode-id.cpp unicode-width.cpp
+        unicode/unicode.hpp unicode/unicode.cpp
+        unicode/unicode-id.cpp unicode/unicode-width.cpp
         function.hpp
         opcode.hpp
         io.hpp)

@@ -1,6 +1,6 @@
 #include "token.hpp"
 #include "diagnostics.hpp"
-#include "unicode.hpp"
+#include "unicode/unicode.hpp"
 
 namespace Porkchop {
 

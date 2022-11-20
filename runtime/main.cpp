@@ -1,6 +1,3 @@
-#include <cstdio>
-#include <cstring>
-
 #include "runtime.hpp"
 
 #include "../io.hpp"
