@@ -4,12 +4,27 @@
 #include <bit>
 #include <unordered_set>
 #include <cmath>
+#include <stdexcept>
 
 #include "text-asm.hpp"
 
 namespace Porkchop {
 
 struct Runtime {
+
+    struct Exception : std::runtime_error {
+        std::string messages;
+        explicit Exception(std::string const& message): std::runtime_error(message), messages(message) {}
+
+        void append(std::string const& message) {
+            messages += "\n    ";
+            messages += message;
+        }
+
+        [[nodiscard]] const char * what() const noexcept override {
+            return messages.c_str();
+        }
+    };
 
     struct Any {
         size_t value;
@@ -104,6 +119,8 @@ struct Runtime {
     void lload() {
         auto index = pop();
         auto list = std::bit_cast<std::vector<size_t> *>(pop());
+        if (index >= list->size())
+            throw Exception("index out of bound");
         stack.push_back(list->at(index));
     }
 
@@ -122,6 +139,8 @@ struct Runtime {
     void lstore() {
         auto index = pop();
         auto list = std::bit_cast<std::vector<size_t> *>(pop());
+        if (index >= list->size())
+            throw Exception("index out of bound");
         auto value = stack.back();
         list->at(index) = value;
     }
@@ -130,7 +149,7 @@ struct Runtime {
         auto key = pop();
         auto dict = std::bit_cast<std::unordered_map<size_t, size_t> *>(pop());
         auto value = stack.back();
-        dict->at(key) = value;
+        dict->insert_or_assign(key, value);
     }
 
     void call() {
@@ -149,8 +168,10 @@ struct Runtime {
     }
 
     void as(std::string const &type) {
-        // TODO type check
-        stack.emplace_back(std::bit_cast<Any *>(pop())->value);
+        auto any = std::bit_cast<Any *>(pop());
+        if (any->type != type)
+            throw Exception("cannot cast " + any->type + " to " + type);
+        stack.emplace_back(any->value);
     }
 
     void is(std::string const &type) {
@@ -163,13 +184,15 @@ struct Runtime {
 
     void i2b() {
         auto value = ipop();
-        value = std::clamp(value, 0LL, 0xFFLL);
+        if (value < 0 || value > 0xFFLL)
+            throw Exception("int is invalid to cast to byte");
         stack.push_back(value);
     }
 
     void i2c() {
         auto value = ipop();
-        value = std::clamp(value, 0LL, 0x10FFFFLL);
+        if (value < 0 || value > 0x10FFFFLL || 0xD800LL <= value && value <= 0xDFFFLL)
+            throw Exception("int is invalid to cast to char");
         stack.push_back(value);
     }
 
@@ -200,7 +223,7 @@ struct Runtime {
         auto v = npop(2 * size);
         auto m = new std::unordered_map<size_t, size_t>;
         for (size_t i = 0; i < size; ++i) {
-            m->at(v[2 * i]) = v[2 * i + 1];
+            m->insert_or_assign(v[2 * i], v[2 * i + 1]);
         }
         push(m);
     }
@@ -391,12 +414,16 @@ struct Runtime {
 
     void idiv() {
         auto value2 = ipop();
+        if (value2 == 0)
+            throw Exception("divided by zero");
         auto value1 = ipop();
         stack.push_back(value1 / value2);
     }
 
     void irem() {
         auto value2 = ipop();
+        if (value2 == 0)
+            throw Exception("divided by zero");
         auto value1 = ipop();
         stack.push_back(value1 % value2);
     }
@@ -432,7 +459,7 @@ struct Runtime {
     }
 };
 
-size_t Runtime::Func::call(Assembly *assembly) const {
+size_t Runtime::Func::call(Assembly *assembly) const try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
         auto& instructions = std::get<Instructions>(f);
@@ -656,6 +683,9 @@ size_t Runtime::Func::call(Assembly *assembly) const {
     } else {
         return std::get<ExternalFunction>(f)(captures);
     }
+} catch (Runtime::Exception& e) {
+    e.append("at func " + std::to_string(func));
+    throw;
 }
 
 }

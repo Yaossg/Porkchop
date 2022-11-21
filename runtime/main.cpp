@@ -2,7 +2,7 @@
 
 #include "../io.hpp"
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) try {
     forceUTF8();
     if (argc < 2) {
         fprintf(stderr, "Fatal: Too few arguments, input file expected\n");
@@ -14,4 +14,8 @@ int main(int argc, char* argv[]) {
     Porkchop::Runtime::Func main_{0, {}};
     main_.call(&c);
     return 0;
+} catch (Porkchop::Runtime::Exception& e) {
+    fprintf(stderr, "Runtime exception occurred:\n");
+    fprintf(stderr, "%s\n", e.what());
+    return 1;
 }
