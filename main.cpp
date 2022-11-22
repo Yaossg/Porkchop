@@ -18,8 +18,8 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
             args["output"] = argv[i];
         } else if (!strcmp("-m", argv[i]) || !strcmp("--mermaid", argv[i])) {
             args["type"] = "mermaid";
-        } else if (!strcmp("-b", argv[i]) || !strcmp("--bytecode", argv[i])) {
-            args["type"] = "bytecode";
+        } else if (!strcmp("-t", argv[i]) || !strcmp("--text-asm", argv[i])) {
+            args["type"] = "text-asm";
         } else {
             fprintf(stderr, "Fatal: Unknown flag: %s\n", argv[i]);
             exit(11);
@@ -33,8 +33,8 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
         std::string suffix;
         if (args["type"] == "mermaid") {
             suffix = ".mermaid";
-        } else if (args["type"] == "bytecode") {
-            suffix = ".bytecode";
+        } else if (args["type"] == "text-asm") {
+            suffix = ".text-asm";
         } else {
             suffix = ".output";
         }
@@ -93,7 +93,7 @@ int main(int argc, const char* argv[]) try {
         auto const& output_type = args["type"];
         if (output_type == "mermaid") {
             of.puts(c.tree->walkDescriptor(c).c_str());
-        } else if (output_type == "bytecode") {
+        } else if (output_type == "text-asm") {
             auto assembler = std::make_unique<Porkchop::TextAssembler>();
             c.compile(assembler.get());
             of.write(assembler.get());

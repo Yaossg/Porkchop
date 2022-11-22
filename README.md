@@ -10,8 +10,6 @@ Porkchop Programming Language
 
 ## 说明
 
-yield 关键字还在设计中
-
 for 循环的字节码输出还未实现
 
 ## 编译器使用
@@ -26,7 +24,7 @@ Porkchop <input> [options...]
 
 - `-o <output>` 指定输出文件名。如果缺省，则根据输入文件名和输出类型自动合成。`-o <stdout>` 表示输出到控制台，`-o <null>` 表示只检查语法，不输出。
 - `-m` 或 `--mermaid` 输出语法树。
-- `-b` 或 `--bytecode` 输出字节码。
+- `-t` 或 `--text-asm` 输出文本汇编。
 
 ### Mermaid 的使用
 
@@ -46,158 +44,201 @@ graph
 < 将输出的文本放在这里 >
 ```
 
-## 示例：素数判断
+## 示例：九九乘法表
 
 ```
 {
-    fn isPrime(x: int): bool = {
-        if x < 2 {
-            return false
+    let i = 1
+    let j = 1
+    while i <= 9 {
+        j = 1
+        while j <= i {
+            print(i2s(i) + "*" + i2s(j) + "=" + i2s(i * j) + " ")
+            ++j
         }
-        let i = 2
-        while i * i <= x {
-            if x % i == 0 {
-                return false
-            }
-        }
-        return true
+        println("")
+        ++i
     }
 }
 ```
 
-语法树编译结果：
+语法树编译结果：（字符串字面量节点生成还存在一些问题）
 
 ```mermaid
 graph
 0["{}"]
 0-->1
-1["fn"]
+1["let"]
 1-->2
-2["isPrime"]
+2["i"]
 1-->3
-3["x"]
+3["int"]
 1-->4
-4["():"]
-4-->5
-5["int"]
-4-->6
-6["bool"]
-1-->7
-7["{}"]
-7-->8
-8["if-else"]
-8-->9
-9["<"]
+4["1"]
+0-->5
+5["let"]
+5-->6
+6["j"]
+5-->7
+7["int"]
+5-->8
+8["1"]
+0-->9
+9["while"]
 9-->10
-10["x"]
-9-->11
-11["2"]
-8-->12
-12["{}"]
-12-->13
-13["return"]
+10["<="]
+10-->11
+11["i"]
+10-->12
+12["9"]
+9-->13
+13["{}"]
 13-->14
-14["false"]
-8-->15
-15["{}"]
-7-->16
-16["let"]
-16-->17
-17["i"]
-16-->18
-18["int"]
-16-->19
-19["2"]
-7-->20
-20["while"]
-20-->21
-21["<="]
+14["="]
+14-->15
+15["j"]
+14-->16
+16["1"]
+13-->17
+17["while"]
+17-->18
+18["<="]
+18-->19
+19["j"]
+18-->20
+20["i"]
+17-->21
+21["{}"]
 21-->22
-22["*"]
+22["()"]
 22-->23
-23["i"]
+23["print"]
 22-->24
-24["i"]
-21-->25
-25["x"]
-20-->26
-26["{}"]
+24["+"]
+24-->25
+25["+"]
+25-->26
+26["+"]
 26-->27
-27["if-else"]
+27["+"]
 27-->28
-28["=="]
+28["+"]
 28-->29
-29["%"]
+29["()"]
 29-->30
-30["x"]
+30["i2s"]
 29-->31
 31["i"]
 28-->32
-32["0"]
+32[""*""]
 27-->33
-33["{}"]
+33["()"]
 33-->34
-34["return"]
-34-->35
-35["false"]
-27-->36
-36["{}"]
-7-->37
-37["return"]
+34["i2s"]
+33-->35
+35["j"]
+26-->36
+36[""=""]
+25-->37
+37["()"]
 37-->38
-38["true"]
+38["i2s"]
+37-->39
+39["*"]
+39-->40
+40["i"]
+39-->41
+41["j"]
+24-->42
+42["" ""]
+21-->43
+43["++"]
+43-->44
+44["j"]
+13-->45
+45["()"]
+45-->46
+46["println"]
+45-->47
+47["" ""]
+13-->48
+48["++"]
+48-->49
+49["i"]
 ```
 
-字节码编译结果：
+文本汇编编译结果：
 
 ```
-(
-local 0
-func 9
-return
-)
 (
 local 2
-load 0
-const 2
-ilt
-jmp0 L0
-const 0
-return
-jmp L1
-L0: nop
-const 0
-L1: nop
+const 1
+store 0
 pop
-const 2
+const 1
+store 1
+pop
+L0: nop
+load 0
+const 9
+ile
+jmp0 L1
+const 1
 store 1
 pop
 L2: nop
 load 1
-load 1
-imul
 load 0
 ile
 jmp0 L3
+func 1
+func 4
+load 0
+bind 1
+call
+string 1 2A
+sadd
+func 4
+load 1
+bind 1
+call
+sadd
+string 1 3D
+sadd
+func 4
 load 0
 load 1
-irem
-const 0
-ieq
-jmp0 L4
-const 0
-return
-jmp L5
-L4: nop
-const 0
-L5: nop
+imul
+bind 1
+call
+sadd
+string 1 20
+sadd
+bind 1
+call
+pop
+load 1
+const 1
+iadd
+store 1
 pop
 jmp L2
 L3: nop
 const 0
 pop
+func 2
+string 0 
+bind 1
+call
+pop
+load 0
 const 1
-return
+iadd
+store 0
+pop
+jmp L0
+L1: nop
+const 0
 return
 )
 ```
