@@ -1,9 +1,18 @@
 #include "tree.hpp"
-#include "literal.hpp"
 #include "assembler.hpp"
+#include "diagnostics.hpp"
 
 
 namespace Porkchop {
+
+int64_t parseInt(SourceCode& sourcecode, Token token);
+double parseFloat(SourceCode& sourcecode, Token token);
+char32_t parseChar(SourceCode& sourcecode, Token token);
+std::string parseString(SourceCode& sourcecode, Token token);
+
+int64_t Expr::evalConst(SourceCode &sourcecode) const {
+    throw ConstException("cannot evaluate at compile-time", segment());
+}
 
 TypeReference BoolConstExpr::evalType(LocalContext& context) const {
     parsed = token.type == TokenType::KW_TRUE;

@@ -18,6 +18,10 @@ void SourceCode::tokenize() {
     }
 }
 
+std::string_view SourceCode::of(Token token) const noexcept {
+    return lines.at(token.line).substr(token.column, token.width);
+}
+
 void SourceCode::parse() {
     if (tokens.empty()) return;
     Parser parser(this, tokens);
@@ -47,6 +51,10 @@ void SourceCode::compile(Assembler* assembler) {
     for (auto&& function : functions) {
         function->compile(*this, assembler);
     }
+}
+
+std::string SourceCode::descriptor() const {
+    return tree->walkDescriptor(*this);
 }
 
 }

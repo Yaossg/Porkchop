@@ -1,5 +1,6 @@
 #include "local.hpp"
 #include "function.hpp"
+#include "diagnostics.hpp"
 
 namespace Porkchop {
 

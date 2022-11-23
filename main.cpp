@@ -92,7 +92,8 @@ int main(int argc, const char* argv[]) try {
         OutputFile of(args["output"]);
         auto const& output_type = args["type"];
         if (output_type == "mermaid") {
-            of.puts(c.tree->walkDescriptor(c).c_str());
+            auto descriptor = c.descriptor();
+            of.puts(descriptor.c_str());
         } else if (output_type == "text-asm") {
             auto assembler = std::make_unique<Porkchop::TextAssembler>();
             c.compile(assembler.get());

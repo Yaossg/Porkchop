@@ -1,24 +1,9 @@
 #pragma once
 
+#include "sourcecode.hpp"
 #include "token.hpp"
 
 namespace Porkchop {
-
-struct Segment {
-    size_t line1, line2, column1, column2;
-};
-
-inline Segment range(Token from, Token to) noexcept {
-    return {.line1 = from.line, .line2 = to.line, .column1 = from.column, .column2 = to.column + to.width};
-}
-
-inline Token::operator Segment() const noexcept {
-    return range(*this, *this);
-}
-
-inline Segment range(Segment from, Segment to) noexcept {
-    return {.line1 = from.line1, .line2 = to.line2, .column1 = from.column1, .column2 = to.column2};
-}
 
 struct SegmentException : std::logic_error {
     Segment segment;

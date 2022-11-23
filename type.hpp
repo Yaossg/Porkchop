@@ -6,13 +6,27 @@ namespace Porkchop {
 
 enum class ScalarTypeKind {
     ANY,
-    NONE, NEVER,
-    BOOL, BYTE,
-    INT, FLOAT,
-    CHAR, STRING,
+    NONE,
+    NEVER,
+    BOOL,
+    BYTE,
+    INT,
+    FLOAT,
+    CHAR,
+    STRING,
 };
 
-constexpr std::string_view TYPE_KIND_NAME[] = {"any", "none", "never", "bool", "byte", "int", "float", "char", "string"};
+constexpr std::string_view TYPE_KIND_NAME[] = {
+    "any",
+    "none",
+    "never",
+    "bool",
+    "byte",
+    "int",
+    "float",
+    "char",
+    "string"
+};
 
 const std::unordered_map<std::string_view, ScalarTypeKind> TYPE_KINDS {
     {"any",    ScalarTypeKind::ANY},
@@ -51,7 +65,6 @@ struct ScalarType : Type {
         switch (S) {
             case ScalarTypeKind::NEVER:
                 return false;
-            // case ScalarTypeKind::ANY: // TODO allow this?
             case ScalarTypeKind::NONE:
                 return !isNever(type);
             default:
@@ -187,11 +200,6 @@ struct ListType : Type {
 
 [[nodiscard]] inline TypeReference listOf(TypeReference const& type) noexcept {
     return std::make_shared<ListType>(type);
-}
-
-namespace ListTypes {
-const TypeReference BYTELIST = listOf(ScalarTypes::BYTE);
-const TypeReference CHARLIST = listOf(ScalarTypes::CHAR);
 }
 
 struct SetType : Type {

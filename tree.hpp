@@ -3,7 +3,6 @@
 #include "token.hpp"
 #include "local.hpp"
 #include "type.hpp"
-#include "diagnostics.hpp"
 
 namespace Porkchop {
 
@@ -37,9 +36,7 @@ struct Expr : Descriptor {
 
     [[nodiscard]] virtual TypeReference evalType(LocalContext& context) const = 0;
 
-    [[nodiscard]] virtual int64_t evalConst(SourceCode& sourcecode) const {
-        throw ConstException("cannot evaluate at compile-time", segment());
-    }
+    [[nodiscard]] virtual int64_t evalConst(SourceCode& sourcecode) const;
 
     virtual void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const = 0;
 };

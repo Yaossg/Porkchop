@@ -20,6 +20,7 @@ struct Token;
 struct Function;
 struct Assembler;
 
+// TODO: Rename this to 'Compiler'
 struct SourceCode {
     std::string original;
     std::vector<std::string_view> lines;
@@ -35,11 +36,13 @@ struct SourceCode {
 
     void tokenize();
 
+    [[nodiscard]] std::string_view of(Token token) const noexcept;
+
     void parse();
 
     void compile(Assembler* assembler);
 
-    [[nodiscard]] std::string_view of(Token token) const noexcept;
+    [[nodiscard]] std::string descriptor() const;
 };
 
 

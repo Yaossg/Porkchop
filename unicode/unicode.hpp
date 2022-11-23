@@ -67,42 +67,12 @@ struct UnicodeParser {
         return Token{.line = line, .column = column - (q - p), .width = size_t(q - p), .type = TokenType::INVALID};
     }
 
-    char32_t parseHexASCII() {
-        const char *first = q;
-        getc(); getc();
-        const char *last = q;
-        return hex(first, last, ASCII_UPPER_BOUND, make());
-    }
-
-    char32_t parseHexUnicode() {
-        const char *first = q;
-        getc(); getc(); getc(); getc(); getc(); getc();
-        const char *last = q;
-        return hex(first, last, UNICODE_UPPER_BOUND, make());
-    }
-
-    [[nodiscard]] int queryUTF8Length(char8_t byte) const {
-        switch(int ones = countl_one(byte)) {
-            case 0:
-                return 1;
-            case 2:
-            case 3:
-            case 4:
-                return ones;
-            case 1:
-                throw ConstException("unexpected termination of UTF-8 multibyte series", make());
-            default:
-                throw ConstException("UTF-8 series of 5 or more bytes is unsupported yet", make());
-        }
-    }
-
-    void requireContinue(char8_t byte) const {
-        if (notUTF8Continue(byte))
-            throw ConstException("unexpected UTF-8 multibyte series termination", make());
-    }
+    char32_t parseHexASCII();
+    char32_t parseHexUnicode();
+    [[nodiscard]] int successiveUTF8Length(char8_t byte) const;
+    void requireUTF8Continue(char8_t byte) const;
 
     char32_t decodeUnicode();
-
     char32_t unquoteChar(Token token);
     std::string unquoteString();
 };
