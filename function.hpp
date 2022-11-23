@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tree.hpp"
+#include "assembler.hpp"
 
 namespace Porkchop {
 

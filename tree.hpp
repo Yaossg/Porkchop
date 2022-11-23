@@ -4,7 +4,6 @@
 #include "local.hpp"
 #include "type.hpp"
 #include "diagnostics.hpp"
-#include "opcode.hpp"
 
 namespace Porkchop {
 

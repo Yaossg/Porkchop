@@ -1,6 +1,6 @@
 #include "tree.hpp"
 #include "literal.hpp"
-#include "opcode.hpp"
+#include "assembler.hpp"
 
 
 namespace Porkchop {
