@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <bit>
+#include <chrono>
 
 
 namespace Porkchop {
@@ -46,6 +47,14 @@ inline size_t s2f(std::vector<size_t> const &args) {
 
 inline size_t exit(std::vector<size_t> const &args) {
     std::exit(args[0]);
+}
+
+inline size_t millis(std::vector<size_t> const &args) {
+    return std::chrono::system_clock::now().time_since_epoch().count() / 1'000'000LL;
+}
+
+inline size_t nanos(std::vector<size_t> const &args) {
+    return std::chrono::system_clock::now().time_since_epoch().count();
 }
 
 }

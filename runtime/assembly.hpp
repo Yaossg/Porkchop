@@ -26,6 +26,8 @@ struct Assembly {
         functions.emplace_back(Externals::s2i);
         functions.emplace_back(Externals::s2f);
         functions.emplace_back(Externals::exit);
+        functions.emplace_back(Externals::millis);
+        functions.emplace_back(Externals::nanos);
     }
 };
 

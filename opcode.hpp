@@ -75,6 +75,8 @@ enum class Opcode {
     FDIV,
     IREM,
     FREM,
+    INC,
+    DEC,
 };
 
 constexpr std::string_view OPCODE_NAME[] = {
@@ -148,6 +150,8 @@ constexpr std::string_view OPCODE_NAME[] = {
     "fdiv",
     "irem",
     "frem",
+    "inc",
+    "dec",
 };
 
 const std::unordered_map<std::string_view, Opcode> OPCODES {
@@ -221,6 +225,8 @@ const std::unordered_map<std::string_view, Opcode> OPCODES {
     {"fdiv", Opcode::FDIV},
     {"irem", Opcode::IREM},
     {"frem", Opcode::FREM},
+    {"inc", Opcode::INC},
+    {"dec", Opcode::DEC},
 };
 
 struct Assembler {

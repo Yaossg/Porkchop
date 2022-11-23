@@ -457,6 +457,14 @@ struct Runtime {
         auto value1 = fpop();
         push(fmod(value1, value2));
     }
+
+    void inc(size_t index) {
+        ++locals[index];
+    }
+
+    void dec(size_t index) {
+        --locals[index];
+    }
 };
 
 size_t Runtime::Func::call(Assembly *assembly) const try {
@@ -676,6 +684,12 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
                     break;
                 case Opcode::FREM:
                     runtime.frem();
+                    break;
+                case Opcode::INC:
+                    runtime.inc(std::get<size_t>(args));
+                    break;
+                case Opcode::DEC:
+                    runtime.dec(std::get<size_t>(args));
                     break;
             }
         }

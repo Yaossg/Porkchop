@@ -157,10 +157,15 @@ TypeReference IdPrefixExpr::evalType(LocalContext& context) const {
 }
 
 void IdPrefixExpr::walkBytecode(SourceCode &sourcecode, Assembler* assembler) const {
-    rhs->walkBytecode(sourcecode, assembler);
-    assembler->const1();
-    assembler->opcode(token.type == TokenType::OP_INC ? Opcode::IADD : Opcode::ISUB);
-    rhs->walkStoreBytecode(sourcecode, assembler);
+    if (auto id = dynamic_cast<IdExpr*>(rhs.get())) {
+        assembler->indexed(token.type == TokenType::OP_INC ? Opcode::INC : Opcode::DEC, id->lookup.index);
+        id->walkBytecode(sourcecode, assembler);
+    } else {
+        rhs->walkBytecode(sourcecode, assembler);
+        assembler->const1();
+        assembler->opcode(token.type == TokenType::OP_INC ? Opcode::IADD : Opcode::ISUB);
+        rhs->walkStoreBytecode(sourcecode, assembler);
+    }
 }
 
 TypeReference IdPostfixExpr::evalType(LocalContext& context) const {
@@ -169,12 +174,17 @@ TypeReference IdPostfixExpr::evalType(LocalContext& context) const {
 }
 
 void IdPostfixExpr::walkBytecode(SourceCode &sourcecode, Assembler* assembler) const {
-    lhs->walkBytecode(sourcecode, assembler);
-    assembler->opcode(Opcode::DUP);
-    assembler->const1();
-    assembler->opcode(token.type == TokenType::OP_INC ? Opcode::IADD : Opcode::ISUB);
-    lhs->walkStoreBytecode(sourcecode, assembler);
-    assembler->opcode(Opcode::POP);
+    if (auto id = dynamic_cast<IdExpr*>(lhs.get())) {
+        id->walkBytecode(sourcecode, assembler);
+        assembler->indexed(token.type == TokenType::OP_INC ? Opcode::INC : Opcode::DEC, id->lookup.index);
+    } else {
+        lhs->walkBytecode(sourcecode, assembler);
+        assembler->opcode(Opcode::DUP);
+        assembler->const1();
+        assembler->opcode(token.type == TokenType::OP_INC ? Opcode::IADD : Opcode::ISUB);
+        lhs->walkStoreBytecode(sourcecode, assembler);
+        assembler->opcode(Opcode::POP);
+    }
 }
 
 TypeReference InfixExpr::evalType(LocalContext& context) const {
