@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sourcecode.hpp"
+#include "compiler.hpp"
 
 namespace Porkchop {
 
@@ -71,7 +71,7 @@ struct ScalarType : Type {
                 return equals(type);
         }
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return TYPE_KIND_NAME[(size_t) S]; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return TYPE_KIND_NAME[(size_t) S]; }
 
 };
 
@@ -179,7 +179,7 @@ struct TupleType : Type {
         for (auto&& e : E) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "()"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
 };
 
 struct ListType : Type {
@@ -195,7 +195,7 @@ struct ListType : Type {
     }
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "[]"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "[]"; }
 };
 
 [[nodiscard]] inline TypeReference listOf(TypeReference const& type) noexcept {
@@ -215,7 +215,7 @@ struct SetType : Type {
     }
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[]"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[]"; }
 };
 
 struct DictType : Type {
@@ -231,7 +231,7 @@ struct DictType : Type {
     }
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {K.get(), V.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[:]"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[:]"; }
 };
 
 struct FuncType : Type {
@@ -272,7 +272,7 @@ struct FuncType : Type {
         ret.push_back(R.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "():"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "():"; }
 };
 
 [[nodiscard]] inline TypeReference eithertype(TypeReference const& type1, TypeReference const& type2) noexcept {

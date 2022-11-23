@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(Porkchop
         main.cpp
         type.hpp
-        sourcecode.hpp sourcecode.cpp
+        compiler.hpp compiler.cpp
         local.hpp local.cpp
         token.hpp lexer.cpp
         parser.hpp parser.cpp

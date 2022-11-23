@@ -36,9 +36,9 @@ struct Expr : Descriptor {
 
     [[nodiscard]] virtual TypeReference evalType(LocalContext& context) const = 0;
 
-    [[nodiscard]] virtual int64_t evalConst(SourceCode& sourcecode) const;
+    [[nodiscard]] virtual int64_t evalConst(Compiler& compiler) const;
 
-    virtual void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const = 0;
+    virtual void walkBytecode(Compiler& compiler, Assembler* assembler) const = 0;
 };
 
 struct ConstExpr : Expr {
@@ -46,7 +46,7 @@ struct ConstExpr : Expr {
 
     explicit ConstExpr(Token token): token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -60,9 +60,9 @@ struct BoolConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct CharConstExpr : ConstExpr {
@@ -72,7 +72,7 @@ struct CharConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct StringConstExpr : ConstExpr {
@@ -82,7 +82,7 @@ struct StringConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct IntConstExpr : ConstExpr {
@@ -93,9 +93,9 @@ struct IntConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct FloatConstExpr : ConstExpr {
@@ -105,11 +105,11 @@ struct FloatConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct LoadExpr : Expr {
-    virtual void walkStoreBytecode(SourceCode& sourcecode, Assembler* assembler) const = 0;
+    virtual void walkStoreBytecode(Compiler& compiler, Assembler* assembler) const = 0;
 };
 
 struct IdExpr : LoadExpr {
@@ -118,7 +118,7 @@ struct IdExpr : LoadExpr {
 
     explicit IdExpr(Token token): token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -130,9 +130,9 @@ struct IdExpr : LoadExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 
-    void walkStoreBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkStoreBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct PrefixExpr : Expr {
@@ -142,7 +142,7 @@ struct PrefixExpr : Expr {
     PrefixExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -150,9 +150,9 @@ struct PrefixExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct IdPrefixExpr : Expr {
@@ -162,7 +162,7 @@ struct IdPrefixExpr : Expr {
     IdPrefixExpr(Token token, std::unique_ptr<LoadExpr> rhs): token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -170,7 +170,7 @@ struct IdPrefixExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct IdPostfixExpr : Expr {
@@ -180,7 +180,7 @@ struct IdPostfixExpr : Expr {
     IdPostfixExpr(Token token, std::unique_ptr<LoadExpr> lhs): token(token), lhs(std::move(lhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token);
@@ -188,7 +188,7 @@ struct IdPostfixExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct InfixExpr : Expr {
@@ -200,7 +200,7 @@ struct InfixExpr : Expr {
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -208,9 +208,9 @@ struct InfixExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct AssignExpr : Expr {
@@ -222,7 +222,7 @@ struct AssignExpr : Expr {
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -230,7 +230,7 @@ struct AssignExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct LogicalExpr : Expr {
@@ -242,7 +242,7 @@ struct LogicalExpr : Expr {
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -250,9 +250,9 @@ struct LogicalExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct AccessExpr : LoadExpr {
@@ -264,7 +264,7 @@ struct AccessExpr : LoadExpr {
         token1(token1), token2(token2), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "[]"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "[]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
@@ -272,9 +272,9 @@ struct AccessExpr : LoadExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 
-    void walkStoreBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkStoreBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct InvokeExpr : Expr {
@@ -290,7 +290,7 @@ struct InvokeExpr : Expr {
         for (auto&& e : rhs) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "()"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
@@ -298,7 +298,7 @@ struct InvokeExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct DotExpr : Expr {
@@ -308,7 +308,7 @@ struct DotExpr : Expr {
     DotExpr(ExprHandle lhs, IdExprHandle rhs): lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "."; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "."; }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -316,7 +316,7 @@ struct DotExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct AsExpr : Expr {
@@ -328,7 +328,7 @@ struct AsExpr : Expr {
         token(token), token2(token2), lhs(std::move(lhs)), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), T.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "as"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "as"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
@@ -336,9 +336,9 @@ struct AsExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct IsExpr : Expr {
@@ -350,7 +350,7 @@ struct IsExpr : Expr {
         token(token), token2(token2), lhs(std::move(lhs)), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), T.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "is"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "is"; }
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
@@ -358,9 +358,9 @@ struct IsExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct DefaultExpr : Expr {
@@ -371,7 +371,7 @@ struct DefaultExpr : Expr {
         token(token), token2(token2), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {T.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "default"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "default"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, token2);
@@ -379,9 +379,9 @@ struct DefaultExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct TupleExpr : Expr {
@@ -396,7 +396,7 @@ struct TupleExpr : Expr {
         for (auto&& e : elements) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "()"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -404,7 +404,7 @@ struct TupleExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct ListExpr : Expr {
@@ -419,7 +419,7 @@ struct ListExpr : Expr {
         for (auto&& e : elements) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "[]"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "[]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -427,7 +427,7 @@ struct ListExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct SetExpr : Expr {
@@ -442,7 +442,7 @@ struct SetExpr : Expr {
         for (auto&& e : elements) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[]"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -450,7 +450,7 @@ struct SetExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct DictExpr : Expr {
@@ -468,7 +468,7 @@ struct DictExpr : Expr {
         }
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "@[:]"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[:]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -476,7 +476,7 @@ struct DictExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct ClauseExpr : Expr {
@@ -491,7 +491,7 @@ struct ClauseExpr : Expr {
         for (auto&& e : lines) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "{}"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "{}"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -499,9 +499,9 @@ struct ClauseExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct IfElseExpr : Expr {
@@ -514,7 +514,7 @@ struct IfElseExpr : Expr {
         token(token), cond(std::move(cond)), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "if-else"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "if-else"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -522,11 +522,11 @@ struct IfElseExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(SourceCode& sourcecode) const override;
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 
-    static void walkBytecode(Expr* cond, Expr* lhs, Expr* rhs, SourceCode& sourcecode, Assembler* assembler);
+    static void walkBytecode(Expr* cond, Expr* lhs, Expr* rhs, Compiler& compiler, Assembler* assembler);
 };
 
 struct LoopHook;
@@ -538,7 +538,7 @@ struct BreakExpr : Expr {
 
     explicit BreakExpr(Token token): token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "break"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "break"; }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -546,7 +546,7 @@ struct BreakExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct YieldExpr : Expr {
@@ -556,7 +556,7 @@ struct YieldExpr : Expr {
     YieldExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "yield"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "yield"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -564,7 +564,7 @@ struct YieldExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct LoopHook {
@@ -597,11 +597,11 @@ struct WhileExpr : LoopExpr {
         cond(std::move(cond)), LoopExpr(token, std::move(clause), std::move(hook)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), clause.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "while"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "while"; }
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct ForExpr : LoopExpr {
@@ -613,11 +613,11 @@ struct ForExpr : LoopExpr {
         lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)), LoopExpr(token, std::move(clause), std::move(hook)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), designated.get(), rhs.get(), clause.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "for"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "for"; }
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct ForDestructuringExpr : LoopExpr {
@@ -636,11 +636,11 @@ struct ForDestructuringExpr : LoopExpr {
         ret.push_back(clause.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "for"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "for"; }
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct ReturnExpr : Expr {
@@ -650,7 +650,7 @@ struct ReturnExpr : Expr {
     ReturnExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return sourcecode.of(token); }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -658,7 +658,7 @@ struct ReturnExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct FnExprBase : Expr {
@@ -675,7 +675,7 @@ struct NamedFnExpr : virtual FnExprBase {
 
     explicit NamedFnExpr(IdExprHandle name): name(std::move(name)) {}
 
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "fn"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "fn"; }
 };
 
 struct DefinedFnExpr : virtual FnExprBase {
@@ -706,7 +706,7 @@ struct FnDeclExpr : NamedFnExpr {
         return range(token, token2);
     }
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
@@ -723,7 +723,7 @@ struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
         return ret;
     }
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct LambdaExpr : DefinedFnExpr {
@@ -741,9 +741,9 @@ struct LambdaExpr : DefinedFnExpr {
         return ret;
     }
 
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "$"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "$"; }
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct LetExpr : Expr {
@@ -756,7 +756,7 @@ struct LetExpr : Expr {
         token(token), lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), designated.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "let"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "let"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -764,7 +764,7 @@ struct LetExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct LetDestructuringExpr : Expr {
@@ -783,7 +783,7 @@ struct LetDestructuringExpr : Expr {
         ret.push_back(rhs.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const SourceCode &sourcecode) const noexcept override { return "let"; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "let"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -791,7 +791,7 @@ struct LetDestructuringExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    void walkBytecode(SourceCode& sourcecode, Assembler* assembler) const override;
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 }

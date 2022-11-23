@@ -421,7 +421,7 @@ ExprHandle Parser::parseFor() {
 std::pair<IdExprHandle, TypeReference> Parser::parseParameter() {
     auto id = parseId(false);
     auto type = optionalType();
-    bool underscore = sourcecode->of(id->token) == "_";
+    bool underscore = compiler->of(id->token) == "_";
     if (type == nullptr) {
         type = underscore ? ScalarTypes::NONE : nullptr;
     } else if (underscore && !isNone(type)) {
@@ -481,7 +481,7 @@ ExprHandle Parser::parseFn() {
         auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), F);
         next();
         context.declare(decl->name->token, decl.get());
-        Parser child(sourcecode, p, q, &context);
+        Parser child(compiler, p, q, &context);
         for (size_t i = 0; i < parameters.size(); ++i) {
             child.context.local(parameters[i]->token, F->P[i]);
         }
@@ -523,7 +523,7 @@ ExprHandle Parser::parseLambda() {
     auto R = optionalType();
     auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
     expect(TokenType::OP_ASSIGN, "'=' is expected before lambda body");
-    Parser child(sourcecode, p, q, &context);
+    Parser child(compiler, p, q, &context);
     for (auto&& capture : captures) {
         child.context.local(capture->token, capture->typeCache);
     }
@@ -567,7 +567,7 @@ TypeReference Parser::parseParenType() {
 TypeReference Parser::parseType() {
     switch (Token token = next(); token.type) {
         case TokenType::IDENTIFIER: {
-            auto id = sourcecode->of(token);
+            auto id = compiler->of(token);
             if (auto it = TYPE_KINDS.find(id); it != TYPE_KINDS.end()) {
                 return std::make_shared<ScalarType>(it->second);
             }
@@ -590,7 +590,7 @@ TypeReference Parser::parseType() {
                     expectComma();
                     auto expr = parseExpression();
                     expect(TokenType::RPAREN, "missing ')' to match '('");
-                    auto index = expr->evalConst(*sourcecode);
+                    auto index = expr->evalConst(*compiler);
                     if (0 <= index && index < tuple->E.size()) {
                         return tuple->E[index];
                     } else {
@@ -629,7 +629,7 @@ TypeReference Parser::parseType() {
                 expect(TokenType::RPAREN, "missing ')' to match '('");
                 expected(expr.get(), ScalarTypes::INT);
                 if (auto func = dynamic_cast<FuncType*>(type.get())) {
-                    auto index = expr->evalConst(*sourcecode);
+                    auto index = expr->evalConst(*compiler);
                     if (0 <= index && index < func->P.size()) {
                         return func->P[index];
                     } else {

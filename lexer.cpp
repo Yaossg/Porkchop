@@ -240,7 +240,7 @@ struct Tokenizer {
     return Tokenizer(view, line).tokens;
 }
 
-int64_t parseInt(SourceCode &sourcecode, Token token) try {
+int64_t parseInt(Compiler &compiler, Token token) try {
     int base;
     switch (token.type) {
         case TokenType::BINARY_INTEGER: base = 2; break;
@@ -249,7 +249,7 @@ int64_t parseInt(SourceCode &sourcecode, Token token) try {
         case TokenType::HEXADECIMAL_INTEGER: base = 16; break;
     }
     std::string literal; // default-constructed
-    literal = sourcecode.of(token);
+    literal = compiler.of(token);
     std::erase(literal, '_');
     if (base != 10) {
         literal.erase(literal.front() == '+' || literal.front() == '-', 2);
@@ -259,21 +259,21 @@ int64_t parseInt(SourceCode &sourcecode, Token token) try {
     throw ConstException("int literal out of range", token);
 }
 
-double parseFloat(SourceCode &sourcecode, Token token) try {
+double parseFloat(Compiler &compiler, Token token) try {
     std::string literal; // default-constructed
-    literal = sourcecode.of(token);
+    literal = compiler.of(token);
     std::erase(literal, '_');
     return std::stod(literal);
 } catch (std::out_of_range& e) {
     throw ConstException("float literal out of range", token);
 }
 
-char32_t parseChar(SourceCode& sourcecode, Token token) {
-    return UnicodeParser(sourcecode.of(token), token).unquoteChar(token);
+char32_t parseChar(Compiler& compiler, Token token) {
+    return UnicodeParser(compiler.of(token), token).unquoteChar(token);
 }
 
-std::string parseString(SourceCode& sourcecode, Token token) {
-    return UnicodeParser(sourcecode.of(token), token).unquoteString();
+std::string parseString(Compiler& compiler, Token token) {
+    return UnicodeParser(compiler.of(token), token).unquoteString();
 }
 
 }

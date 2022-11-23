@@ -20,7 +20,7 @@ size_t getUnicodeWidth(std::string_view view, size_t line, size_t column) {
     return width;
 }
 
-std::string SegmentException::message(const SourceCode &sourcecode) const {
+std::string SegmentException::message(const Compiler &compiler) const {
     std::string result;
     result += "Compilation Error: ";
     result += std::logic_error::what();
@@ -39,7 +39,7 @@ std::string SegmentException::message(const SourceCode &sourcecode) const {
     int digits = digits10(segment.line2 + 1);
     for (size_t line = segment.line1; line <= segment.line2; ++line) {
         auto lineNo = std::to_string(line + 1);
-        auto code = sourcecode.lines.at(line);
+        auto code = compiler.lines.at(line);
         result += "   ";
         result += lineNo;
         result += std::string(digits - lineNo.length() + 1, ' ');

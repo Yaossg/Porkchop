@@ -15,10 +15,10 @@ struct LocalContext {
     std::deque<std::unordered_map<std::string_view, size_t>> declaredIndices{{}};
     std::deque<std::unordered_map<std::string_view, size_t>> definedIndices{{}};
 
-    SourceCode* sourcecode;
+    Compiler* compiler;
     LocalContext* parent;
 
-    explicit LocalContext(SourceCode* sourcecode, LocalContext* parent);
+    explicit LocalContext(Compiler* compiler, LocalContext* parent);
     void push();
     void pop();
     void local(Token token, TypeReference const& type);

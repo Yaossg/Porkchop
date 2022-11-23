@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sourcecode.hpp"
+#include "compiler.hpp"
 #include "token.hpp"
 
 namespace Porkchop {
@@ -9,7 +9,7 @@ struct SegmentException : std::logic_error {
     Segment segment;
     SegmentException(std::string const& message, Segment segment): std::logic_error(message), segment(segment) {}
 
-    [[nodiscard]] std::string message(SourceCode const& sourcecode) const;
+    [[nodiscard]] std::string message(Compiler const& compiler) const;
 };
 
 using TokenException = SegmentException;

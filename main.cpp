@@ -80,7 +80,7 @@ struct OutputFile {
 int main(int argc, const char* argv[]) try {
     forceUTF8();
     auto args = parseArgs(argc, argv);
-    Porkchop::SourceCode c(readAll(args["input"]));
+    Porkchop::Compiler c(readAll(args["input"]));
     try {
         c.tokenize();
         if (c.tokens.empty()) {

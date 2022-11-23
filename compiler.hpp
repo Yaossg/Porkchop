@@ -20,8 +20,7 @@ struct Token;
 struct Function;
 struct Assembler;
 
-// TODO: Rename this to 'Compiler'
-struct SourceCode {
+struct Compiler {
     std::string original;
     std::vector<std::string_view> lines;
     std::vector<Token> tokens;
@@ -32,7 +31,7 @@ struct SourceCode {
     size_t locals;
     size_t nextLabelIndex = 0;
 
-    explicit SourceCode(std::string original) noexcept;
+    explicit Compiler(std::string original) noexcept;
 
     void tokenize();
 
@@ -52,27 +51,27 @@ struct SourceCode {
 }
 
 struct Descriptor {
-    [[nodiscard]] virtual std::string_view descriptor(const SourceCode& sourcecode) const noexcept = 0;
+    [[nodiscard]] virtual std::string_view descriptor(const Compiler& compiler) const noexcept = 0;
     virtual ~Descriptor() noexcept = default;
     [[nodiscard]] virtual std::vector<const Descriptor*> children() const { return {}; }
-    [[nodiscard]] std::string walkDescriptor(const SourceCode& sourcecode) const {
+    [[nodiscard]] std::string walkDescriptor(const Compiler& compiler) const {
         int id = 0;
         std::string buf;
-        walkDescriptor(buf, id, sourcecode);
+        walkDescriptor(buf, id, compiler);
         return buf;
     }
 
 private:
-    void walkDescriptor(std::string& buf, int& id, const SourceCode& sourcecode) const {
+    void walkDescriptor(std::string& buf, int& id, const Compiler& compiler) const {
         std::string pid = std::to_string(id);
         buf += pid;
         buf += "[\"";
-        buf += descriptor(sourcecode);
+        buf += descriptor(compiler);
         buf += "\"]\n";
         for (auto&& child : children()) {
             ++id;
             buf += pid + "-->" + std::to_string(id) + "\n";
-            child->walkDescriptor(buf, id, sourcecode);
+            child->walkDescriptor(buf, id, compiler);
         }
     }
 };

@@ -4,12 +4,12 @@
 
 namespace Porkchop {
 
-SourceCode::SourceCode(std::string original) noexcept: original(std::move(original)) /* default-constructed members... */ {
+Compiler::Compiler(std::string original) noexcept: original(std::move(original)) /* default-constructed members... */ {
     functions.emplace_back(std::make_unique<ExternalFunction>()); // main function
 }
 
 [[nodiscard]] std::vector<Token> tokenize(std::string_view view, size_t line);
-void SourceCode::tokenize() {
+void Compiler::tokenize() {
     lines = ::splitLines(original);
     for (size_t line = 0; line < lines.size(); ++line) {
         for (auto&& token : Porkchop::tokenize(lines[line], line)) {
@@ -18,11 +18,11 @@ void SourceCode::tokenize() {
     }
 }
 
-std::string_view SourceCode::of(Token token) const noexcept {
+std::string_view Compiler::of(Token token) const noexcept {
     return lines.at(token.line).substr(token.column, token.width);
 }
 
-void SourceCode::parse() {
+void Compiler::parse() {
     if (tokens.empty()) return;
     Parser parser(this, tokens);
     parser.context.defineExternal("print", std::make_shared<FuncType>(std::vector{ScalarTypes::STRING}, ScalarTypes::NONE));
@@ -42,7 +42,7 @@ void SourceCode::parse() {
     locals = parser.context.localTypes.size();
 }
 
-void SourceCode::compile(Assembler* assembler) {
+void Compiler::compile(Assembler* assembler) {
     assembler->beginFunction();
     assembler->indexed(Opcode::LOCAL, locals);
     tree->walkBytecode(*this, assembler);
@@ -53,7 +53,7 @@ void SourceCode::compile(Assembler* assembler) {
     }
 }
 
-std::string SourceCode::descriptor() const {
+std::string Compiler::descriptor() const {
     return tree->walkDescriptor(*this);
 }
 
