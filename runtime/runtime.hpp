@@ -280,112 +280,75 @@ struct Runtime {
         stack.push_back(value1 >> value2);
     }
 
-    void seq() {
-        auto value2 = spop();
-        auto value1 = spop();
-        stack.push_back(*value1 == *value2);
+    static constexpr size_t less = 0;
+    static constexpr size_t equivalent = 1;
+    static constexpr size_t greater = 2;
+    static constexpr size_t unordered = 3;
+
+    void compare_three_way(std::partial_ordering o) {
+        if (o == std::partial_ordering::less) {
+            stack.push_back(less);
+        } else if (o == std::partial_ordering::equivalent) {
+            stack.push_back(equivalent);
+        } else if (o == std::partial_ordering::greater) {
+            stack.push_back(greater);
+        } else if (o == std::partial_ordering::unordered) {
+            stack.push_back(unordered);
+        }
     }
 
-    void sne() {
-        auto value2 = spop();
-        auto value1 = spop();
-        stack.push_back(*value1 != *value2);
+    void ucmp() {
+        auto value2 = pop();
+        auto value1 = pop();
+        compare_three_way(value1 <=> value2);
     }
 
-    void slt() {
-        auto value2 = spop();
-        auto value1 = spop();
-        stack.push_back(*value1 < *value2);
-    }
-
-    void sgt() {
-        auto value2 = spop();
-        auto value1 = spop();
-        stack.push_back(*value1 > *value2);
-    }
-
-    void sle() {
-        auto value2 = spop();
-        auto value1 = spop();
-        stack.push_back(*value1 <= *value2);
-    }
-
-    void sge() {
-        auto value2 = spop();
-        auto value1 = spop();
-        stack.push_back(*value1 >= *value2);
-    }
-
-    void ieq() {
+    void icmp() {
         auto value2 = ipop();
         auto value1 = ipop();
-        stack.push_back(value1 == value2);
+        compare_three_way(value1 <=> value2);
     }
 
-    void ine() {
-        auto value2 = ipop();
-        auto value1 = ipop();
-        stack.push_back(value1 != value2);
-    }
-
-    void ilt() {
-        auto value2 = ipop();
-        auto value1 = ipop();
-        stack.push_back(value1 < value2);
-    }
-
-    void igt() {
-        auto value2 = ipop();
-        auto value1 = ipop();
-        stack.push_back(value1 > value2);
-    }
-
-    void ile() {
-        auto value2 = ipop();
-        auto value1 = ipop();
-        stack.push_back(value1 <= value2);
-    }
-
-    void ige() {
-        auto value2 = ipop();
-        auto value1 = ipop();
-        stack.push_back(value1 >= value2);
-    }
-
-    void feq() {
+    void fcmp() {
         auto value2 = fpop();
         auto value1 = fpop();
-        stack.push_back(value1 == value2);
+        compare_three_way(value1 <=> value2);
     }
 
-    void fne() {
-        auto value2 = fpop();
-        auto value1 = fpop();
-        stack.push_back(value1 != value2);
+    void scmp() {
+        auto value2 = spop();
+        auto value1 = spop();
+        compare_three_way(*value1 <=> *value2);
     }
 
-    void flt() {
-        auto value2 = fpop();
-        auto value1 = fpop();
-        stack.push_back(value1 < value2);
+    void eq() {
+        auto cmp = pop();
+        stack.push_back(cmp == equivalent);
     }
 
-    void fgt() {
-        auto value2 = fpop();
-        auto value1 = fpop();
-        stack.push_back(value1 > value2);
+    void ne() {
+        auto cmp = pop();
+        stack.push_back(cmp != equivalent);
     }
 
-    void fle() {
-        auto value2 = fpop();
-        auto value1 = fpop();
-        stack.push_back(value1 <= value2);
+    void lt() {
+        auto cmp = pop();
+        stack.push_back(cmp == less);
     }
 
-    void fge() {
-        auto value2 = fpop();
-        auto value1 = fpop();
-        stack.push_back(value1 >= value2);
+    void gt() {
+        auto cmp = pop();
+        stack.push_back(cmp == greater);
+    }
+
+    void le() {
+        auto cmp = pop();
+        stack.push_back(cmp == less || cmp == equivalent);
+    }
+
+    void ge() {
+        auto cmp = pop();
+        stack.push_back(cmp == greater || cmp == equivalent);
     }
 
     void sadd() {
@@ -598,59 +561,35 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
                 case Opcode::USHR:
                     runtime.ushr();
                     break;
-                case Opcode::SEQ:
-                    runtime.seq();
+                case Opcode::UCMP:
+                    runtime.ucmp();
                     break;
-                case Opcode::IEQ:
-                    runtime.ieq();
+                case Opcode::ICMP:
+                    runtime.icmp();
                     break;
-                case Opcode::FEQ:
-                    runtime.feq();
+                case Opcode::FCMP:
+                    runtime.fcmp();
                     break;
-                case Opcode::SNE:
-                    runtime.sne();
+                case Opcode::SCMP:
+                    runtime.scmp();
                     break;
-                case Opcode::INE:
-                    runtime.ine();
+                case Opcode::EQ:
+                    runtime.eq();
                     break;
-                case Opcode::FNE:
-                    runtime.fne();
+                case Opcode::NE:
+                    runtime.ne();
                     break;
-                case Opcode::SLT:
-                    runtime.slt();
+                case Opcode::LT:
+                    runtime.lt();
                     break;
-                case Opcode::ILT:
-                    runtime.ilt();
+                case Opcode::GT:
+                    runtime.gt();
                     break;
-                case Opcode::FLT:
-                    runtime.flt();
+                case Opcode::LE:
+                    runtime.le();
                     break;
-                case Opcode::SGT:
-                    runtime.sgt();
-                    break;
-                case Opcode::IGT:
-                    runtime.igt();
-                    break;
-                case Opcode::FGT:
-                    runtime.fgt();
-                    break;
-                case Opcode::SLE:
-                    runtime.sle();
-                    break;
-                case Opcode::ILE:
-                    runtime.ile();
-                    break;
-                case Opcode::FLE:
-                    runtime.fle();
-                    break;
-                case Opcode::SGE:
-                    runtime.sge();
-                    break;
-                case Opcode::IGE:
-                    runtime.ige();
-                    break;
-                case Opcode::FGE:
-                    runtime.fge();
+                case Opcode::GE:
+                    runtime.ge();
                     break;
                 case Opcode::SADD:
                     runtime.sadd();

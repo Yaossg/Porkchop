@@ -205,17 +205,6 @@ TypeReference InfixExpr::evalType(LocalContext& context) const {
             expected(lhs.get(), isIntegral, "integral type");
             matchOnBothOperand(lhs.get(), rhs.get());
             return type1;
-        case TokenType::OP_EQ:
-        case TokenType::OP_NE:
-        case TokenType::OP_LT:
-        case TokenType::OP_GT:
-        case TokenType::OP_LE:
-        case TokenType::OP_GE:
-            if (isString(lhs->typeCache) && isString(rhs->typeCache)) // TODO special message for string cmp
-                return ScalarTypes::BOOL;
-            expected(lhs.get(), isArithmetic, "arithmetic type"); // TODO more types to support
-            matchOnBothOperand(lhs.get(), rhs.get());
-            return ScalarTypes::BOOL;
         case TokenType::OP_SHL:
         case TokenType::OP_SHR:
         case TokenType::OP_USHR:
@@ -223,13 +212,13 @@ TypeReference InfixExpr::evalType(LocalContext& context) const {
             expected(rhs.get(), ScalarTypes::INT);
             return type1;
         case TokenType::OP_ADD:
-            if (isString(lhs->typeCache) && isString(rhs->typeCache)) // TODO special message for string add
+            if (isString(lhs->typeCache) && isString(rhs->typeCache))
                 return ScalarTypes::STRING;
         case TokenType::OP_SUB:
         case TokenType::OP_MUL:
         case TokenType::OP_DIV:
         case TokenType::OP_REM:
-            expected(lhs.get(), isArithmetic, "arithmetic type");
+            expected(lhs.get(), isArithmetic, "arithmetic or string type");
             matchOnBothOperand(lhs.get(), rhs.get());
             return type1;
         default:
@@ -255,18 +244,6 @@ int64_t InfixExpr::evalConst(Compiler& compiler) const {
             return lhs->evalConst(compiler) ^ rhs->evalConst(compiler);
         case TokenType::OP_AND:
             return lhs->evalConst(compiler) & rhs->evalConst(compiler);
-        case TokenType::OP_EQ:
-            return lhs->evalConst(compiler) == rhs->evalConst(compiler);
-        case TokenType::OP_NE:
-            return lhs->evalConst(compiler) != rhs->evalConst(compiler);
-        case TokenType::OP_LT:
-            return lhs->evalConst(compiler) < rhs->evalConst(compiler);
-        case TokenType::OP_GT:
-            return lhs->evalConst(compiler) > rhs->evalConst(compiler);
-        case TokenType::OP_LE:
-            return lhs->evalConst(compiler) <= rhs->evalConst(compiler);
-        case TokenType::OP_GE:
-            return lhs->evalConst(compiler) >= rhs->evalConst(compiler);
         case TokenType::OP_SHL:
             return lhs->evalConst(compiler) << nonneg(rhs->evalConst(compiler), rhs->segment());
         case TokenType::OP_SHR:
@@ -312,24 +289,6 @@ void InfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
         case TokenType::OP_USHR:
             assembler->opcode(Opcode::USHR);
             break;
-        case TokenType::OP_EQ:
-            assembler->opcode(s ? Opcode::SEQ : i ? Opcode::IEQ : Opcode::FEQ);
-            break;
-        case TokenType::OP_NE:
-            assembler->opcode(s ? Opcode::SNE : i ? Opcode::INE : Opcode::FNE);
-            break;
-        case TokenType::OP_LT:
-            assembler->opcode(s ? Opcode::SLT : i ? Opcode::ILT : Opcode::FLT);
-            break;
-        case TokenType::OP_GT:
-            assembler->opcode(s ? Opcode::SGT : i ? Opcode::IGT : Opcode::FGT);
-            break;
-        case TokenType::OP_LE:
-            assembler->opcode(s ? Opcode::SLE : i ? Opcode::ILE : Opcode::FLE);
-            break;
-        case TokenType::OP_GE:
-            assembler->opcode(s ? Opcode::SGE : i ? Opcode::IGE: Opcode::FGE);
-            break;
         case TokenType::OP_ADD:
             assembler->opcode(s ? Opcode::SADD : i ? Opcode::IADD : Opcode::FADD);
             break;
@@ -347,6 +306,130 @@ void InfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
             break;
         default:
             unreachable("invalid token is classified as infix operator");
+    }
+}
+
+TypeReference CompareExpr::evalType(LocalContext &context) const {
+    matchOnBothOperand(lhs.get(), rhs.get());
+    auto type = lhs->typeCache;
+    bool equality = token.type == TokenType::OP_EQ || token.type == TokenType::OP_NE;
+    if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
+        switch (scalar->S) {
+            case ScalarTypeKind::ANY:
+                throw TypeException("relational operations for any are not implemented yet", segment());
+            case ScalarTypeKind::NONE:
+                if (!equality)
+                    throw TypeException("none only support equality operator", segment());
+            case ScalarTypeKind::NEVER:
+                neverGonnaGiveYouUp(lhs.get(), "in relational operations");
+        }
+    } else if (auto func = dynamic_cast<FuncType*>(type.get())) {
+        if (!equality)
+            throw TypeException("func only support equality operator", segment());
+    } else {
+        throw TypeException("relational operations for compound types are not implemented yet", segment());
+    }
+    return ScalarTypes::BOOL;
+}
+
+int64_t CompareExpr::evalConst(Compiler &compiler) const {
+    switch (token.type) {
+        case TokenType::OP_EQ:
+            return lhs->evalConst(compiler) == rhs->evalConst(compiler);
+        case TokenType::OP_NE:
+            return lhs->evalConst(compiler) != rhs->evalConst(compiler);
+        case TokenType::OP_LT:
+            return lhs->evalConst(compiler) < rhs->evalConst(compiler);
+        case TokenType::OP_GT:
+            return lhs->evalConst(compiler) > rhs->evalConst(compiler);
+        case TokenType::OP_LE:
+            return lhs->evalConst(compiler) <= rhs->evalConst(compiler);
+        case TokenType::OP_GE:
+            return lhs->evalConst(compiler) >= rhs->evalConst(compiler);
+        default:
+            unreachable("invalid token is classified as relational operator");
+    }
+}
+
+void CompareExpr::walkBytecode(Compiler &compiler, Assembler *assembler) const {
+    lhs->walkBytecode(compiler, assembler);
+    rhs->walkBytecode(compiler, assembler);
+    auto type = lhs->typeCache;
+    if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
+        switch (scalar->S) {
+            case ScalarTypeKind::NONE: {
+                assembler->const_(token.type == TokenType::OP_EQ);
+                return;
+            }
+            case ScalarTypeKind::BOOL:
+            case ScalarTypeKind::BYTE:
+            case ScalarTypeKind::CHAR:
+                assembler->opcode(Opcode::UCMP);
+                break;
+            case ScalarTypeKind::INT:
+                assembler->opcode(Opcode::ICMP);
+                break;
+            case ScalarTypeKind::FLOAT:
+                assembler->opcode(Opcode::FCMP);
+                break;
+            case ScalarTypeKind::STRING:
+                assembler->opcode(Opcode::SCMP);
+                break;
+            default:
+                throw TypeException("relational operations for compound types are not implemented yet", segment());
+        }
+    } else if (auto func = dynamic_cast<FuncType*>(type.get())) {
+        assembler->opcode(Opcode::UCMP);
+    } else {
+        throw TypeException("relational operations for compound types are not implemented yet", segment());
+    }
+    switch (token.type) {
+        case TokenType::OP_EQ:
+            assembler->opcode(Opcode::EQ);
+            break;
+        case TokenType::OP_NE:
+            assembler->opcode(Opcode::NE);
+            break;
+        case TokenType::OP_LT:
+            assembler->opcode(Opcode::LT);
+            break;
+        case TokenType::OP_GT:
+            assembler->opcode(Opcode::GT);
+            break;
+        case TokenType::OP_LE:
+            assembler->opcode(Opcode::LE);
+            break;
+        case TokenType::OP_GE:
+            assembler->opcode(Opcode::GE);
+            break;
+        default:
+            unreachable("invalid token is classified as relational operator");
+    }
+}
+
+TypeReference LogicalExpr::evalType(LocalContext& context) const {
+    expected(lhs.get(), ScalarTypes::BOOL);
+    expected(rhs.get(), ScalarTypes::BOOL);
+    return ScalarTypes::BOOL;
+}
+
+int64_t LogicalExpr::evalConst(Compiler& compiler) const {
+    if (token.type == TokenType::OP_LAND) {
+        return lhs->evalConst(compiler) && rhs->evalConst(compiler);
+    } else {
+        return lhs->evalConst(compiler) || rhs->evalConst(compiler);
+    }
+}
+
+void LogicalExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+    if (token.type == TokenType::OP_LAND) {
+        BoolConstExpr zero({});
+        zero.parsed = false;
+        IfElseExpr::walkBytecode(lhs.get(), rhs.get(), &zero, compiler, assembler);
+    } else {
+        BoolConstExpr one({});
+        one.parsed = true;
+        IfElseExpr::walkBytecode(lhs.get(), &one, rhs.get(), compiler, assembler);
     }
 }
 
@@ -430,35 +513,6 @@ void AssignExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
                 unreachable("invalid token is classified as compound assignment operator");
         }
         lhs->walkStoreBytecode(compiler, assembler);
-    }
-}
-
-TypeReference LogicalExpr::evalType(LocalContext& context) const {
-    expected(lhs.get(), ScalarTypes::BOOL);
-    expected(rhs.get(), ScalarTypes::BOOL);
-    return ScalarTypes::BOOL;
-}
-
-int64_t LogicalExpr::evalConst(Compiler& compiler) const {
-    switch (token.type) {
-        case TokenType::OP_LAND:
-            return lhs->evalConst(compiler) && rhs->evalConst(compiler);
-        case TokenType::OP_LOR:
-            return lhs->evalConst(compiler) || rhs->evalConst(compiler);
-        default:
-            unreachable("invalid token is classified as logical operator");
-    }
-}
-
-void LogicalExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    if (token.type == TokenType::OP_LAND) {
-        BoolConstExpr zero({});
-        zero.parsed = false;
-        IfElseExpr::walkBytecode(lhs.get(), rhs.get(), &zero, compiler, assembler);
-    } else {
-        BoolConstExpr one({});
-        one.parsed = true;
-        IfElseExpr::walkBytecode(lhs.get(), &one, rhs.get(), compiler, assembler);
     }
 }
 

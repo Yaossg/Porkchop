@@ -191,12 +191,12 @@ struct IdPostfixExpr : Expr {
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
-struct InfixExpr : Expr {
+struct InfixExprBase : Expr {
     Token token;
     ExprHandle lhs;
     ExprHandle rhs;
 
-    InfixExpr(Token token, ExprHandle lhs, ExprHandle rhs):
+    InfixExprBase(Token token, ExprHandle lhs, ExprHandle rhs):
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
@@ -205,6 +205,33 @@ struct InfixExpr : Expr {
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
     }
+};
+
+struct InfixExpr : InfixExprBase {
+    InfixExpr(Token token, ExprHandle lhs, ExprHandle rhs):
+        InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
+
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+};
+
+struct CompareExpr : InfixExprBase {
+    CompareExpr(Token token, ExprHandle lhs, ExprHandle rhs):
+        InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
+
+    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+
+    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+
+    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+};
+
+struct LogicalExpr : InfixExprBase {
+    LogicalExpr(Token token, ExprHandle lhs, ExprHandle rhs):
+            InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
@@ -229,28 +256,6 @@ struct AssignExpr : Expr {
     }
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
-
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
-};
-
-struct LogicalExpr : Expr {
-    Token token;
-    ExprHandle lhs;
-    ExprHandle rhs;
-
-    LogicalExpr(Token token, ExprHandle lhs, ExprHandle rhs):
-        token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
-
-    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
-
-    [[nodiscard]] Segment segment() const override {
-        return range(lhs->segment(), rhs->segment());
-    }
-
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
-
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };

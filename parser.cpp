@@ -83,8 +83,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
         default: {
             auto lhs = parseExpression(Expr::upper(level));
             while (isInLevel(peek().type, level)) {
-                if (Token token = next(); token.type == TokenType::OP_LOR || token.type == TokenType::OP_LAND) {
+                if (Token token = next(); level == Expr::Level::LAND || level == Expr::Level::LOR) {
                     lhs = context.make<LogicalExpr>(token, std::move(lhs), parseExpression(Expr::upper(level)));
+                } else if (level == Expr::Level::COMPARISON || level == Expr::Level::EQUALITY) {
+                    lhs = context.make<CompareExpr>(token, std::move(lhs), parseExpression(Expr::upper(level)));
                 } else {
                     lhs = context.make<InfixExpr>(token, std::move(lhs), parseExpression(Expr::upper(level)));
                 }
