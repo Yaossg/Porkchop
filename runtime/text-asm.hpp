@@ -99,6 +99,7 @@ struct TextAssembly : Assembly {
                         case Opcode::DICT:
                         case Opcode::INC:
                         case Opcode::DEC:
+                        case Opcode::ITER:
                             // index or size
                             instructions.emplace_back(opcode, strtoull(args.data(), nullptr, 10));
                             break;

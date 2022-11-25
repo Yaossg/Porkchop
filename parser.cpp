@@ -399,7 +399,7 @@ ExprHandle Parser::parseFor() {
         pushLoop();
         LocalContext::Guard guard(context);
         auto rhs = parseExpression();
-        if (auto element = iterable(rhs->typeCache)) {
+        if (auto element = elementof(rhs->typeCache)) {
             destructuring(lhs, designated, element, rhs->segment());
             auto clause = parseClause();
             return context.make<ForDestructuringExpr>(token, std::move(lhs), std::move(designated), std::move(rhs), std::move(clause), popLoop());
@@ -411,7 +411,7 @@ ExprHandle Parser::parseFor() {
         pushLoop();
         LocalContext::Guard guard(context);
         auto rhs = parseExpression();
-        if (auto element = iterable(rhs->typeCache)) {
+        if (auto element = elementof(rhs->typeCache)) {
             declaring(lhs, designated, element, rhs->segment());
             auto clause = parseClause();
             return context.make<ForExpr>(token, std::move(lhs), std::move(designated), std::move(rhs), std::move(clause), popLoop());

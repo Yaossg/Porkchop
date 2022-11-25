@@ -38,6 +38,43 @@ struct Runtime {
         size_t call(Assembly *assembly) const;
     };
 
+    struct Iter {
+        virtual ~Iter() = default;
+
+        [[nodiscard]] virtual bool peek() const = 0;
+        virtual size_t next() = 0;
+    };
+
+    template<typename It>
+    struct IterImpl : Iter {
+        It first, last;
+        IterImpl(It first, It last): first(first), last(last) {}
+
+        [[nodiscard]] bool peek() const override {
+            return first != last;
+        }
+
+        size_t next() override {
+            return *first++;
+        }
+    };
+
+
+    template<typename It>
+    struct DictIterImpl : Iter {
+        It first, last;
+        DictIterImpl(It first, It last): first(first), last(last) {}
+
+        [[nodiscard]] bool peek() const override {
+            return first != last;
+        }
+
+        size_t next() override {
+            auto [key, value] = *first++;
+            return std::bit_cast<size_t>(new std::vector{key, value});
+        }
+    };
+
     Assembly *assembly;
     std::deque<size_t> stack;
     std::vector<size_t> locals;
@@ -428,6 +465,36 @@ struct Runtime {
     void dec(size_t index) {
         --locals[index];
     }
+
+    void iter(size_t type) {
+        switch (type) {
+            case 0: {
+                auto set = std::bit_cast<std::unordered_set<size_t> *>(pop());
+                push(new IterImpl{set->begin(), set->end()});
+                break;
+            }
+            case 1: {
+                auto list = std::bit_cast<std::vector<size_t> *>(pop());
+                push(new IterImpl{list->begin(), list->end()});
+                break;
+            }
+            case 2: {
+                auto dict = std::bit_cast<std::unordered_map<size_t, size_t> *>(pop());
+                push(new DictIterImpl{dict->begin(), dict->end()});
+                break;
+            }
+        }
+    }
+
+    void peek() {
+        auto iter = std::bit_cast<Iter*>(stack.back());
+        stack.push_back(iter->peek());
+    }
+
+    void next() {
+        auto iter = std::bit_cast<Iter*>(stack.back());
+        stack.push_back(iter->next());
+    }
 };
 
 size_t Runtime::Func::call(Assembly *assembly) const try {
@@ -629,6 +696,15 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
                     break;
                 case Opcode::DEC:
                     runtime.dec(std::get<size_t>(args));
+                    break;
+                case Opcode::ITER:
+                    runtime.iter(std::get<size_t>(args));
+                    break;
+                case Opcode::PEEK:
+                    runtime.peek();
+                    break;
+                case Opcode::NEXT:
+                    runtime.next();
                     break;
             }
         }

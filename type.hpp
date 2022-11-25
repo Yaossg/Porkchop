@@ -283,7 +283,7 @@ struct FuncType : Type {
     return nullptr;
 }
 
-[[nodiscard]] inline TypeReference iterable(TypeReference const& type) noexcept {
+[[nodiscard]] inline TypeReference elementof(TypeReference const& type) noexcept {
     if (auto set = dynamic_cast<SetType*>(type.get())) {
         return set->E;
     } else if (auto list = dynamic_cast<ListType*>(type.get())) {
@@ -292,6 +292,18 @@ struct FuncType : Type {
         return std::make_shared<TupleType>(std::vector{dict->K, dict->V});
     } else {
         return nullptr;
+    }
+}
+
+[[nodiscard]] inline size_t iterableID(TypeReference const& type) noexcept {
+    if (dynamic_cast<SetType*>(type.get())) {
+        return 0;
+    } else if (dynamic_cast<ListType*>(type.get())) {
+        return 1;
+    } else if (dynamic_cast<DictType*>(type.get())) {
+        return 2;
+    } else {
+        return -1;
     }
 }
 

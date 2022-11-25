@@ -870,7 +870,23 @@ TypeReference ForExpr::evalType(LocalContext& context) const {
 }
 
 void ForExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    throw ParserException("for is not implemented yet", segment());
+    size_t A = compiler.nextLabelIndex++;
+    size_t B = compiler.nextLabelIndex++;
+    breakpoint = B;
+    rhs->walkBytecode(compiler, assembler);
+    assembler->indexed(Opcode::ITER, iterableID(rhs->typeCache));
+    assembler->label(A);
+    assembler->opcode(Opcode::PEEK);
+    assembler->labeled(Opcode::JMP0, B);
+    assembler->opcode(Opcode::NEXT);
+    lhs->walkStoreBytecode(compiler, assembler);
+    assembler->opcode(Opcode::POP);
+    clause->walkBytecode(compiler, assembler);
+    assembler->opcode(Opcode::POP);
+    assembler->labeled(Opcode::JMP, A);
+    assembler->label(B);
+    assembler->opcode(Opcode::POP);
+    assembler->const0();
 }
 
 TypeReference ForDestructuringExpr::evalType(LocalContext& context) const {
@@ -879,7 +895,28 @@ TypeReference ForDestructuringExpr::evalType(LocalContext& context) const {
 }
 
 void ForDestructuringExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    throw ParserException("for is not implemented yet", segment());
+    size_t A = compiler.nextLabelIndex++;
+    size_t B = compiler.nextLabelIndex++;
+    breakpoint = B;
+    rhs->walkBytecode(compiler, assembler);
+    assembler->indexed(Opcode::ITER, iterableID(rhs->typeCache));
+    assembler->label(A);
+    assembler->opcode(Opcode::PEEK);
+    assembler->labeled(Opcode::JMP0, B);
+    assembler->opcode(Opcode::NEXT);
+    for (size_t i = 0; i < lhs.size(); ++i) {
+        assembler->opcode(Opcode::DUP);
+        assembler->indexed(Opcode::TLOAD, i);
+        lhs[i]->walkStoreBytecode(compiler, assembler);
+        assembler->opcode(Opcode::POP);
+    }
+    assembler->opcode(Opcode::POP);
+    clause->walkBytecode(compiler, assembler);
+    assembler->opcode(Opcode::POP);
+    assembler->labeled(Opcode::JMP, A);
+    assembler->label(B);
+    assembler->opcode(Opcode::POP);
+    assembler->const0();
 }
 
 TypeReference ReturnExpr::evalType(LocalContext& context) const {
