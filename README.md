@@ -8,10 +8,6 @@ Porkchop Programming Language
 }
 ```
 
-## 说明
-
-for 循环的字节码输出还未实现
-
 ## 编译器使用
 
 ```
@@ -181,7 +177,8 @@ pop
 L0: nop
 load 0
 const 9
-ile
+icmp
+le
 jmp0 L1
 const 1
 store 1
@@ -189,7 +186,8 @@ pop
 L2: nop
 load 1
 load 0
-ile
+icmp
+le
 jmp0 L3
 func 1
 func 4
@@ -217,10 +215,8 @@ sadd
 bind 1
 call
 pop
+inc 1
 load 1
-const 1
-iadd
-store 1
 pop
 jmp L2
 L3: nop
@@ -231,10 +227,8 @@ string 0
 bind 1
 call
 pop
+inc 0
 load 0
-const 1
-iadd
-store 0
 pop
 jmp L0
 L1: nop
@@ -245,7 +239,9 @@ return
 
 ## 源文件
 
-一个合法的 Porkchop 源文件有且只有一个表达式。注释由 # 引导。
+Porkchop 源文件的注释由 # 引导，之后的文本都会被忽略。
+
+一个合法的 Porkchop 源文件有且只有一个表达式。
 
 ```
 # 非法：没有表达式
@@ -266,7 +262,7 @@ println("world") # 非法：多于一个表达式
 } # 这个表达式的值为 5
 ```
 
-不需要用分号分割表达式，换行就行。
+分割表达式时分号不是必须的，换行就行。
 
 ## 类型和变量
 
@@ -342,7 +338,7 @@ Compilation Error: types mismatch on both operands, the one is 'int', but the ot
 }
 ```
 
-还可以使用一些操作来实现简单的静态反射
+还可以使用一些类型操作来获取简单的静态信息
 
 ```
 {
@@ -515,7 +511,7 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 
 ```
 {
-    for (key, value) in @[] {
+    for (key, value) in @["hello": "world"] {
         # ...
     }
 }
