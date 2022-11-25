@@ -4,7 +4,6 @@
 #include <bit>
 #include <unordered_set>
 #include <cmath>
-#include <stdexcept>
 
 #include "text-asm.hpp"
 

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <deque>
+#include <unordered_map>
+
 #include "type.hpp"
 
 namespace Porkchop {
