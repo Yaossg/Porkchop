@@ -57,6 +57,11 @@ inline size_t nanos(std::vector<size_t> const &args) {
     return std::chrono::system_clock::now().time_since_epoch().count();
 }
 
+inline size_t getargs(std::vector<size_t> const &args) {
+    static const auto _args = std::bit_cast<size_t>(new std::vector<size_t>());
+    return _args;
+}
+
 }
 
 }

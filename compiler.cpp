@@ -35,6 +35,7 @@ void Compiler::parse() {
     parser.context.defineExternal("exit", std::make_shared<FuncType>(std::vector{ScalarTypes::INT}, ScalarTypes::NEVER));
     parser.context.defineExternal("millis", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::INT));
     parser.context.defineExternal("nanos", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::INT));
+    parser.context.defineExternal("getargs", std::make_shared<FuncType>(std::vector<TypeReference>{}, std::make_shared<ListType>(ScalarTypes::STRING)));
     std::tie(tree, type) = parser.parseFnBody();
     parser.expect(TokenType::LINEBREAK, "a linebreak is expected");
     if (parser.remains())
