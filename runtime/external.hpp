@@ -9,7 +9,7 @@
 
 namespace Porkchop {
 
-using ExternalFunction = std::function<std::size_t(std::vector<size_t> const &)>;
+using ExternalFunctionR = std::function<std::size_t(std::vector<size_t> const &)>;
 
 namespace Externals {
 

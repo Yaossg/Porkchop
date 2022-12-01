@@ -15,7 +15,7 @@ using Instructions = std::vector<std::pair<Opcode, std::variant<
 >>>;
 
 struct Assembly {
-    std::vector<std::variant<Instructions, ExternalFunction>> functions;
+    std::vector<std::variant<Instructions, ExternalFunctionR>> functions;
 
     void externalFunctions() {
         functions.emplace_back(Externals::print);

@@ -709,7 +709,7 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
         }
         __builtin_unreachable();
     } else {
-        return std::get<ExternalFunction>(f)(captures);
+        return std::get<ExternalFunctionR>(f)(captures);
     }
 } catch (Runtime::Exception& e) {
     e.append("at func " + std::to_string(func));

@@ -107,7 +107,7 @@ int main(int argc, const char* argv[]) try {
     }
 } catch (std::bad_alloc& e) {
     fprintf(stderr, "Compilation Failed: Compiler run out of memory: %s\n", e.what());
-    return -2;
+    return -50;
 } catch (std::exception& e) {
     fprintf(stderr, "Compiler Internal Error: Unclassified std::exception occurred: %s\n", e.what());
     return -1000;
