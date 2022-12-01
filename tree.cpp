@@ -628,7 +628,7 @@ void AsExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     if (isAny(lhs->typeCache)) {
         assembler->typed(Opcode::AS, T);
     } else if (isAny(T)) {
-        assembler->typed(Opcode::ANY, T);
+        assembler->typed(Opcode::ANY, lhs->typeCache);
     } else if (isNone(T)) {
         assembler->opcode(Opcode::POP);
         assembler->const0();

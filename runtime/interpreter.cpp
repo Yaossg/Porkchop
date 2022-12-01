@@ -80,7 +80,7 @@ int main(int argc, const char* argv[]) try {
     try {
         c.tokenize();
         if (c.tokens.empty()) {
-            fprintf(stderr, "Compilation Error: Empty input with nothing to compile");
+            fprintf(stderr, "Compilation Error: Empty input with nothing to compile\n");
             return -2;
         }
         c.parse();
@@ -89,7 +89,7 @@ int main(int argc, const char* argv[]) try {
         Porkchop::Externals::init(argc, argv);
         Porkchop::Runtime::Func main_{0, {}};
         auto ret = main_.call(&interpretation);
-        fprintf(stdout, "Program finished with exit code %zu", ret);
+        fprintf(stdout, "\nProgram finished with exit code %zu\n", ret);
         return 0;
 
     } catch (Porkchop::SegmentException& e) {

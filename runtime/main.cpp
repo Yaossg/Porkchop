@@ -14,7 +14,7 @@ int main(int argc, const char* argv[]) try {
     Porkchop::Externals::init(argc, argv);
     Porkchop::Runtime::Func main_{0, {}};
     auto ret = main_.call(&c);
-    fprintf(stdout, "Program finished with exit code %zu", ret);
+    fprintf(stdout, "\nProgram finished with exit code %zu\n", ret);
     return 0;
 } catch (std::bad_alloc& e) {
     fprintf(stderr, "Execution Failed: Runtime run out of memory: %s\n", e.what());
