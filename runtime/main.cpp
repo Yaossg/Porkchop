@@ -16,7 +16,8 @@ int main(int argc, char* argv[]) try {
         args->push_back(std::bit_cast<size_t>(new std::string(argv[i])));
     }
     Porkchop::Runtime::Func main_{0, {}};
-    main_.call(&c);
+    auto ret = main_.call(&c);
+    fprintf(stdout, "Program finished with exit code %zu", ret);
     return 0;
 } catch (Porkchop::Runtime::Exception& e) {
     fprintf(stderr, "Runtime exception occurred:\n");

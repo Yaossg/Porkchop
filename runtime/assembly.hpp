@@ -29,6 +29,10 @@ struct Assembly {
         functions.emplace_back(Externals::millis);
         functions.emplace_back(Externals::nanos);
         functions.emplace_back(Externals::getargs);
+        functions.emplace_back(Externals::output);
+        functions.emplace_back(Externals::input);
+        functions.emplace_back(Externals::flush);
+        functions.emplace_back(Externals::eof);
     }
 };
 
