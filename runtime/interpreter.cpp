@@ -86,10 +86,7 @@ int main(int argc, const char* argv[]) try {
         c.parse();
         Porkchop::Interpretation interpretation;
         c.compile(&interpretation);
-        auto args = std::bit_cast<std::vector<size_t>*>(Porkchop::Externals::getargs({}));
-        for (size_t i = 2; i < argc; ++i) {
-            args->push_back(std::bit_cast<size_t>(new std::string(argv[i])));
-        }
+        Porkchop::Externals::init(argc, argv);
         Porkchop::Runtime::Func main_{0, {}};
         auto ret = main_.call(&interpretation);
         fprintf(stdout, "Program finished with exit code %zu", ret);

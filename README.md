@@ -50,6 +50,19 @@ PorkchopRuntime <input> [args...]
 
 之后的参数作为程序的参数，在程序中可以通过 `getargs()` 获取。
 
+## 解释器使用
+
+```
+PorkchopInterpreter <input> [args...]
+```
+
+等价于
+
+```
+Porkchop <input> -t -o tmp
+PorkchopRuntime tmp [args...]
+```
+
 ## 示例：九九乘法表
 
 ```

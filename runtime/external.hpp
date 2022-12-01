@@ -15,9 +15,21 @@ namespace Externals {
 
 static FILE* out = stdout;
 static FILE* in = stdin;
+static bool disableIO = false;
+
+static const auto _args = new std::vector<size_t>();
 
 inline std::string* as_string(size_t arg) {
     return std::bit_cast<std::string*>(arg);
+}
+
+void init(int argc, const char* argv[]) {
+    for (size_t i = 2; i < argc; ++i) {
+        _args->push_back(std::bit_cast<size_t>(new std::string(argv[i])));
+    }
+    if (getenv("PORKCHOP_IO_DISABLE")) {
+        disableIO = true;
+    }
 }
 
 inline size_t print(std::vector<size_t> const &args) {
@@ -67,18 +79,17 @@ inline size_t nanos(std::vector<size_t> const &args) {
 }
 
 inline size_t getargs(std::vector<size_t> const &args) {
-    static const auto _args = std::bit_cast<size_t>(new std::vector<size_t>());
-    return _args;
+    return std::bit_cast<size_t>(_args);
 }
 
 inline size_t output(std::vector<size_t> const &args) {
-    if (!(out = fopen(as_string(args[0])->c_str(), "w")))
+    if (disableIO || !(out = fopen(as_string(args[0])->c_str(), "w")))
         throw std::runtime_error("failed to reopen output stream");
     return 0;
 }
 
 inline size_t input(std::vector<size_t> const &args) {
-    if (!(in = fopen(as_string(args[0])->c_str(), "r")))
+    if (disableIO || !(in = fopen(as_string(args[0])->c_str(), "r")))
         throw std::runtime_error("failed to reopen input stream");
     return 0;
 }
