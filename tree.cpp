@@ -588,7 +588,8 @@ void InvokeExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     for (auto& e : rhs) {
         e->walkBytecode(compiler, assembler);
     }
-    assembler->indexed(Opcode::BIND, rhs.size());
+    if (!rhs.empty())
+        assembler->indexed(Opcode::BIND, rhs.size());
     assembler->opcode(Opcode::CALL);
 }
 
@@ -946,7 +947,8 @@ void LambdaExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     for (auto&& e : captures) {
         e->walkBytecode(compiler, assembler);
     }
-    assembler->indexed(Opcode::BIND, captures.size());
+    if (!captures.empty())
+        assembler->indexed(Opcode::BIND, captures.size());
 }
 
 TypeReference LetExpr::evalType(LocalContext& context) const {
