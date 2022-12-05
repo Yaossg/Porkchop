@@ -70,7 +70,7 @@ struct Runtime {
 
         size_t next() override {
             auto [key, value] = *first++;
-            return std::bit_cast<size_t>(new std::vector{key, value});
+            return as_size(new std::vector{key, value});
         }
     };
 
@@ -104,11 +104,11 @@ struct Runtime {
     }
 
     double fpop() {
-        return std::bit_cast<double>(pop());
+        return as_double(pop());
     }
 
     std::string *spop() {
-        return std::bit_cast<std::string *>(pop());
+        return as_string(pop());
     }
 
     std::vector<size_t> npop(size_t n) {
@@ -124,11 +124,11 @@ struct Runtime {
     }
 
     void push(double value) {
-        stack.push_back(std::bit_cast<size_t>(value));
+        stack.push_back(as_size(value));
     }
 
     void push(void *ptr) {
-        stack.push_back(std::bit_cast<size_t>(ptr));
+        stack.push_back(as_size(ptr));
     }
 
     void string(std::string const &s) {
@@ -220,14 +220,12 @@ struct Runtime {
 
     void i2b() {
         auto value = ipop();
-        if (value < 0 || value > 0xFFLL)
-            throw Exception("int is invalid to cast to byte");
-        stack.push_back(value);
+        stack.push_back(value & 0xFF);
     }
 
     void i2c() {
         auto value = ipop();
-        if (value < 0 || value > 0x10FFFFLL || 0xD800LL <= value && value <= 0xDFFFLL)
+        if (isInvalidChar(value))
             throw Exception("int is invalid to cast to char");
         stack.push_back(value);
     }
@@ -301,18 +299,24 @@ struct Runtime {
     void shl() {
         auto value2 = ipop();
         auto value1 = ipop();
+        if (value2 < 0)
+            throw Exception("shift a negative");
         stack.push_back(value1 << value2);
     }
 
     void shr() {
         auto value2 = ipop();
         auto value1 = ipop();
+        if (value2 < 0)
+            throw Exception("shift a negative");
         stack.push_back(value1 >> value2);
     }
 
     void ushr() {
         auto value2 = ipop();
         auto value1 = pop();
+        if (value2 < 0)
+            throw Exception("shift a negative");
         stack.push_back(value1 >> value2);
     }
 

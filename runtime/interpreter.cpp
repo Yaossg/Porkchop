@@ -3,8 +3,6 @@
 #include "../parser.hpp"
 #include "../function.hpp"
 
-#include "../io.hpp"
-
 namespace Porkchop {
 
 struct Interpretation : Assembler, Assembly {
@@ -19,7 +17,7 @@ struct Interpretation : Assembler, Assembly {
         instructions.push_back(std::pair<Opcode, size_t>{Opcode::CONST, i});
     }
     void const_(double d) override {
-        instructions.push_back(std::pair<Opcode, size_t>{Opcode::CONST, std::bit_cast<size_t>(d)});
+        instructions.push_back(std::pair<Opcode, size_t>{Opcode::CONST, as_size(d)});
     }
     void opcode(Opcode opcode) override {
         instructions.push_back(std::pair<Opcode, std::monostate>{opcode, {}});
@@ -70,13 +68,13 @@ struct Interpretation : Assembler, Assembly {
 
 
 int main(int argc, const char* argv[]) try {
-    forceUTF8();
+    Porkchop::forceUTF8();
     if (argc < 2) {
         fprintf(stderr, "Fatal: Too few arguments, input file expected\n");
         fprintf(stderr, "Usage: PorkchopInterpreter <input> [args...]\n");
         return 10;
     }
-    Porkchop::Compiler c(readAll(argv[1]));
+    Porkchop::Compiler c(Porkchop::readAll(argv[1]));
     try {
         c.tokenize();
         if (c.tokens.empty()) {

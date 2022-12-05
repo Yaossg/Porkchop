@@ -36,7 +36,7 @@ struct Expr : Descriptor {
 
     [[nodiscard]] virtual TypeReference evalType(LocalContext& context) const = 0;
 
-    [[nodiscard]] virtual int64_t evalConst(Compiler& compiler) const;
+    [[nodiscard]] virtual size_t evalConst(Compiler& compiler) const;
 
     virtual void walkBytecode(Compiler& compiler, Assembler* assembler) const = 0;
 };
@@ -60,7 +60,7 @@ struct BoolConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -71,6 +71,8 @@ struct CharConstExpr : ConstExpr {
     explicit CharConstExpr(Token token): ConstExpr(token) {}
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -93,7 +95,7 @@ struct IntConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -104,6 +106,8 @@ struct FloatConstExpr : ConstExpr {
     explicit FloatConstExpr(Token token): ConstExpr(token) {}
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -130,6 +134,8 @@ struct IdExpr : LoadExpr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 
     void walkStoreBytecode(Compiler& compiler, Assembler* assembler) const override;
@@ -150,7 +156,7 @@ struct PrefixExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -213,7 +219,7 @@ struct InfixExpr : InfixExprBase {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -224,7 +230,7 @@ struct CompareExpr : InfixExprBase {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -235,7 +241,7 @@ struct LogicalExpr : InfixExprBase {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -341,7 +347,7 @@ struct AsExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -363,7 +369,7 @@ struct IsExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -384,7 +390,7 @@ struct DefaultExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -504,7 +510,7 @@ struct ClauseExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -527,7 +533,7 @@ struct IfElseExpr : Expr {
 
     [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
 
-    [[nodiscard]] int64_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 

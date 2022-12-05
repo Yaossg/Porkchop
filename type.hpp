@@ -144,10 +144,6 @@ const TypeReference STRING = std::make_shared<ScalarType>(ScalarTypeKind::STRING
     return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT || kind == ScalarTypeKind::CHAR; });
 }
 
-[[nodiscard]] inline bool isCompileTime(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::BOOL || kind == ScalarTypeKind::INT; });
-}
-
 [[nodiscard]] inline bool isValueBased(TypeReference const& type) noexcept {
     return isScalar(type, [](ScalarTypeKind kind) noexcept { return
         kind == ScalarTypeKind::NONE || kind == ScalarTypeKind::BOOL || kind == ScalarTypeKind::BYTE

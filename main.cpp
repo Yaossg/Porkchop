@@ -1,7 +1,7 @@
 #include "parser.hpp"
 #include "function.hpp"
 
-#include "io.hpp"
+#include "util.hpp"
 
 std::unordered_map<std::string, std::string> parseArgs(int argc, const char* argv[]) {
     std::unordered_map<std::string, std::string> args;
@@ -78,9 +78,9 @@ struct OutputFile {
 };
 
 int main(int argc, const char* argv[]) try {
-    forceUTF8();
+    Porkchop::forceUTF8();
     auto args = parseArgs(argc, argv);
-    Porkchop::Compiler c(readAll(args["input"]));
+    Porkchop::Compiler c(Porkchop::readAll(args["input"]));
     try {
         c.tokenize();
         if (c.tokens.empty()) {

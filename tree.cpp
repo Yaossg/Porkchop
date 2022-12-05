@@ -1,7 +1,9 @@
+#include <cmath>
 #include "tree.hpp"
 #include "assembler.hpp"
 #include "diagnostics.hpp"
 
+#include "util.hpp"
 
 namespace Porkchop {
 
@@ -10,7 +12,39 @@ double parseFloat(Compiler& compiler, Token token);
 char32_t parseChar(Compiler& compiler, Token token);
 std::string parseString(Compiler& compiler, Token token);
 
-int64_t Expr::evalConst(Compiler &compiler) const {
+
+template<typename Fn>
+size_t visitBitwise(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
+    auto value1 = expr1->evalConst(compiler);
+    auto value2 = expr2->evalConst(compiler);
+    return isInt(expr1->typeCache) ? fn(int64_t(value1), int64_t(value2)) : (size_t) fn((unsigned char) value1, (unsigned char) value2);
+}
+
+template<bool u, typename Fn>
+size_t visitShift(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
+    auto value1 = expr1->evalConst(compiler);
+    auto value2 = expr2->evalConst(compiler);
+    if (int64_t(value2) < 0) throw ConstException("attempt to shift a negative constant", expr2->segment());
+    if (isInt(expr1->typeCache)) {
+        if constexpr (u) {
+            return fn(size_t(value1), int64_t(value2));
+        } else {
+            return fn(int64_t(value1), int64_t(value2));
+        }
+    } else {
+        return (size_t) fn((unsigned char) value1, int64_t(value2));
+    }
+}
+
+
+template<typename Fn>
+size_t visitArithmetic(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
+    auto value1 = expr1->evalConst(compiler);
+    auto value2 = expr2->evalConst(compiler);
+    return isInt(expr1->typeCache) ? fn(int64_t(value1), int64_t(value2)) : as_size(fn(as_double(value1), as_double(value2)));
+}
+
+size_t Expr::evalConst(Compiler &compiler) const {
     throw ConstException("cannot evaluate at compile-time", segment());
 }
 
@@ -19,7 +53,7 @@ TypeReference BoolConstExpr::evalType(LocalContext& context) const {
     return ScalarTypes::BOOL;
 }
 
-int64_t BoolConstExpr::evalConst(Compiler& compiler) const {
+size_t BoolConstExpr::evalConst(Compiler& compiler) const {
     return parsed;
 }
 
@@ -34,6 +68,10 @@ TypeReference CharConstExpr::evalType(LocalContext& context) const {
 
 void CharConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const {
     assembler->const_((int64_t)parsed);
+}
+
+size_t CharConstExpr::evalConst(Compiler &compiler) const {
+    return parsed;
 }
 
 TypeReference StringConstExpr::evalType(LocalContext &context) const {
@@ -65,7 +103,7 @@ TypeReference IntConstExpr::evalType(LocalContext &context) const {
     return ScalarTypes::INT;
 }
 
-int64_t IntConstExpr::evalConst(Compiler& compiler) const {
+size_t IntConstExpr::evalConst(Compiler& compiler) const {
     return parsed;
 }
 
@@ -80,6 +118,10 @@ TypeReference FloatConstExpr::evalType(LocalContext& context) const {
 
 void FloatConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const {
     assembler->const_(parsed);
+}
+
+size_t FloatConstExpr::evalConst(Compiler &compiler) const {
+    return as_size(parsed);
 }
 
 TypeReference IdExpr::evalType(LocalContext& context) const {
@@ -108,6 +150,12 @@ void IdExpr::walkStoreBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
+size_t IdExpr::evalConst(Compiler &compiler) const {
+    if (compiler.of(token) == "_")
+        return 0;
+    return Expr::evalConst(compiler);
+}
+
 TypeReference PrefixExpr::evalType(LocalContext& context) const {
     switch (token.type) {
         case TokenType::OP_ADD:
@@ -126,16 +174,18 @@ TypeReference PrefixExpr::evalType(LocalContext& context) const {
     return rhs->typeCache;
 }
 
-int64_t PrefixExpr::evalConst(Compiler& compiler) const {
+size_t PrefixExpr::evalConst(Compiler& compiler) const {
+    auto type = rhs->typeCache;
+    auto value = rhs->evalConst(compiler);
     switch (token.type) {
         case TokenType::OP_ADD:
-            return rhs->evalConst(compiler);
+            return value;
         case TokenType::OP_SUB:
-            return -rhs->evalConst(compiler);
+            return isInt(type) ? -value : as_size(-as_double(value));
         case TokenType::OP_NOT:
-            return !rhs->evalConst(compiler);
+            return !value;
         case TokenType::OP_INV:
-            return ~rhs->evalConst(compiler);
+            return isInt(type) ? ~value : (unsigned char)~value;
         default:
             unreachable("invalid token is classified as prefix operator");
     }
@@ -154,6 +204,7 @@ void PrefixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
             break;
         case TokenType::OP_INV:
             assembler->opcode(Opcode::INV);
+            if (isByte(rhs->typeCache)) assembler->opcode(Opcode::I2B);
             break;
         default:
             unreachable("invalid token is classified as prefix operator");
@@ -226,40 +277,44 @@ TypeReference InfixExpr::evalType(LocalContext& context) const {
     }
 }
 
-int64_t nonneg(int64_t value, Segment segment) {
-    if (value < 0) throw ConstException("non-negative constant is expected", segment);
-    return value;
+int64_t divisor(Expr* expr, Compiler& compiler) {
+    auto value = expr->evalConst(compiler);
+    if (value == 0) throw ConstException("attempt to divide zero", expr->segment());
+    return int64_t(value);
 }
 
-int64_t nonzero(int64_t value, Segment segment) {
-    if (value == 0) throw ConstException("non-zero constant is expected", segment);
-    return value;
-}
-
-int64_t InfixExpr::evalConst(Compiler& compiler) const {
+size_t InfixExpr::evalConst(Compiler& compiler) const {
     switch (token.type) {
         case TokenType::OP_OR:
-            return lhs->evalConst(compiler) | rhs->evalConst(compiler);
+            return visitBitwise([](auto u, auto v){return u | v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_XOR:
-            return lhs->evalConst(compiler) ^ rhs->evalConst(compiler);
+            return visitBitwise([](auto u, auto v){return u ^ v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_AND:
-            return lhs->evalConst(compiler) & rhs->evalConst(compiler);
+            return visitBitwise([](auto u, auto v){return u & v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_SHL:
-            return lhs->evalConst(compiler) << nonneg(rhs->evalConst(compiler), rhs->segment());
+            return visitShift<false>([](auto u, int64_t v){return u << v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_SHR:
-            return lhs->evalConst(compiler) >> nonneg(rhs->evalConst(compiler), rhs->segment());
+            return visitShift<false>([](auto u, int64_t v){return u >> v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_USHR:
-            return int64_t(uint64_t(lhs->evalConst(compiler)) >> nonneg(rhs->evalConst(compiler), rhs->segment()));
+            return visitShift<true>([](auto u, int64_t v){return u >> v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_ADD:
-            return lhs->evalConst(compiler) + rhs->evalConst(compiler);
+            return visitArithmetic([](auto u, auto v){return u + v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_SUB:
-            return lhs->evalConst(compiler) - rhs->evalConst(compiler);
+            return visitArithmetic([](auto u, auto v){return u - v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_MUL:
-            return lhs->evalConst(compiler) * rhs->evalConst(compiler);
+            return visitArithmetic([](auto u, auto v){return u * v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_DIV:
-            return lhs->evalConst(compiler) / nonzero(rhs->evalConst(compiler), rhs->segment());
+            if (isInt(lhs->typeCache)) {
+                return int64_t(lhs->evalConst(compiler)) / divisor(rhs.get(), compiler);
+            } else {
+                return as_size(as_double(lhs->evalConst(compiler)) / as_double(rhs->evalConst(compiler)));
+            }
         case TokenType::OP_REM:
-            return lhs->evalConst(compiler) % nonzero(rhs->evalConst(compiler), rhs->segment());
+            if (isInt(lhs->typeCache)) {
+                return int64_t(lhs->evalConst(compiler)) % divisor(rhs.get(), compiler);
+            } else {
+                return as_size(std::fmod(as_double(lhs->evalConst(compiler)), as_double(rhs->evalConst(compiler))));
+            }
         default:
             unreachable("invalid token is classified as infix operator");
     }
@@ -282,6 +337,7 @@ void InfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
             break;
         case TokenType::OP_SHL:
             assembler->opcode(Opcode::SHL);
+            if (isByte(lhs->typeCache)) assembler->opcode(Opcode::I2B);
             break;
         case TokenType::OP_SHR:
             assembler->opcode(Opcode::SHR);
@@ -332,20 +388,31 @@ TypeReference CompareExpr::evalType(LocalContext &context) const {
     return ScalarTypes::BOOL;
 }
 
-int64_t CompareExpr::evalConst(Compiler &compiler) const {
+size_t CompareExpr::evalConst(Compiler &compiler) const {
+    auto type = lhs->typeCache;
+    if (!isValueBased(type)) throw ConstException("constant comparison between unsupported types", segment());
+    if (isNone(type)) return token.type == TokenType::OP_EQ;
+    auto value1 = lhs->evalConst(compiler);
+    auto value2 = rhs->evalConst(compiler);
+    std::partial_ordering cmp = value1 <=> value2;
+    if (isInt(type)) {
+        cmp = int64_t(value1) <=> int64_t(value2);
+    } else if (isFloat(type)) {
+        cmp = as_double(value1) <=> as_double(value2);
+    }
     switch (token.type) {
         case TokenType::OP_EQ:
-            return lhs->evalConst(compiler) == rhs->evalConst(compiler);
+            return cmp == 0;
         case TokenType::OP_NE:
-            return lhs->evalConst(compiler) != rhs->evalConst(compiler);
+            return cmp != 0;
         case TokenType::OP_LT:
-            return lhs->evalConst(compiler) < rhs->evalConst(compiler);
+            return cmp < 0;
         case TokenType::OP_GT:
-            return lhs->evalConst(compiler) > rhs->evalConst(compiler);
+            return cmp > 0;
         case TokenType::OP_LE:
-            return lhs->evalConst(compiler) <= rhs->evalConst(compiler);
+            return cmp <= 0;
         case TokenType::OP_GE:
-            return lhs->evalConst(compiler) >= rhs->evalConst(compiler);
+            return cmp >= 0;
         default:
             unreachable("invalid token is classified as relational operator");
     }
@@ -413,7 +480,7 @@ TypeReference LogicalExpr::evalType(LocalContext& context) const {
     return ScalarTypes::BOOL;
 }
 
-int64_t LogicalExpr::evalConst(Compiler& compiler) const {
+size_t LogicalExpr::evalConst(Compiler& compiler) const {
     if (token.type == TokenType::OP_LAND) {
         return lhs->evalConst(compiler) && rhs->evalConst(compiler);
     } else {
@@ -520,7 +587,7 @@ TypeReference AccessExpr::evalType(LocalContext& context) const {
     TypeReference type1 = lhs->typeCache, type2 = rhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
-        auto index = rhs->evalConst(*context.compiler);
+        int64_t index = rhs->evalConst(*context.compiler);
         if (0 <= index && index < tuple->E.size()) {
             return tuple->E[index];
         } else {
@@ -618,9 +685,25 @@ TypeReference AsExpr::evalType(LocalContext& context) const {
     throw TypeException("cannot cast the expression from " + type->toString() + " to " + T->toString(), segment());
 }
 
-int64_t AsExpr::evalConst(Compiler& compiler) const {
-    if (!isCompileTime(T)) throw ConstException("compile-time evaluation only support bool and int", segment());
-    return lhs->evalConst(compiler);
+size_t AsExpr::evalConst(Compiler& compiler) const {
+    if (!isValueBased(T)) throw ConstException("unsupported type for constant evaluation", segment());
+    auto value = lhs->evalConst(compiler);
+    if (isInt(lhs->typeCache)) {
+        if (isByte(T)) {
+            return (unsigned char)value;
+        } else if (isChar(T)) {
+            if (isInvalidChar(value))
+                throw ConstException("int is invalid to cast to char", segment());
+            return (char32_t)value;
+        } else if (isFloat(T)) {
+            return as_size((double)value);
+        }
+    } else if (isInt(T)) {
+        if (isFloat(lhs->typeCache)) {
+            return (int64_t)as_double(value);
+        }
+    }
+    return value;
 }
 
 void AsExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
@@ -653,7 +736,7 @@ TypeReference IsExpr::evalType(LocalContext& context) const {
     return ScalarTypes::BOOL;
 }
 
-int64_t IsExpr::evalConst(Compiler& compiler) const {
+size_t IsExpr::evalConst(Compiler& compiler) const {
     if (isAny(lhs->typeCache)) throw ConstException("dynamic type cannot be checked at compile-time", lhs->segment());
     return lhs->typeCache->equals(T);
 }
@@ -663,7 +746,7 @@ void IsExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
         lhs->walkBytecode(compiler, assembler);
         assembler->typed(Opcode::IS, T);
     } else {
-        assembler->const_(evalConst(compiler));
+        assembler->const_((int64_t)evalConst(compiler));
     }
 }
 
@@ -675,8 +758,8 @@ TypeReference DefaultExpr::evalType(LocalContext& context) const {
     return T;
 }
 
-int64_t DefaultExpr::evalConst(Compiler& compiler) const {
-    if (!isCompileTime(T)) throw ConstException("compile-time evaluation only support bool and int", segment());
+size_t DefaultExpr::evalConst(Compiler& compiler) const {
+    if (!isValueBased(T)) throw ConstException("unsupported type for constant evaluation", segment());
     return 0;
 }
 
@@ -770,10 +853,12 @@ TypeReference ClauseExpr::evalType(LocalContext& context) const {
     return lines.empty() ? ScalarTypes::NONE : lines.back()->typeCache;
 }
 
-int64_t ClauseExpr::evalConst(Compiler& compiler) const {
-    if (lines.empty()) throw ConstException("compile-time evaluation only support bool and int", segment());
-    int64_t value;
-    for (auto&& expr : lines) value = expr->evalConst(compiler);
+size_t ClauseExpr::evalConst(Compiler& compiler) const {
+    if (lines.empty()) return 0;
+    size_t value;
+    for (auto&& expr : lines) {
+        value = expr->evalConst(compiler);
+    }
     return value;
 }
 
@@ -797,12 +882,12 @@ TypeReference IfElseExpr::evalType(LocalContext& context) const {
             return lhs->typeCache;
         else
             return rhs->typeCache;
-    } catch (...) {}
+    } catch (ConstException&) {}
     if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) return either;
     throw TypeException(mismatch(rhs->typeCache, "both clause", lhs->typeCache), segment());
 }
 
-int64_t IfElseExpr::evalConst(Compiler& compiler) const {
+size_t IfElseExpr::evalConst(Compiler& compiler) const {
     return cond->evalConst(compiler) ? lhs->evalConst(compiler) : rhs->evalConst(compiler);
 }
 
@@ -847,7 +932,7 @@ TypeReference WhileExpr::evalType(LocalContext& context) const {
     try {
         if (cond->evalConst(*context.compiler) && hook->breaks.empty())
             return ScalarTypes::NEVER;
-    } catch (...) {}
+    } catch (ConstException&) {}
     return ScalarTypes::NONE;
 }
 

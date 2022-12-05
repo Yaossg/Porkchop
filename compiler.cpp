@@ -1,6 +1,6 @@
 #include "parser.hpp"
 #include "function.hpp"
-#include "io.hpp"
+#include "util.hpp"
 
 namespace Porkchop {
 
@@ -10,7 +10,7 @@ Compiler::Compiler(std::string original) noexcept: original(std::move(original))
 
 [[nodiscard]] std::vector<Token> tokenize(std::string_view view, size_t line);
 void Compiler::tokenize() {
-    lines = ::splitLines(original);
+    lines = Porkchop::splitLines(original);
     for (size_t line = 0; line < lines.size(); ++line) {
         for (auto&& token : Porkchop::tokenize(lines[line], line)) {
             tokens.push_back(token);

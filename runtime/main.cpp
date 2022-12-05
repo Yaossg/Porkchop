@@ -1,15 +1,13 @@
 #include "runtime.hpp"
 
-#include "../io.hpp"
-
 int main(int argc, const char* argv[]) try {
-    forceUTF8();
+    Porkchop::forceUTF8();
     if (argc < 2) {
         fprintf(stderr, "Fatal: Too few arguments, input file expected\n");
         fprintf(stderr, "Usage: PorkchopRuntime <input> [args...]\n");
         return 10;
     }
-    Porkchop::TextAssembly c(readAll(argv[1]));
+    Porkchop::TextAssembly c(Porkchop::readAll(argv[1]));
     c.parse();
     Porkchop::Externals::init(argc, argv);
     Porkchop::Runtime::Func main_{0, {}};

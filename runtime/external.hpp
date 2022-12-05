@@ -6,6 +6,8 @@
 #include <bit>
 #include <chrono>
 
+#include "../util.hpp"
+
 
 namespace Porkchop {
 
@@ -19,13 +21,9 @@ static bool disableIO = false;
 
 static const auto _args = new std::vector<size_t>();
 
-inline std::string* as_string(size_t arg) {
-    return std::bit_cast<std::string*>(arg);
-}
-
 void init(int argc, const char* argv[]) {
     for (size_t i = 2; i < argc; ++i) {
-        _args->push_back(std::bit_cast<size_t>(new std::string(argv[i])));
+        _args->push_back(as_size(new std::string(argv[i])));
     }
     if (getenv("PORKCHOP_IO_DISABLE")) {
         disableIO = true;
@@ -47,15 +45,15 @@ inline size_t println(std::vector<size_t> const &args) {
 inline size_t readLine(std::vector<size_t> const &args) {
     char line[1024];
     fgets(line, sizeof line, in);
-    return std::bit_cast<size_t>(new std::string(line));
+    return as_size(new std::string(line));
 }
 
 inline size_t i2s(std::vector<size_t> const &args) {
-    return std::bit_cast<size_t>(new std::string(std::to_string((int64_t) args[0])));
+    return as_size(new std::string(std::to_string((int64_t) args[0])));
 }
 
 inline size_t f2s(std::vector<size_t> const &args) {
-    return std::bit_cast<size_t>(new std::string(std::to_string(std::bit_cast<double>(args[0]))));
+    return as_size(new std::string(std::to_string(as_double(args[0]))));
 }
 
 inline size_t s2i(std::vector<size_t> const &args) {
@@ -63,7 +61,7 @@ inline size_t s2i(std::vector<size_t> const &args) {
 }
 
 inline size_t s2f(std::vector<size_t> const &args) {
-    return std::bit_cast<size_t>(std::stod(*as_string(args[0])));
+    return as_size(std::stod(*as_string(args[0])));
 }
 
 inline size_t exit(std::vector<size_t> const &args) {
@@ -79,7 +77,7 @@ inline size_t nanos(std::vector<size_t> const &args) {
 }
 
 inline size_t getargs(std::vector<size_t> const &args) {
-    return std::bit_cast<size_t>(_args);
+    return as_size(_args);
 }
 
 inline size_t output(std::vector<size_t> const &args) {
