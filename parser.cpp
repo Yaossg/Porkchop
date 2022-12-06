@@ -579,7 +579,7 @@ TypeReference Parser::parseType() {
                     expectComma();
                     auto expr = parseExpression();
                     expect(TokenType::RPAREN, "missing ')' to match '('");
-                    auto index = expr->evalConst(*compiler);
+                    auto index = expr->evalConst();
                     if (0 <= index && index < tuple->E.size()) {
                         return tuple->E[index];
                     } else {
@@ -612,7 +612,7 @@ TypeReference Parser::parseType() {
                 expect(TokenType::RPAREN, "missing ')' to match '('");
                 expected(expr.get(), ScalarTypes::INT);
                 if (auto func = dynamic_cast<FuncType*>(type.get())) {
-                    auto index = expr->evalConst(*compiler);
+                    auto index = expr->evalConst();
                     if (0 <= index && index < func->P.size()) {
                         return func->P[index];
                     } else {
@@ -674,10 +674,10 @@ TypeReference Parser::parseType() {
 IdExprHandle Parser::parseId(bool initialize) {
     auto token = next();
     if (token.type != TokenType::IDENTIFIER) throw TokenException("id-expression is expected", token);
-    auto id = std::make_unique<IdExpr>(token);
+    auto id = std::make_unique<IdExpr>(*compiler, token);
     if (initialize) {
         id->initLookup(context);
-        id->initialize(*compiler);
+        id->initialize();
     }
     return id;
 }

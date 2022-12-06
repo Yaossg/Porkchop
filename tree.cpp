@@ -15,15 +15,15 @@ std::string parseString(Compiler& compiler, Token token);
 
 template<typename Fn>
 size_t visitBitwise(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
-    auto value1 = expr1->evalConst(compiler);
-    auto value2 = expr2->evalConst(compiler);
+    auto value1 = expr1->evalConst();
+    auto value2 = expr2->evalConst();
     return isInt(expr1->typeCache) ? fn(int64_t(value1), int64_t(value2)) : (size_t) fn((unsigned char) value1, (unsigned char) value2);
 }
 
 template<bool u, typename Fn>
 size_t visitShift(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
-    auto value1 = expr1->evalConst(compiler);
-    auto value2 = expr2->evalConst(compiler);
+    auto value1 = expr1->evalConst();
+    auto value2 = expr2->evalConst();
     if (int64_t(value2) < 0) throw ConstException("attempt to shift a negative constant", expr2->segment());
     if (isInt(expr1->typeCache)) {
         if constexpr (u) {
@@ -38,50 +38,60 @@ size_t visitShift(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
 
 template<typename Fn>
 size_t visitArithmetic(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
-    auto value1 = expr1->evalConst(compiler);
-    auto value2 = expr2->evalConst(compiler);
+    auto value1 = expr1->evalConst();
+    auto value2 = expr2->evalConst();
     return isInt(expr1->typeCache) ? fn(int64_t(value1), int64_t(value2)) : as_size(fn(as_double(value1), as_double(value2)));
 }
 
-size_t Expr::evalConst(Compiler &compiler) const {
+size_t Expr::evalConst() const {
     throw ConstException("cannot evaluate at compile-time", segment());
 }
 
-TypeReference BoolConstExpr::evalType(Compiler& compiler) const {
+BoolConstExpr::BoolConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
+    parsed = token.type == TokenType::KW_TRUE;
+}
+
+TypeReference BoolConstExpr::evalType() const {
     return ScalarTypes::BOOL;
 }
 
-size_t BoolConstExpr::evalConst(Compiler& compiler) const {
+size_t BoolConstExpr::evalConst() const {
     return parsed;
 }
 
-void BoolConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const {
+void BoolConstExpr::walkBytecode(Assembler* assembler) const {
     assembler->const_(parsed);
 }
 
-TypeReference CharConstExpr::evalType(Compiler& compiler) const {
+CharConstExpr::CharConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
     parsed = parseChar(compiler, token);
+}
+
+TypeReference CharConstExpr::evalType() const {
     return ScalarTypes::CHAR;
 }
 
-void CharConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const {
+void CharConstExpr::walkBytecode(Assembler* assembler) const {
     assembler->const_((int64_t)parsed);
 }
 
-size_t CharConstExpr::evalConst(Compiler &compiler) const {
+size_t CharConstExpr::evalConst() const {
     return parsed;
 }
 
-TypeReference StringConstExpr::evalType(Compiler& compiler) const {
+StringConstExpr::StringConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
     parsed = parseString(compiler, token);
+}
+
+TypeReference StringConstExpr::evalType() const {
     return ScalarTypes::STRING;
 }
 
-void StringConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const {
+void StringConstExpr::walkBytecode(Assembler* assembler) const {
     assembler->string(parsed);
 }
 
-TypeReference IntConstExpr::evalType(Compiler& compiler) const {
+IntConstExpr::IntConstExpr(Compiler &compiler, Token token, bool merged) : ConstExpr(compiler, token), merged(merged) {
     switch (token.type) {
         case TokenType::KW_LINE:
             parsed = int64_t(token.line);
@@ -95,38 +105,42 @@ TypeReference IntConstExpr::evalType(Compiler& compiler) const {
         case TokenType::HEXADECIMAL_INTEGER:
             parsed = parseInt(compiler, token);
             break;
-        default:
-            unreachable("invalid token is classified as prefix operator");
     }
+}
+
+TypeReference IntConstExpr::evalType() const {
     return ScalarTypes::INT;
 }
 
-size_t IntConstExpr::evalConst(Compiler& compiler) const {
+size_t IntConstExpr::evalConst() const {
     return parsed;
 }
 
-void IntConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const {
+void IntConstExpr::walkBytecode(Assembler* assembler) const {
     assembler->const_(parsed);
 }
 
-TypeReference FloatConstExpr::evalType(Compiler& compiler) const {
+FloatConstExpr::FloatConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
     parsed = parseFloat(compiler, token);
+}
+
+TypeReference FloatConstExpr::evalType() const {
     return ScalarTypes::FLOAT;
 }
 
-void FloatConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const {
+void FloatConstExpr::walkBytecode(Assembler* assembler) const {
     assembler->const_(parsed);
 }
 
-size_t FloatConstExpr::evalConst(Compiler &compiler) const {
+size_t FloatConstExpr::evalConst() const {
     return as_size(parsed);
 }
 
-TypeReference IdExpr::evalType(Compiler& compiler) const {
+TypeReference IdExpr::evalType() const {
     return lookup.type;
 }
 
-void IdExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const {
+void IdExpr::walkBytecode(Assembler* assembler) const {
     if (lookup.function) {
         assembler->indexed(Opcode::FUNC, lookup.index);
     }  else if (compiler.of(token) == "_") {
@@ -147,13 +161,13 @@ void IdExpr::walkStoreBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-size_t IdExpr::evalConst(Compiler &compiler) const {
+size_t IdExpr::evalConst() const {
     if (compiler.of(token) == "_")
         return 0;
-    return Expr::evalConst(compiler);
+    return Expr::evalConst();
 }
 
-TypeReference PrefixExpr::evalType(Compiler& compiler) const {
+TypeReference PrefixExpr::evalType() const {
     switch (token.type) {
         case TokenType::OP_ADD:
         case TokenType::OP_SUB:
@@ -171,9 +185,9 @@ TypeReference PrefixExpr::evalType(Compiler& compiler) const {
     return rhs->typeCache;
 }
 
-size_t PrefixExpr::evalConst(Compiler& compiler) const {
+size_t PrefixExpr::evalConst() const {
     auto type = rhs->typeCache;
-    auto value = rhs->evalConst(compiler);
+    auto value = rhs->evalConst();
     switch (token.type) {
         case TokenType::OP_ADD:
             return value;
@@ -188,8 +202,8 @@ size_t PrefixExpr::evalConst(Compiler& compiler) const {
     }
 }
 
-void PrefixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    rhs->walkBytecode(compiler, assembler);
+void PrefixExpr::walkBytecode(Assembler* assembler) const {
+    rhs->walkBytecode(assembler);
     switch (token.type) {
         case TokenType::OP_ADD:
             break;
@@ -208,34 +222,34 @@ void PrefixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference IdPrefixExpr::evalType(Compiler& compiler) const {
+TypeReference IdPrefixExpr::evalType() const {
     expected(rhs.get(), ScalarTypes::INT);
     return ScalarTypes::INT;
 }
 
-void IdPrefixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void IdPrefixExpr::walkBytecode(Assembler* assembler) const {
     if (auto id = dynamic_cast<IdExpr*>(rhs.get())) {
         assembler->indexed(token.type == TokenType::OP_INC ? Opcode::INC : Opcode::DEC, id->lookup.index);
-        id->walkBytecode(compiler, assembler);
+        id->walkBytecode(assembler);
     } else {
-        rhs->walkBytecode(compiler, assembler);
+        rhs->walkBytecode(assembler);
         assembler->const1();
         assembler->opcode(token.type == TokenType::OP_INC ? Opcode::IADD : Opcode::ISUB);
         rhs->walkStoreBytecode(compiler, assembler);
     }
 }
 
-TypeReference IdPostfixExpr::evalType(Compiler& compiler) const {
+TypeReference IdPostfixExpr::evalType() const {
     expected(lhs.get(), ScalarTypes::INT);
     return ScalarTypes::INT;
 }
 
-void IdPostfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void IdPostfixExpr::walkBytecode(Assembler* assembler) const {
     if (auto id = dynamic_cast<IdExpr*>(lhs.get())) {
-        id->walkBytecode(compiler, assembler);
+        id->walkBytecode(assembler);
         assembler->indexed(token.type == TokenType::OP_INC ? Opcode::INC : Opcode::DEC, id->lookup.index);
     } else {
-        lhs->walkBytecode(compiler, assembler);
+        lhs->walkBytecode(assembler);
         assembler->opcode(Opcode::DUP);
         assembler->const1();
         assembler->opcode(token.type == TokenType::OP_INC ? Opcode::IADD : Opcode::ISUB);
@@ -244,7 +258,7 @@ void IdPostfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const
     }
 }
 
-TypeReference InfixExpr::evalType(Compiler& compiler) const {
+TypeReference InfixExpr::evalType() const {
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_OR:
@@ -275,12 +289,12 @@ TypeReference InfixExpr::evalType(Compiler& compiler) const {
 }
 
 int64_t divisor(Expr* expr, Compiler& compiler) {
-    auto value = expr->evalConst(compiler);
+    auto value = expr->evalConst();
     if (value == 0) throw ConstException("attempt to divide zero", expr->segment());
     return int64_t(value);
 }
 
-size_t InfixExpr::evalConst(Compiler& compiler) const {
+size_t InfixExpr::evalConst() const {
     switch (token.type) {
         case TokenType::OP_OR:
             return visitBitwise([](auto u, auto v){return u | v;}, lhs.get(), rhs.get(), compiler);
@@ -302,24 +316,24 @@ size_t InfixExpr::evalConst(Compiler& compiler) const {
             return visitArithmetic([](auto u, auto v){return u * v;}, lhs.get(), rhs.get(), compiler);
         case TokenType::OP_DIV:
             if (isInt(lhs->typeCache)) {
-                return int64_t(lhs->evalConst(compiler)) / divisor(rhs.get(), compiler);
+                return int64_t(lhs->evalConst()) / divisor(rhs.get(), compiler);
             } else {
-                return as_size(as_double(lhs->evalConst(compiler)) / as_double(rhs->evalConst(compiler)));
+                return as_size(as_double(lhs->evalConst()) / as_double(rhs->evalConst()));
             }
         case TokenType::OP_REM:
             if (isInt(lhs->typeCache)) {
-                return int64_t(lhs->evalConst(compiler)) % divisor(rhs.get(), compiler);
+                return int64_t(lhs->evalConst()) % divisor(rhs.get(), compiler);
             } else {
-                return as_size(std::fmod(as_double(lhs->evalConst(compiler)), as_double(rhs->evalConst(compiler))));
+                return as_size(std::fmod(as_double(lhs->evalConst()), as_double(rhs->evalConst())));
             }
         default:
             unreachable("invalid token is classified as infix operator");
     }
 }
 
-void InfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    lhs->walkBytecode(compiler, assembler);
-    rhs->walkBytecode(compiler, assembler);
+void InfixExpr::walkBytecode(Assembler* assembler) const {
+    lhs->walkBytecode(assembler);
+    rhs->walkBytecode(assembler);
     bool i = isInt(lhs->typeCache);
     bool s = isString(lhs->typeCache);
     switch (token.type) {
@@ -362,7 +376,7 @@ void InfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference CompareExpr::evalType(Compiler& compiler) const {
+TypeReference CompareExpr::evalType() const {
     matchOnBothOperand(lhs.get(), rhs.get());
     auto type = lhs->typeCache;
     bool equality = token.type == TokenType::OP_EQ || token.type == TokenType::OP_NE;
@@ -385,12 +399,12 @@ TypeReference CompareExpr::evalType(Compiler& compiler) const {
     return ScalarTypes::BOOL;
 }
 
-size_t CompareExpr::evalConst(Compiler &compiler) const {
+size_t CompareExpr::evalConst() const {
     auto type = lhs->typeCache;
     if (!isValueBased(type)) throw ConstException("constant comparison between unsupported types", segment());
     if (isNone(type)) return token.type == TokenType::OP_EQ;
-    auto value1 = lhs->evalConst(compiler);
-    auto value2 = rhs->evalConst(compiler);
+    auto value1 = lhs->evalConst();
+    auto value2 = rhs->evalConst();
     std::partial_ordering cmp = value1 <=> value2;
     if (isInt(type)) {
         cmp = int64_t(value1) <=> int64_t(value2);
@@ -415,9 +429,9 @@ size_t CompareExpr::evalConst(Compiler &compiler) const {
     }
 }
 
-void CompareExpr::walkBytecode(Compiler &compiler, Assembler *assembler) const {
-    lhs->walkBytecode(compiler, assembler);
-    rhs->walkBytecode(compiler, assembler);
+void CompareExpr::walkBytecode(Assembler *assembler) const {
+    lhs->walkBytecode(assembler);
+    rhs->walkBytecode(assembler);
     auto type = lhs->typeCache;
     if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
         switch (scalar->S) {
@@ -471,31 +485,31 @@ void CompareExpr::walkBytecode(Compiler &compiler, Assembler *assembler) const {
     }
 }
 
-TypeReference LogicalExpr::evalType(Compiler& compiler) const {
+TypeReference LogicalExpr::evalType() const {
     expected(lhs.get(), ScalarTypes::BOOL);
     expected(rhs.get(), ScalarTypes::BOOL);
     return ScalarTypes::BOOL;
 }
 
-size_t LogicalExpr::evalConst(Compiler& compiler) const {
+size_t LogicalExpr::evalConst() const {
     if (token.type == TokenType::OP_LAND) {
-        return lhs->evalConst(compiler) && rhs->evalConst(compiler);
+        return lhs->evalConst() && rhs->evalConst();
     } else {
-        return lhs->evalConst(compiler) || rhs->evalConst(compiler);
+        return lhs->evalConst() || rhs->evalConst();
     }
 }
 
-void LogicalExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void LogicalExpr::walkBytecode(Assembler* assembler) const {
     if (token.type == TokenType::OP_LAND) {
-        static const BoolConstExpr zero{{0, 0, 0, TokenType::KW_FALSE}};
+        static const BoolConstExpr zero{compiler, {0, 0, 0, TokenType::KW_FALSE}};
         IfElseExpr::walkBytecode(lhs.get(), rhs.get(), &zero, compiler, assembler);
     } else {
-        static const BoolConstExpr one{{0, 0, 0, TokenType::KW_TRUE}};
+        static const BoolConstExpr one{compiler, {0, 0, 0, TokenType::KW_TRUE}};
         IfElseExpr::walkBytecode(lhs.get(), &one, rhs.get(), compiler, assembler);
     }
 }
 
-TypeReference AssignExpr::evalType(Compiler& compiler) const {
+TypeReference AssignExpr::evalType() const {
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_ASSIGN:
@@ -528,15 +542,15 @@ TypeReference AssignExpr::evalType(Compiler& compiler) const {
     }
 }
 
-void AssignExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void AssignExpr::walkBytecode(Assembler* assembler) const {
     if (token.type == TokenType::OP_ASSIGN) {
-        rhs->walkBytecode(compiler, assembler);
+        rhs->walkBytecode(assembler);
         lhs->walkStoreBytecode(compiler, assembler);
     } else {
         bool i = isInt(lhs->typeCache);
         bool s = isString(lhs->typeCache);
-        lhs->walkBytecode(compiler, assembler);
-        rhs->walkBytecode(compiler, assembler);
+        lhs->walkBytecode(assembler);
+        rhs->walkBytecode(assembler);
         switch (token.type) {
             case TokenType::OP_ASSIGN_AND:
                 assembler->opcode(Opcode::AND);
@@ -578,11 +592,11 @@ void AssignExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference AccessExpr::evalType(Compiler& compiler) const {
+TypeReference AccessExpr::evalType() const {
     TypeReference type1 = lhs->typeCache, type2 = rhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
-        int64_t index = rhs->evalConst(compiler);
+        int64_t index = rhs->evalConst();
         if (0 <= index && index < tuple->E.size()) {
             return tuple->E[index];
         } else {
@@ -598,16 +612,16 @@ TypeReference AccessExpr::evalType(Compiler& compiler) const {
     throw TypeException(unexpected(type1, "iterable type"), lhs->segment());
 }
 
-void AccessExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    lhs->walkBytecode(compiler, assembler);
+void AccessExpr::walkBytecode(Assembler* assembler) const {
+    lhs->walkBytecode(assembler);
     TypeReference type1 = lhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
-        assembler->indexed(Opcode::TLOAD, rhs->evalConst(compiler));
+        assembler->indexed(Opcode::TLOAD, rhs->evalConst());
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
-        rhs->walkBytecode(compiler, assembler);
+        rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::LLOAD);
     } else if (auto dict = dynamic_cast<DictType*>(type1.get())) {
-        rhs->walkBytecode(compiler, assembler);
+        rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::DLOAD);
     } else {
         unreachable("invalid expression is classified as access operator");
@@ -615,22 +629,22 @@ void AccessExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
 }
 
 void AccessExpr::walkStoreBytecode(Compiler &compiler, Assembler* assembler) const {
-    lhs->walkBytecode(compiler, assembler);
+    lhs->walkBytecode(assembler);
     TypeReference type1 = lhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
-        assembler->indexed(Opcode::TSTORE, rhs->evalConst(compiler));
+        assembler->indexed(Opcode::TSTORE, rhs->evalConst());
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
-        rhs->walkBytecode(compiler, assembler);
+        rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::LSTORE);
     } else if (auto dict = dynamic_cast<DictType*>(type1.get())) {
-        rhs->walkBytecode(compiler, assembler);
+        rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::DSTORE);
     } else {
         unreachable("invalid expression is classified as access operator");
     }
 }
 
-TypeReference InvokeExpr::evalType(Compiler& compiler) const {
+TypeReference InvokeExpr::evalType() const {
     if (auto func = dynamic_cast<FuncType*>(lhs->typeCache.get())) {
         if (rhs.size() != func->P.size()) {
             throw TypeException("expected " + std::to_string(func->P.size()) + " parameters but got " + std::to_string(rhs.size()), range(token1, token2));
@@ -645,17 +659,17 @@ TypeReference InvokeExpr::evalType(Compiler& compiler) const {
     throw TypeException(unexpected(lhs->typeCache, "invocable type"), lhs->segment());
 }
 
-void InvokeExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    lhs->walkBytecode(compiler, assembler);
+void InvokeExpr::walkBytecode(Assembler* assembler) const {
+    lhs->walkBytecode(assembler);
     for (auto& e : rhs) {
-        e->walkBytecode(compiler, assembler);
+        e->walkBytecode(assembler);
     }
     if (!rhs.empty())
         assembler->indexed(Opcode::BIND, rhs.size());
     assembler->opcode(Opcode::CALL);
 }
 
-TypeReference DotExpr::evalType(Compiler& compiler) const {
+TypeReference DotExpr::evalType() const {
     if (auto func = dynamic_cast<FuncType*>(rhs->typeCache.get())) {
         if (func->P.empty()) throw TypeException(unexpected(rhs->typeCache, "fn with at least one parameter"), rhs->segment());
         if (func->P[0]->assignableFrom(lhs->typeCache))
@@ -665,13 +679,13 @@ TypeReference DotExpr::evalType(Compiler& compiler) const {
     throw TypeException(unexpected(rhs->typeCache, "invocable type"), rhs->segment());
 }
 
-void DotExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    rhs->walkBytecode(compiler, assembler);
-    lhs->walkBytecode(compiler, assembler);
+void DotExpr::walkBytecode(Assembler* assembler) const {
+    rhs->walkBytecode(assembler);
+    lhs->walkBytecode(assembler);
     assembler->indexed(Opcode::BIND, 1);
 }
 
-TypeReference AsExpr::evalType(Compiler& compiler) const {
+TypeReference AsExpr::evalType() const {
     auto type = lhs->typeCache;
     if (T->assignableFrom(type) || isAny(T) && !isNever(type) || isAny(type) && !isNever(T)
         || isSimilar(isArithmetic, type, T)
@@ -680,9 +694,9 @@ TypeReference AsExpr::evalType(Compiler& compiler) const {
     throw TypeException("cannot cast the expression from " + type->toString() + " to " + T->toString(), segment());
 }
 
-size_t AsExpr::evalConst(Compiler& compiler) const {
+size_t AsExpr::evalConst() const {
     if (!isValueBased(T)) throw ConstException("unsupported type for constant evaluation", segment());
-    auto value = lhs->evalConst(compiler);
+    auto value = lhs->evalConst();
     if (isInt(lhs->typeCache)) {
         if (isByte(T)) {
             return (unsigned char)value;
@@ -701,8 +715,8 @@ size_t AsExpr::evalConst(Compiler& compiler) const {
     return value;
 }
 
-void AsExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    lhs->walkBytecode(compiler, assembler);
+void AsExpr::walkBytecode(Assembler* assembler) const {
+    lhs->walkBytecode(assembler);
     if (lhs->typeCache->equals(T)) return;
     if (isAny(lhs->typeCache)) {
         assembler->typed(Opcode::AS, T);
@@ -726,26 +740,26 @@ void AsExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference IsExpr::evalType(Compiler& compiler) const {
+TypeReference IsExpr::evalType() const {
     neverGonnaGiveYouUp(lhs.get(), "");
     return ScalarTypes::BOOL;
 }
 
-size_t IsExpr::evalConst(Compiler& compiler) const {
+size_t IsExpr::evalConst() const {
     if (isAny(lhs->typeCache)) throw ConstException("dynamic type cannot be checked at compile-time", lhs->segment());
     return lhs->typeCache->equals(T);
 }
 
-void IsExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void IsExpr::walkBytecode(Assembler* assembler) const {
     if (isAny(lhs->typeCache)) {
-        lhs->walkBytecode(compiler, assembler);
+        lhs->walkBytecode(assembler);
         assembler->typed(Opcode::IS, T);
     } else {
-        assembler->const_((int64_t)evalConst(compiler));
+        assembler->const_((int64_t)evalConst());
     }
 }
 
-TypeReference DefaultExpr::evalType(Compiler& compiler) const {
+TypeReference DefaultExpr::evalType() const {
     neverGonnaGiveYouUp(T, "for it has no instance at all", segment());
     if (isAny(T)) throw TypeException("any has no default instance", segment());
     if (auto tuple = dynamic_cast<TupleType*>(T.get())) throw TypeException("tuple has no default instance", segment());
@@ -753,12 +767,12 @@ TypeReference DefaultExpr::evalType(Compiler& compiler) const {
     return T;
 }
 
-size_t DefaultExpr::evalConst(Compiler& compiler) const {
+size_t DefaultExpr::evalConst() const {
     if (!isValueBased(T)) throw ConstException("unsupported type for constant evaluation", segment());
     return 0;
 }
 
-void DefaultExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void DefaultExpr::walkBytecode(Assembler* assembler) const {
     if (isValueBased(T)) {
         assembler->const0();
     } else if (isString(T)) {
@@ -772,7 +786,7 @@ void DefaultExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference TupleExpr::evalType(Compiler& compiler) const {
+TypeReference TupleExpr::evalType() const {
     std::vector<TypeReference> E;
     for (auto&& expr: elements) {
         E.push_back(expr->typeCache);
@@ -780,14 +794,14 @@ TypeReference TupleExpr::evalType(Compiler& compiler) const {
     return std::make_shared<TupleType>(std::move(E));
 }
 
-void TupleExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void TupleExpr::walkBytecode(Assembler* assembler) const {
     for (auto&& e : elements) {
-        e->walkBytecode(compiler, assembler);
+        e->walkBytecode(assembler);
     }
     assembler->indexed(Opcode::TUPLE, elements.size());
 }
 
-TypeReference ListExpr::evalType(Compiler& compiler) const {
+TypeReference ListExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
     neverGonnaGiveYouUp(elements.front().get(), "as list element");
     for (size_t i = 1; i < elements.size(); ++i) {
@@ -797,14 +811,14 @@ TypeReference ListExpr::evalType(Compiler& compiler) const {
     return listOf(type0);
 }
 
-void ListExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void ListExpr::walkBytecode(Assembler* assembler) const {
     for (auto&& e : elements) {
-        e->walkBytecode(compiler, assembler);
+        e->walkBytecode(assembler);
     }
     assembler->indexed(Opcode::LIST, elements.size());
 }
 
-TypeReference SetExpr::evalType(Compiler& compiler) const {
+TypeReference SetExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
     neverGonnaGiveYouUp(elements.front().get(), "as set element");
     for (size_t i = 1; i < elements.size(); ++i) {
@@ -814,14 +828,14 @@ TypeReference SetExpr::evalType(Compiler& compiler) const {
     return std::make_shared<SetType>(type0);
 }
 
-void SetExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void SetExpr::walkBytecode(Assembler* assembler) const {
     for (auto&& e : elements) {
-        e->walkBytecode(compiler, assembler);
+        e->walkBytecode(assembler);
     }
     assembler->indexed(Opcode::SET, elements.size());
 }
 
-TypeReference DictExpr::evalType(Compiler& compiler) const {
+TypeReference DictExpr::evalType() const {
     auto key0 = elements.front().first->typeCache;
     auto value0 = elements.front().second->typeCache;
     neverGonnaGiveYouUp(elements.front().first.get(), "as dict key");
@@ -835,45 +849,45 @@ TypeReference DictExpr::evalType(Compiler& compiler) const {
     return std::make_shared<DictType>(std::move(key0), std::move(value0));
 }
 
-void DictExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void DictExpr::walkBytecode(Assembler* assembler) const {
     for (auto&& [e1, e2] : elements) {
-        e1->walkBytecode(compiler, assembler);
-        e2->walkBytecode(compiler, assembler);
+        e1->walkBytecode(assembler);
+        e2->walkBytecode(assembler);
     }
     assembler->indexed(Opcode::DICT, elements.size());
 }
 
-TypeReference ClauseExpr::evalType(Compiler& compiler) const {
+TypeReference ClauseExpr::evalType() const {
     for (auto&& expr : lines) if (isNever(expr->typeCache)) return ScalarTypes::NEVER;
     return lines.empty() ? ScalarTypes::NONE : lines.back()->typeCache;
 }
 
-size_t ClauseExpr::evalConst(Compiler& compiler) const {
+size_t ClauseExpr::evalConst() const {
     if (lines.empty()) return 0;
     size_t value;
     for (auto&& expr : lines) {
-        value = expr->evalConst(compiler);
+        value = expr->evalConst();
     }
     return value;
 }
 
-void ClauseExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void ClauseExpr::walkBytecode(Assembler* assembler) const {
     if (lines.empty()) {
         assembler->const0();
     } else {
         bool first = true;
         for (auto&& line : lines) {
             if (first) { first = false; } else { assembler->opcode(Opcode::POP); }
-            line->walkBytecode(compiler, assembler);
+            line->walkBytecode(assembler);
         }
     }
 }
 
-TypeReference IfElseExpr::evalType(Compiler& compiler) const {
+TypeReference IfElseExpr::evalType() const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     try {
-        if (cond->evalConst(compiler))
+        if (cond->evalConst())
             return lhs->typeCache;
         else
             return rhs->typeCache;
@@ -882,79 +896,79 @@ TypeReference IfElseExpr::evalType(Compiler& compiler) const {
     throw TypeException(mismatch(rhs->typeCache, "both clause", lhs->typeCache), segment());
 }
 
-size_t IfElseExpr::evalConst(Compiler& compiler) const {
-    return cond->evalConst(compiler) ? lhs->evalConst(compiler) : rhs->evalConst(compiler);
+size_t IfElseExpr::evalConst() const {
+    return cond->evalConst() ? lhs->evalConst() : rhs->evalConst();
 }
 
-void IfElseExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void IfElseExpr::walkBytecode(Assembler* assembler) const {
     walkBytecode(cond.get(), lhs.get(), rhs.get(), compiler, assembler);
 }
 
 void IfElseExpr::walkBytecode(Expr const* cond, Expr const* lhs, Expr const* rhs, Compiler& compiler, Assembler* assembler) {
     size_t A = compiler.nextLabelIndex++;
     size_t B = compiler.nextLabelIndex++;
-    cond->walkBytecode(compiler, assembler);
+    cond->walkBytecode(assembler);
     assembler->labeled(Opcode::JMP0, A);
-    lhs->walkBytecode(compiler, assembler);
+    lhs->walkBytecode(assembler);
     assembler->labeled(Opcode::JMP, B);
     assembler->label(A);
-    rhs->walkBytecode(compiler, assembler);
+    rhs->walkBytecode(assembler);
     assembler->label(B);
 }
 
-TypeReference BreakExpr::evalType(Compiler& compiler) const {
+TypeReference BreakExpr::evalType() const {
     return ScalarTypes::NEVER;
 }
 
-void BreakExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void BreakExpr::walkBytecode(Assembler* assembler) const {
     size_t A = hook->loop->breakpoint;
     assembler->labeled(Opcode::JMP, A);
 }
 
-TypeReference YieldExpr::evalType(Compiler& compiler) const {
+TypeReference YieldExpr::evalType() const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return rhs->typeCache;
 }
 
-void YieldExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void YieldExpr::walkBytecode(Assembler* assembler) const {
     throw ParserException("yield is not implemented yet", segment());
 }
 
-TypeReference WhileExpr::evalType(Compiler& compiler) const {
+TypeReference WhileExpr::evalType() const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     try {
-        if (cond->evalConst(compiler) && hook->breaks.empty())
+        if (cond->evalConst() && hook->breaks.empty())
             return ScalarTypes::NEVER;
     } catch (ConstException&) {}
     return ScalarTypes::NONE;
 }
 
-void WhileExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void WhileExpr::walkBytecode(Assembler* assembler) const {
     size_t A = compiler.nextLabelIndex++;
     size_t B = compiler.nextLabelIndex++;
     breakpoint = B;
     assembler->label(A);
-    cond->walkBytecode(compiler, assembler);
+    cond->walkBytecode(assembler);
     assembler->labeled(Opcode::JMP0, B);
-    clause->walkBytecode(compiler, assembler);
+    clause->walkBytecode(assembler);
     assembler->opcode(Opcode::POP);
     assembler->labeled(Opcode::JMP, A);
     assembler->label(B);
     assembler->const0();
 }
 
-TypeReference ForExpr::evalType(Compiler& compiler) const {
+TypeReference ForExpr::evalType() const {
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     return ScalarTypes::NONE;
 }
 
-void ForExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void ForExpr::walkBytecode(Assembler* assembler) const {
     size_t A = compiler.nextLabelIndex++;
     size_t B = compiler.nextLabelIndex++;
     breakpoint = B;
-    rhs->walkBytecode(compiler, assembler);
+    rhs->walkBytecode(assembler);
     assembler->indexed(Opcode::ITER, iterableID(rhs->typeCache));
     assembler->label(A);
     assembler->opcode(Opcode::PEEK);
@@ -962,7 +976,7 @@ void ForExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->opcode(Opcode::NEXT);
     lhs->walkStoreBytecode(compiler, assembler);
     assembler->opcode(Opcode::POP);
-    clause->walkBytecode(compiler, assembler);
+    clause->walkBytecode(assembler);
     assembler->opcode(Opcode::POP);
     assembler->labeled(Opcode::JMP, A);
     assembler->label(B);
@@ -970,16 +984,16 @@ void ForExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->const0();
 }
 
-TypeReference ForDestructuringExpr::evalType(Compiler& compiler) const {
+TypeReference ForDestructuringExpr::evalType() const {
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     return ScalarTypes::NONE;
 }
 
-void ForDestructuringExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void ForDestructuringExpr::walkBytecode(Assembler* assembler) const {
     size_t A = compiler.nextLabelIndex++;
     size_t B = compiler.nextLabelIndex++;
     breakpoint = B;
-    rhs->walkBytecode(compiler, assembler);
+    rhs->walkBytecode(assembler);
     assembler->indexed(Opcode::ITER, iterableID(rhs->typeCache));
     assembler->label(A);
     assembler->opcode(Opcode::PEEK);
@@ -992,7 +1006,7 @@ void ForDestructuringExpr::walkBytecode(Compiler &compiler, Assembler* assembler
         assembler->opcode(Opcode::POP);
     }
     assembler->opcode(Opcode::POP);
-    clause->walkBytecode(compiler, assembler);
+    clause->walkBytecode(assembler);
     assembler->opcode(Opcode::POP);
     assembler->labeled(Opcode::JMP, A);
     assembler->label(B);
@@ -1000,52 +1014,52 @@ void ForDestructuringExpr::walkBytecode(Compiler &compiler, Assembler* assembler
     assembler->const0();
 }
 
-TypeReference ReturnExpr::evalType(Compiler& compiler) const {
+TypeReference ReturnExpr::evalType() const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return ScalarTypes::NEVER;
 }
 
-void ReturnExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    rhs->walkBytecode(compiler, assembler);
+void ReturnExpr::walkBytecode(Assembler* assembler) const {
+    rhs->walkBytecode(assembler);
     assembler->opcode(Opcode::RETURN);
 }
 
-TypeReference FnExprBase::evalType(Compiler& compiler) const {
+TypeReference FnExprBase::evalType() const {
     return prototype;
 }
 
-void FnDeclExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void FnDeclExpr::walkBytecode(Assembler* assembler) const {
     assembler->indexed(Opcode::FUNC, index);
 }
 
-void FnDefExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void FnDefExpr::walkBytecode(Assembler* assembler) const {
     assembler->indexed(Opcode::FUNC, index);
 }
 
-void LambdaExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
+void LambdaExpr::walkBytecode(Assembler* assembler) const {
     assembler->indexed(Opcode::FUNC, index);
     for (auto&& e : captures) {
-        e->walkBytecode(compiler, assembler);
+        e->walkBytecode(assembler);
     }
     if (!captures.empty())
         assembler->indexed(Opcode::BIND, captures.size());
 }
 
-TypeReference LetExpr::evalType(Compiler& compiler) const {
+TypeReference LetExpr::evalType() const {
     return designated;
 }
 
-void LetExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    rhs->walkBytecode(compiler, assembler);
+void LetExpr::walkBytecode(Assembler* assembler) const {
+    rhs->walkBytecode(assembler);
     lhs->walkStoreBytecode(compiler, assembler);
 }
 
-TypeReference LetDestructuringExpr::evalType(Compiler& compiler) const {
+TypeReference LetDestructuringExpr::evalType() const {
     return std::make_shared<TupleType>(designated);
 }
 
-void LetDestructuringExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
-    rhs->walkBytecode(compiler, assembler);
+void LetDestructuringExpr::walkBytecode(Assembler* assembler) const {
+    rhs->walkBytecode(assembler);
     for (size_t i = 0; i < lhs.size(); ++i) {
         assembler->opcode(Opcode::DUP);
         assembler->indexed(Opcode::TLOAD, i);
@@ -1054,7 +1068,7 @@ void LetDestructuringExpr::walkBytecode(Compiler &compiler, Assembler* assembler
     }
     assembler->opcode(Opcode::POP);
     for (auto&& e : lhs) {
-        e->walkBytecode(compiler, assembler);
+        e->walkBytecode(assembler);
     }
     assembler->indexed(Opcode::TUPLE, lhs.size());
 }

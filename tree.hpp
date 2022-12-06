@@ -27,24 +27,28 @@ struct Expr : Descriptor {
         return (Level)((int)level + 1);
     }
 
+    Compiler& compiler;
+
+    explicit Expr(Compiler& compiler): compiler(compiler) {}
+
     TypeReference typeCache;
-    void initialize(Compiler& compiler) {
-        typeCache = evalType(compiler);
+    void initialize() {
+        typeCache = evalType();
     }
 
     [[nodiscard]] virtual Segment segment() const = 0;
 
-    [[nodiscard]] virtual TypeReference evalType(Compiler& compiler) const = 0;
+    [[nodiscard]] virtual TypeReference evalType() const = 0;
 
-    [[nodiscard]] virtual size_t evalConst(Compiler& compiler) const;
+    [[nodiscard]] virtual size_t evalConst() const;
 
-    virtual void walkBytecode(Compiler& compiler, Assembler* assembler) const = 0;
+    virtual void walkBytecode(Assembler* assembler) const = 0;
 };
 
 struct ConstExpr : Expr {
     Token token;
 
-    explicit ConstExpr(Token token): token(token) {}
+    explicit ConstExpr(Compiler& compiler, Token token): Expr(compiler), token(token) {}
 
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
@@ -56,71 +60,73 @@ struct ConstExpr : Expr {
 struct BoolConstExpr : ConstExpr {
     bool parsed;
 
-    explicit BoolConstExpr(Token token): ConstExpr(token) { parsed = token.type == TokenType::KW_TRUE; }
+    explicit BoolConstExpr(Compiler& compiler, Token token);
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct CharConstExpr : ConstExpr {
-    mutable char32_t parsed;
+    char32_t parsed;
 
-    explicit CharConstExpr(Token token): ConstExpr(token) {}
+    explicit CharConstExpr(Compiler& compiler, Token token);
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct StringConstExpr : ConstExpr {
-    mutable std::string parsed;
+    std::string parsed;
 
-    explicit StringConstExpr(Token token): ConstExpr(token) {}
+    explicit StringConstExpr(Compiler& compiler, Token token);
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct IntConstExpr : ConstExpr {
-    mutable int64_t parsed;
+    int64_t parsed;
     bool merged;
 
-    explicit IntConstExpr(Token token, bool merged = false): ConstExpr(token), merged(merged) {}
+    explicit IntConstExpr(Compiler& compiler, Token token, bool merged = false);
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct FloatConstExpr : ConstExpr {
-    mutable double parsed;
+    double parsed;
 
-    explicit FloatConstExpr(Token token): ConstExpr(token) {}
+    explicit FloatConstExpr(Compiler& compiler, Token token);
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct LoadExpr : Expr {
+    explicit LoadExpr(Compiler& compiler): Expr(compiler) {}
+
     virtual void walkStoreBytecode(Compiler& compiler, Assembler* assembler) const = 0;
 };
 
 struct IdExpr : LoadExpr {
     Token token;
-    mutable LocalContext::LookupResult lookup;
+    LocalContext::LookupResult lookup;
 
-    explicit IdExpr(Token token): token(token) {}
+    explicit IdExpr(Compiler& compiler, Token token): LoadExpr(compiler), token(token) {}
 
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
 
@@ -128,15 +134,15 @@ struct IdExpr : LoadExpr {
         return token;
     }
 
-    void initLookup(LocalContext& context) const {
+    void initLookup(LocalContext& context) {
         lookup = context.lookup(token);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 
     void walkStoreBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -145,7 +151,7 @@ struct PrefixExpr : Expr {
     Token token;
     ExprHandle rhs;
 
-    PrefixExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
+    PrefixExpr(Compiler& compiler, Token token, ExprHandle rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
@@ -154,18 +160,18 @@ struct PrefixExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct IdPrefixExpr : Expr {
     Token token;
     std::unique_ptr<LoadExpr> rhs;
 
-    IdPrefixExpr(Token token, std::unique_ptr<LoadExpr> rhs): token(token), rhs(std::move(rhs)) {}
+    IdPrefixExpr(Compiler& compiler, Token token, std::unique_ptr<LoadExpr> rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
@@ -174,16 +180,16 @@ struct IdPrefixExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct IdPostfixExpr : Expr {
     Token token;
     std::unique_ptr<LoadExpr> lhs;
 
-    IdPostfixExpr(Token token, std::unique_ptr<LoadExpr> lhs): token(token), lhs(std::move(lhs)) {}
+    IdPostfixExpr(Compiler& compiler, Token token, std::unique_ptr<LoadExpr> lhs): Expr(compiler), token(token), lhs(std::move(lhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
@@ -192,9 +198,9 @@ struct IdPostfixExpr : Expr {
         return range(lhs->segment(), token);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct InfixExprBase : Expr {
@@ -202,7 +208,7 @@ struct InfixExprBase : Expr {
     ExprHandle lhs;
     ExprHandle rhs;
 
-    InfixExprBase(Token token, ExprHandle lhs, ExprHandle rhs):
+    InfixExprBase(Compiler& compiler, Token token, ExprHandle lhs, ExprHandle rhs): Expr(compiler),
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
@@ -214,36 +220,36 @@ struct InfixExprBase : Expr {
 };
 
 struct InfixExpr : InfixExprBase {
-    InfixExpr(Token token, ExprHandle lhs, ExprHandle rhs):
-        InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
+    InfixExpr(Compiler& compiler, Token token, ExprHandle lhs, ExprHandle rhs):
+        InfixExprBase(compiler, token, std::move(lhs), std::move(rhs)) {}
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct CompareExpr : InfixExprBase {
-    CompareExpr(Token token, ExprHandle lhs, ExprHandle rhs):
-        InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
+    CompareExpr(Compiler& compiler, Token token, ExprHandle lhs, ExprHandle rhs):
+        InfixExprBase(compiler, token, std::move(lhs), std::move(rhs)) {}
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct LogicalExpr : InfixExprBase {
-    LogicalExpr(Token token, ExprHandle lhs, ExprHandle rhs):
-            InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
+    LogicalExpr(Compiler& compiler, Token token, ExprHandle lhs, ExprHandle rhs):
+            InfixExprBase(compiler, token, std::move(lhs), std::move(rhs)) {}
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct AssignExpr : Expr {
@@ -251,7 +257,7 @@ struct AssignExpr : Expr {
     std::unique_ptr<LoadExpr> lhs;
     ExprHandle rhs;
 
-    AssignExpr(Token token, std::unique_ptr<LoadExpr> lhs, ExprHandle rhs):
+    AssignExpr(Compiler& compiler, Token token, std::unique_ptr<LoadExpr> lhs, ExprHandle rhs): Expr(compiler),
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
@@ -261,9 +267,9 @@ struct AssignExpr : Expr {
         return range(lhs->segment(), rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct AccessExpr : LoadExpr {
@@ -271,7 +277,7 @@ struct AccessExpr : LoadExpr {
     ExprHandle lhs;
     ExprHandle rhs;
 
-    AccessExpr(Token token1, Token token2, ExprHandle lhs, ExprHandle rhs):
+    AccessExpr(Compiler& compiler, Token token1, Token token2, ExprHandle lhs, ExprHandle rhs): LoadExpr(compiler),
         token1(token1), token2(token2), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
@@ -281,9 +287,9 @@ struct AccessExpr : LoadExpr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 
     void walkStoreBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -293,7 +299,7 @@ struct InvokeExpr : Expr {
     ExprHandle lhs;
     std::vector<ExprHandle> rhs;
 
-    InvokeExpr(Token token1, Token token2, ExprHandle lhs, std::vector<ExprHandle> rhs):
+    InvokeExpr(Compiler& compiler, Token token1, Token token2, ExprHandle lhs, std::vector<ExprHandle> rhs): Expr(compiler),
         token1(token1), token2(token2), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -307,16 +313,16 @@ struct InvokeExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct DotExpr : Expr {
     ExprHandle lhs;
     IdExprHandle rhs;
 
-    DotExpr(ExprHandle lhs, IdExprHandle rhs): lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+    DotExpr(Compiler& compiler, ExprHandle lhs, IdExprHandle rhs): Expr(compiler), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "."; }
@@ -325,9 +331,9 @@ struct DotExpr : Expr {
         return range(lhs->segment(), rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct AsExpr : Expr {
@@ -335,7 +341,7 @@ struct AsExpr : Expr {
     ExprHandle lhs;
     TypeReference T;
 
-    AsExpr(Token token, Token token2, ExprHandle lhs, TypeReference T):
+    AsExpr(Compiler& compiler, Token token, Token token2, ExprHandle lhs, TypeReference T): Expr(compiler),
         token(token), token2(token2), lhs(std::move(lhs)), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), T.get()}; }
@@ -345,11 +351,11 @@ struct AsExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct IsExpr : Expr {
@@ -357,28 +363,28 @@ struct IsExpr : Expr {
     ExprHandle lhs;
     TypeReference T;
 
-    IsExpr(Token token, Token token2, ExprHandle lhs, TypeReference T):
+    IsExpr(Compiler& compiler, Token token, Token token2, ExprHandle lhs, TypeReference T): Expr(compiler),
         token(token), token2(token2), lhs(std::move(lhs)), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), T.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "is"; }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct DefaultExpr : Expr {
     Token token, token2;
     TypeReference T;
 
-    DefaultExpr(Token token, Token token2, TypeReference T):
+    DefaultExpr(Compiler& compiler, Token token, Token token2, TypeReference T): Expr(compiler),
         token(token), token2(token2), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {T.get()}; }
@@ -388,18 +394,18 @@ struct DefaultExpr : Expr {
         return range(token, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct TupleExpr : Expr {
     Token token1, token2;
     std::vector<ExprHandle> elements;
 
-    TupleExpr(Token token1, Token token2, std::vector<ExprHandle> elements):
+    TupleExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> elements): Expr(compiler),
         token1(token1), token2(token2), elements(std::move(elements)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -413,16 +419,16 @@ struct TupleExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct ListExpr : Expr {
     Token token1, token2;
     std::vector<ExprHandle> elements;
 
-    ListExpr(Token token1, Token token2, std::vector<ExprHandle> elements):
+    ListExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> elements): Expr(compiler),
         token1(token1), token2(token2), elements(std::move(elements)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -436,16 +442,16 @@ struct ListExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct SetExpr : Expr {
     Token token1, token2;
     std::vector<ExprHandle> elements;
 
-    SetExpr(Token token1, Token token2, std::vector<ExprHandle> elements):
+    SetExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> elements): Expr(compiler),
             token1(token1), token2(token2), elements(std::move(elements)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -459,16 +465,16 @@ struct SetExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct DictExpr : Expr {
     Token token1, token2;
     std::vector<std::pair<ExprHandle, ExprHandle>> elements;
 
-    DictExpr(Token token1, Token token2, std::vector<std::pair<ExprHandle, ExprHandle>> elements):
+    DictExpr(Compiler& compiler, Token token1, Token token2, std::vector<std::pair<ExprHandle, ExprHandle>> elements): Expr(compiler),
         token1(token1), token2(token2), elements(std::move(elements)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -485,16 +491,16 @@ struct DictExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct ClauseExpr : Expr {
     Token token1, token2;
     std::vector<ExprHandle> lines;
 
-    explicit ClauseExpr(Token token1, Token token2, std::vector<ExprHandle> lines = {}):
+    explicit ClauseExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> lines = {}): Expr(compiler),
         token1(token1), token2(token2), lines(std::move(lines)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -508,11 +514,11 @@ struct ClauseExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct IfElseExpr : Expr {
@@ -521,7 +527,7 @@ struct IfElseExpr : Expr {
     ExprHandle lhs;
     ExprHandle rhs;
 
-    IfElseExpr(Token token, ExprHandle cond, ExprHandle lhs, ExprHandle rhs):
+    IfElseExpr(Compiler& compiler, Token token, ExprHandle cond, ExprHandle lhs, ExprHandle rhs): Expr(compiler),
         token(token), cond(std::move(cond)), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), lhs.get(), rhs.get()}; }
@@ -531,11 +537,11 @@ struct IfElseExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
+    [[nodiscard]] size_t evalConst() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 
     static void walkBytecode(Expr const* cond, Expr const* lhs, Expr const* rhs, Compiler& compiler, Assembler* assembler);
 };
@@ -547,7 +553,7 @@ struct BreakExpr : Expr {
     Token token;
     std::shared_ptr<LoopHook> hook;
 
-    explicit BreakExpr(Token token): token(token) {}
+    explicit BreakExpr(Compiler& compiler, Token token): Expr(compiler), token(token) {}
 
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "break"; }
 
@@ -555,16 +561,16 @@ struct BreakExpr : Expr {
         return token;
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct YieldExpr : Expr {
     Token token;
     ExprHandle rhs;
 
-    YieldExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
+    YieldExpr(Compiler& compiler, Token token, ExprHandle rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "yield"; }
@@ -573,9 +579,9 @@ struct YieldExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct LoopHook {
@@ -589,7 +595,8 @@ struct LoopExpr : Expr {
     std::shared_ptr<LoopHook> hook;
     mutable size_t breakpoint;
 
-    LoopExpr(Token token, ExprHandle clause, std::shared_ptr<LoopHook> hook): token(token), clause(std::move(clause)), hook(std::move(hook)) {
+    LoopExpr(Compiler& compiler, Token token, ExprHandle clause, std::shared_ptr<LoopHook> hook):
+        Expr(compiler), token(token), clause(std::move(clause)), hook(std::move(hook)) {
         this->hook->loop = this;
         for (auto&& e : this->hook->breaks) {
             e->hook = this->hook;
@@ -604,15 +611,15 @@ struct LoopExpr : Expr {
 struct WhileExpr : LoopExpr {
     ExprHandle cond;
 
-    WhileExpr(Token token, ExprHandle cond, ExprHandle clause, std::shared_ptr<LoopHook> hook):
-        cond(std::move(cond)), LoopExpr(token, std::move(clause), std::move(hook)) {}
+    WhileExpr(Compiler& compiler, Token token, ExprHandle cond, ExprHandle clause, std::shared_ptr<LoopHook> hook):
+        cond(std::move(cond)), LoopExpr(compiler, token, std::move(clause), std::move(hook)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "while"; }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct ForExpr : LoopExpr {
@@ -620,15 +627,15 @@ struct ForExpr : LoopExpr {
     TypeReference designated;
     ExprHandle rhs;
 
-    ForExpr(Token token, IdExprHandle lhs, TypeReference designated, ExprHandle rhs, ExprHandle clause, std::shared_ptr<LoopHook> hook):
-        lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)), LoopExpr(token, std::move(clause), std::move(hook)) {}
+    ForExpr(Compiler& compiler, Token token, IdExprHandle lhs, TypeReference designated, ExprHandle rhs, ExprHandle clause, std::shared_ptr<LoopHook> hook):
+        lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)), LoopExpr(compiler, token, std::move(clause), std::move(hook)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), designated.get(), rhs.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "for"; }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct ForDestructuringExpr : LoopExpr {
@@ -636,8 +643,8 @@ struct ForDestructuringExpr : LoopExpr {
     std::vector<TypeReference> designated;
     ExprHandle rhs;
 
-    ForDestructuringExpr(Token token, std::vector<IdExprHandle> lhs, std::vector<TypeReference> designated, ExprHandle rhs, ExprHandle clause, std::shared_ptr<LoopHook> hook):
-        lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)), LoopExpr(token, std::move(clause), std::move(hook)) {}
+    ForDestructuringExpr(Compiler& compiler, Token token, std::vector<IdExprHandle> lhs, std::vector<TypeReference> designated, ExprHandle rhs, ExprHandle clause, std::shared_ptr<LoopHook> hook):
+        lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)), LoopExpr(compiler, token, std::move(clause), std::move(hook)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
@@ -649,16 +656,16 @@ struct ForDestructuringExpr : LoopExpr {
     }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "for"; }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct ReturnExpr : Expr {
     Token token;
     ExprHandle rhs;
 
-    ReturnExpr(Token token, ExprHandle rhs): token(token), rhs(std::move(rhs)) {}
+    ReturnExpr(Compiler& compiler, Token token, ExprHandle rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
@@ -667,18 +674,18 @@ struct ReturnExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct FnExprBase : Expr {
     Token token;
     std::shared_ptr<FuncType> prototype;
     size_t index;
-    FnExprBase(Token token, std::shared_ptr<FuncType> prototype): token(token), prototype(std::move(prototype)) {}
+    FnExprBase(Compiler& compiler, Token token, std::shared_ptr<FuncType> prototype): Expr(compiler), token(token), prototype(std::move(prototype)) {}
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 };
 
 struct NamedFnExpr : virtual FnExprBase {
@@ -706,8 +713,8 @@ struct DefinedFnExpr : virtual FnExprBase {
 struct FnDeclExpr : NamedFnExpr {
     Token token2;
 
-    FnDeclExpr(Token token, Token token2, IdExprHandle name, std::shared_ptr<FuncType> prototype):
-            FnExprBase(token, std::move(prototype)), NamedFnExpr(std::move(name)), token2(token2) {}
+    FnDeclExpr(Compiler& compiler, Token token, Token token2, IdExprHandle name, std::shared_ptr<FuncType> prototype):
+            FnExprBase(compiler, token, std::move(prototype)), NamedFnExpr(std::move(name)), token2(token2) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         return {name.get(), prototype.get()};
@@ -717,13 +724,13 @@ struct FnDeclExpr : NamedFnExpr {
         return range(token, token2);
     }
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
 
-    FnDefExpr(Token token, IdExprHandle name, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> prototype, ExprHandle clause):
-            FnExprBase(token, std::move(prototype)), NamedFnExpr(std::move(name)), DefinedFnExpr(std::move(parameters), std::move(clause)) {}
+    FnDefExpr(Compiler& compiler, Token token, IdExprHandle name, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> prototype, ExprHandle clause):
+            FnExprBase(compiler, token, std::move(prototype)), NamedFnExpr(std::move(name)), DefinedFnExpr(std::move(parameters), std::move(clause)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
@@ -734,14 +741,14 @@ struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
         return ret;
     }
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct LambdaExpr : DefinedFnExpr {
     std::vector<IdExprHandle> captures;
 
-    LambdaExpr(Token token, std::vector<IdExprHandle> captures, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> prototype, ExprHandle clause):
-            FnExprBase(token, std::move(prototype)), captures(std::move(captures)), DefinedFnExpr(std::move(parameters), std::move(clause)) {}
+    LambdaExpr(Compiler& compiler, Token token, std::vector<IdExprHandle> captures, std::vector<IdExprHandle> parameters, std::shared_ptr<FuncType> prototype, ExprHandle clause):
+            FnExprBase(compiler, token, std::move(prototype)), captures(std::move(captures)), DefinedFnExpr(std::move(parameters), std::move(clause)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
@@ -754,7 +761,7 @@ struct LambdaExpr : DefinedFnExpr {
 
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "$"; }
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct LetExpr : Expr {
@@ -763,7 +770,7 @@ struct LetExpr : Expr {
     TypeReference designated;
     ExprHandle rhs;
 
-    LetExpr(Token token, IdExprHandle lhs, TypeReference designated, ExprHandle rhs):
+    LetExpr(Compiler& compiler, Token token, IdExprHandle lhs, TypeReference designated, ExprHandle rhs): Expr(compiler),
         token(token), lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), designated.get(), rhs.get()}; }
@@ -773,9 +780,9 @@ struct LetExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 struct LetDestructuringExpr : Expr {
@@ -784,7 +791,7 @@ struct LetDestructuringExpr : Expr {
     std::vector<TypeReference> designated;
     ExprHandle rhs;
 
-    LetDestructuringExpr(Token token, std::vector<IdExprHandle> lhs, std::vector<TypeReference> designated, ExprHandle rhs):
+    LetDestructuringExpr(Compiler& compiler, Token token, std::vector<IdExprHandle> lhs, std::vector<TypeReference> designated, ExprHandle rhs): Expr(compiler),
         token(token), lhs(std::move(lhs)), designated(std::move(designated)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -800,9 +807,9 @@ struct LetDestructuringExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
+    [[nodiscard]] TypeReference evalType() const override;
 
-    void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
+    void walkBytecode(Assembler* assembler) const override;
 };
 
 }

@@ -8,16 +8,16 @@ namespace Porkchop {
 struct Function {
     virtual ~Function() = default;
     [[nodiscard]] virtual TypeReference prototype() const = 0;
-    virtual void compile(Compiler& compiler, Assembler* assembler) const = 0;
+    virtual void assemble(Assembler* assembler) const = 0;
 };
 
 struct NamedFunction : Function {
     FnDeclExpr* decl;
     FnDefExpr* def;
-    void compile(Compiler& compiler, Assembler* assembler) const override {
+    void assemble(Assembler* assembler) const override {
         assembler->beginFunction();
         assembler->indexed(Opcode::LOCAL, def->locals);
-        def->clause->walkBytecode(compiler, assembler);
+        def->clause->walkBytecode(assembler);
         assembler->opcode(Opcode::RETURN);
         assembler->endFunction();
     }
@@ -29,10 +29,10 @@ struct NamedFunction : Function {
 
 struct LambdaFunction : Function {
     LambdaExpr* lambda;
-    void compile(Compiler& compiler, Assembler* assembler) const override {
+    void assemble(Assembler* assembler) const override {
         assembler->beginFunction();
         assembler->indexed(Opcode::LOCAL, lambda->locals);
-        lambda->clause->walkBytecode(compiler, assembler);
+        lambda->clause->walkBytecode(assembler);
         assembler->opcode(Opcode::RETURN);
         assembler->endFunction();
     }
@@ -44,7 +44,7 @@ struct LambdaFunction : Function {
 
 struct ExternalFunction : Function {
     TypeReference type;
-    void compile(Compiler& compiler, Assembler* assembler) const override {}
+    void assemble(Assembler* assembler) const override {}
 
     [[nodiscard]] TypeReference prototype() const override {
         return type;

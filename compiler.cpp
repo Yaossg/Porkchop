@@ -50,11 +50,11 @@ void Compiler::parse() {
 void Compiler::compile(Assembler* assembler) {
     assembler->beginFunction();
     assembler->indexed(Opcode::LOCAL, locals);
-    tree->walkBytecode(*this, assembler);
+    tree->walkBytecode(assembler);
     assembler->opcode(Opcode::RETURN);
     assembler->endFunction();
     for (auto&& function : functions) {
-        function->compile(*this, assembler);
+        function->assemble(assembler);
     }
 }
 
