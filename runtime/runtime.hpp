@@ -5,7 +5,7 @@
 #include <unordered_set>
 #include <cmath>
 
-#include "text-asm.hpp"
+#include "assembly.hpp"
 
 namespace Porkchop {
 

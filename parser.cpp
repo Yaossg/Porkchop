@@ -559,13 +559,6 @@ ExprHandle Parser::parseLet() {
     }
 }
 
-TypeReference Parser::parseParenType() {
-    expect(TokenType::LPAREN, "'(' is expected");
-    auto type = parseType();
-    expect(TokenType::RPAREN, "missing ')' to match '('");
-    return type;
-}
-
 TypeReference Parser::parseType() {
     switch (Token token = next(); token.type) {
         case TokenType::IDENTIFIER: {
@@ -582,13 +575,7 @@ TypeReference Parser::parseType() {
             if (id == "elementof") {
                 expect(TokenType::LPAREN, "'(' is expected");
                 auto type = parseType();
-                if (auto list = dynamic_cast<ListType*>(type.get())) {
-                    expect(TokenType::RPAREN, "missing ')' to match '('");
-                    return list->E;
-                } else if (auto set = dynamic_cast<SetType*>(type.get())) {
-                    expect(TokenType::RPAREN, "missing ')' to match '('");
-                    return set->E;
-                } else if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
+                if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
                     expectComma();
                     auto expr = parseExpression();
                     expect(TokenType::RPAREN, "missing ')' to match '('");
@@ -599,25 +586,19 @@ TypeReference Parser::parseType() {
                         throw TypeException("index out of bound", expr->segment());
                     }
                 } else {
-                    throw TypeException("elementof expect a list or tuple type", token);
-                }
-            }
-            if (id == "keyof") {
-                if (auto dict = dynamic_cast<DictType*>(parseParenType().get())) {
-                    return dict->K;
-                } else {
-                    throw TypeException("keyof expect a dict type", token);
-                }
-            }
-            if (id == "valueof") {
-                if (auto dict = dynamic_cast<DictType*>(parseParenType().get())) {
-                    return dict->V;
-                } else {
-                    throw TypeException("valueof expect a dict type", token);
+                    auto element = elementof(type);
+                    expect(TokenType::RPAREN, "missing ')' to match '('");
+                    if (element == nullptr) {
+                        throw TypeException("elementof expect a tuple, list, set, or dict type", token);
+                    }
+                    return elementof(type);
                 }
             }
             if (id == "returnof") {
-                if (auto func = dynamic_cast<FuncType*>(parseParenType().get())) {
+                expect(TokenType::LPAREN, "'(' is expected");
+                auto type = parseType();
+                expect(TokenType::RPAREN, "missing ')' to match '('");
+                if (auto func = dynamic_cast<FuncType*>(type.get())) {
                     return func->R;
                 } else {
                     throw TypeException("returnof expect a func type", token);

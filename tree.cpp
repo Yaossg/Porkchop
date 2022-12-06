@@ -36,7 +36,6 @@ size_t visitShift(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
     }
 }
 
-
 template<typename Fn>
 size_t visitArithmetic(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
     auto value1 = expr1->evalConst(compiler);

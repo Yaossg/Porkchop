@@ -39,7 +39,7 @@ struct Parser {
     std::unique_ptr<ClauseExpr> parseClause();
     IdExprHandle parseId(bool initialize);
     ExprHandle parseIf(), parseWhile(), parseFor(), parseFn(), parseLambda(), parseLet();
-    TypeReference parseType(), parseParenType();
+    TypeReference parseType();
     std::pair<ExprHandle, TypeReference> parseFnBody();
 
     std::pair<IdExprHandle, TypeReference> parseParameter();

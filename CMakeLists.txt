@@ -48,7 +48,6 @@ add_executable(PorkchopInterpreter
         runtime/assembly.hpp
         runtime/external.hpp
         runtime/runtime.hpp
-        runtime/text-asm.hpp
 
         runtime/interpreter.cpp
 )
