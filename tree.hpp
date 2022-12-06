@@ -28,13 +28,13 @@ struct Expr : Descriptor {
     }
 
     TypeReference typeCache;
-    void initialize(LocalContext& context) {
-        typeCache = evalType(context);
+    void initialize(Compiler& compiler) {
+        typeCache = evalType(compiler);
     }
 
     [[nodiscard]] virtual Segment segment() const = 0;
 
-    [[nodiscard]] virtual TypeReference evalType(LocalContext& context) const = 0;
+    [[nodiscard]] virtual TypeReference evalType(Compiler& compiler) const = 0;
 
     [[nodiscard]] virtual size_t evalConst(Compiler& compiler) const;
 
@@ -54,11 +54,11 @@ struct ConstExpr : Expr {
 };
 
 struct BoolConstExpr : ConstExpr {
-    mutable bool parsed;
+    bool parsed;
 
-    explicit BoolConstExpr(Token token): ConstExpr(token) {}
+    explicit BoolConstExpr(Token token): ConstExpr(token) { parsed = token.type == TokenType::KW_TRUE; }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -70,7 +70,7 @@ struct CharConstExpr : ConstExpr {
 
     explicit CharConstExpr(Token token): ConstExpr(token) {}
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -82,7 +82,7 @@ struct StringConstExpr : ConstExpr {
 
     explicit StringConstExpr(Token token): ConstExpr(token) {}
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -93,7 +93,7 @@ struct IntConstExpr : ConstExpr {
 
     explicit IntConstExpr(Token token, bool merged = false): ConstExpr(token), merged(merged) {}
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -105,7 +105,7 @@ struct FloatConstExpr : ConstExpr {
 
     explicit FloatConstExpr(Token token): ConstExpr(token) {}
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -132,7 +132,7 @@ struct IdExpr : LoadExpr {
         lookup = context.lookup(token);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -154,7 +154,7 @@ struct PrefixExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -174,7 +174,7 @@ struct IdPrefixExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -192,7 +192,7 @@ struct IdPostfixExpr : Expr {
         return range(lhs->segment(), token);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -217,7 +217,7 @@ struct InfixExpr : InfixExprBase {
     InfixExpr(Token token, ExprHandle lhs, ExprHandle rhs):
         InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -228,7 +228,7 @@ struct CompareExpr : InfixExprBase {
     CompareExpr(Token token, ExprHandle lhs, ExprHandle rhs):
         InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -239,7 +239,7 @@ struct LogicalExpr : InfixExprBase {
     LogicalExpr(Token token, ExprHandle lhs, ExprHandle rhs):
             InfixExprBase(token, std::move(lhs), std::move(rhs)) {}
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -261,7 +261,7 @@ struct AssignExpr : Expr {
         return range(lhs->segment(), rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -281,7 +281,7 @@ struct AccessExpr : LoadExpr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 
@@ -307,7 +307,7 @@ struct InvokeExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -325,7 +325,7 @@ struct DotExpr : Expr {
         return range(lhs->segment(), rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -345,7 +345,7 @@ struct AsExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -363,7 +363,7 @@ struct IsExpr : Expr {
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), T.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "is"; }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
@@ -388,7 +388,7 @@ struct DefaultExpr : Expr {
         return range(token, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -413,7 +413,7 @@ struct TupleExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -436,7 +436,7 @@ struct ListExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -459,7 +459,7 @@ struct SetExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -485,7 +485,7 @@ struct DictExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -508,7 +508,7 @@ struct ClauseExpr : Expr {
         return range(token1, token2);
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
@@ -531,13 +531,13 @@ struct IfElseExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     [[nodiscard]] size_t evalConst(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 
-    static void walkBytecode(Expr* cond, Expr* lhs, Expr* rhs, Compiler& compiler, Assembler* assembler);
+    static void walkBytecode(Expr const* cond, Expr const* lhs, Expr const* rhs, Compiler& compiler, Assembler* assembler);
 };
 
 struct LoopHook;
@@ -555,7 +555,7 @@ struct BreakExpr : Expr {
         return token;
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -573,7 +573,7 @@ struct YieldExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -610,7 +610,7 @@ struct WhileExpr : LoopExpr {
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "while"; }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -626,7 +626,7 @@ struct ForExpr : LoopExpr {
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), designated.get(), rhs.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "for"; }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -649,7 +649,7 @@ struct ForDestructuringExpr : LoopExpr {
     }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "for"; }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -667,7 +667,7 @@ struct ReturnExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -678,7 +678,7 @@ struct FnExprBase : Expr {
     size_t index;
     FnExprBase(Token token, std::shared_ptr<FuncType> prototype): token(token), prototype(std::move(prototype)) {}
 
-    [[nodiscard]] TypeReference evalType(LocalContext &context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 };
 
 struct NamedFnExpr : virtual FnExprBase {
@@ -773,7 +773,7 @@ struct LetExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
@@ -800,7 +800,7 @@ struct LetDestructuringExpr : Expr {
         return range(token, rhs->segment());
     }
 
-    [[nodiscard]] TypeReference evalType(LocalContext& context) const override;
+    [[nodiscard]] TypeReference evalType(Compiler& compiler) const override;
 
     void walkBytecode(Compiler& compiler, Assembler* assembler) const override;
 };

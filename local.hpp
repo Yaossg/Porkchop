@@ -51,7 +51,7 @@ struct LocalContext {
     template<typename E, typename... Args>
     auto make(Args&&... args) {
         auto expr = std::make_unique<E>(std::forward<Args>(args)...);
-        expr->initialize(*this);
+        expr->initialize(*compiler);
         return expr;
     }
 

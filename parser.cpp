@@ -187,7 +187,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     auto token2 = next();
                     switch (expr.size()) {
                         case 0:
-                            throw ParserException("expression is expected", range(token, token2));
+                            return context.make<ClauseExpr>(token, token2);
                         case 1:
                             return std::move(expr.front());
                         default:
@@ -657,10 +657,15 @@ TypeReference Parser::parseType() {
             auto token2 = next();
             if (auto R = optionalType()) {
                 return std::make_shared<FuncType>(std::move(P), std::move(R));
-            } else if (P.size() > 1) {
-                return std::make_shared<TupleType>(std::move(P));
             } else {
-                throw TypeException("a tuple should contain at least 2 elements", range(token, token2));
+                switch (P.size()) {
+                    case 0:
+                        return ScalarTypes::NONE;
+                    case 1:
+                        return P.front();
+                    default:
+                        return std::make_shared<TupleType>(std::move(P));
+                }
             }
         }
     }
@@ -669,7 +674,12 @@ TypeReference Parser::parseType() {
 IdExprHandle Parser::parseId(bool initialize) {
     auto token = next();
     if (token.type != TokenType::IDENTIFIER) throw TokenException("id-expression is expected", token);
-    return initialize ? context.make<IdExpr>(token) : std::make_unique<IdExpr>(token);
+    auto id = std::make_unique<IdExpr>(token);
+    if (initialize) {
+        id->initLookup(context);
+        id->initialize(*compiler);
+    }
+    return id;
 }
 
 }

@@ -47,8 +47,7 @@ size_t Expr::evalConst(Compiler &compiler) const {
     throw ConstException("cannot evaluate at compile-time", segment());
 }
 
-TypeReference BoolConstExpr::evalType(LocalContext& context) const {
-    parsed = token.type == TokenType::KW_TRUE;
+TypeReference BoolConstExpr::evalType(Compiler& compiler) const {
     return ScalarTypes::BOOL;
 }
 
@@ -60,8 +59,8 @@ void BoolConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const
     assembler->const_(parsed);
 }
 
-TypeReference CharConstExpr::evalType(LocalContext& context) const {
-    parsed = parseChar(*context.compiler, token);
+TypeReference CharConstExpr::evalType(Compiler& compiler) const {
+    parsed = parseChar(compiler, token);
     return ScalarTypes::CHAR;
 }
 
@@ -73,8 +72,8 @@ size_t CharConstExpr::evalConst(Compiler &compiler) const {
     return parsed;
 }
 
-TypeReference StringConstExpr::evalType(LocalContext &context) const {
-    parsed = parseString(*context.compiler, token);
+TypeReference StringConstExpr::evalType(Compiler& compiler) const {
+    parsed = parseString(compiler, token);
     return ScalarTypes::STRING;
 }
 
@@ -82,7 +81,7 @@ void StringConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) con
     assembler->string(parsed);
 }
 
-TypeReference IntConstExpr::evalType(LocalContext &context) const {
+TypeReference IntConstExpr::evalType(Compiler& compiler) const {
     switch (token.type) {
         case TokenType::KW_LINE:
             parsed = int64_t(token.line);
@@ -94,7 +93,7 @@ TypeReference IntConstExpr::evalType(LocalContext &context) const {
         case TokenType::OCTAL_INTEGER:
         case TokenType::DECIMAL_INTEGER:
         case TokenType::HEXADECIMAL_INTEGER:
-            parsed = parseInt(*context.compiler, token);
+            parsed = parseInt(compiler, token);
             break;
         default:
             unreachable("invalid token is classified as prefix operator");
@@ -110,8 +109,8 @@ void IntConstExpr::walkBytecode(Compiler& compiler, Assembler* assembler) const 
     assembler->const_(parsed);
 }
 
-TypeReference FloatConstExpr::evalType(LocalContext& context) const {
-    parsed = parseFloat(*context.compiler, token);
+TypeReference FloatConstExpr::evalType(Compiler& compiler) const {
+    parsed = parseFloat(compiler, token);
     return ScalarTypes::FLOAT;
 }
 
@@ -123,8 +122,7 @@ size_t FloatConstExpr::evalConst(Compiler &compiler) const {
     return as_size(parsed);
 }
 
-TypeReference IdExpr::evalType(LocalContext& context) const {
-    initLookup(context);
+TypeReference IdExpr::evalType(Compiler& compiler) const {
     return lookup.type;
 }
 
@@ -155,7 +153,7 @@ size_t IdExpr::evalConst(Compiler &compiler) const {
     return Expr::evalConst(compiler);
 }
 
-TypeReference PrefixExpr::evalType(LocalContext& context) const {
+TypeReference PrefixExpr::evalType(Compiler& compiler) const {
     switch (token.type) {
         case TokenType::OP_ADD:
         case TokenType::OP_SUB:
@@ -210,7 +208,7 @@ void PrefixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference IdPrefixExpr::evalType(LocalContext& context) const {
+TypeReference IdPrefixExpr::evalType(Compiler& compiler) const {
     expected(rhs.get(), ScalarTypes::INT);
     return ScalarTypes::INT;
 }
@@ -227,7 +225,7 @@ void IdPrefixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const 
     }
 }
 
-TypeReference IdPostfixExpr::evalType(LocalContext& context) const {
+TypeReference IdPostfixExpr::evalType(Compiler& compiler) const {
     expected(lhs.get(), ScalarTypes::INT);
     return ScalarTypes::INT;
 }
@@ -246,7 +244,7 @@ void IdPostfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const
     }
 }
 
-TypeReference InfixExpr::evalType(LocalContext& context) const {
+TypeReference InfixExpr::evalType(Compiler& compiler) const {
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_OR:
@@ -364,7 +362,7 @@ void InfixExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference CompareExpr::evalType(LocalContext &context) const {
+TypeReference CompareExpr::evalType(Compiler& compiler) const {
     matchOnBothOperand(lhs.get(), rhs.get());
     auto type = lhs->typeCache;
     bool equality = token.type == TokenType::OP_EQ || token.type == TokenType::OP_NE;
@@ -473,7 +471,7 @@ void CompareExpr::walkBytecode(Compiler &compiler, Assembler *assembler) const {
     }
 }
 
-TypeReference LogicalExpr::evalType(LocalContext& context) const {
+TypeReference LogicalExpr::evalType(Compiler& compiler) const {
     expected(lhs.get(), ScalarTypes::BOOL);
     expected(rhs.get(), ScalarTypes::BOOL);
     return ScalarTypes::BOOL;
@@ -489,17 +487,15 @@ size_t LogicalExpr::evalConst(Compiler& compiler) const {
 
 void LogicalExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     if (token.type == TokenType::OP_LAND) {
-        BoolConstExpr zero({});
-        zero.parsed = false;
+        static const BoolConstExpr zero{{0, 0, 0, TokenType::KW_FALSE}};
         IfElseExpr::walkBytecode(lhs.get(), rhs.get(), &zero, compiler, assembler);
     } else {
-        BoolConstExpr one({});
-        one.parsed = true;
+        static const BoolConstExpr one{{0, 0, 0, TokenType::KW_TRUE}};
         IfElseExpr::walkBytecode(lhs.get(), &one, rhs.get(), compiler, assembler);
     }
 }
 
-TypeReference AssignExpr::evalType(LocalContext& context) const {
+TypeReference AssignExpr::evalType(Compiler& compiler) const {
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_ASSIGN:
@@ -582,11 +578,11 @@ void AssignExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference AccessExpr::evalType(LocalContext& context) const {
+TypeReference AccessExpr::evalType(Compiler& compiler) const {
     TypeReference type1 = lhs->typeCache, type2 = rhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         expected(rhs.get(), ScalarTypes::INT);
-        int64_t index = rhs->evalConst(*context.compiler);
+        int64_t index = rhs->evalConst(compiler);
         if (0 <= index && index < tuple->E.size()) {
             return tuple->E[index];
         } else {
@@ -634,7 +630,7 @@ void AccessExpr::walkStoreBytecode(Compiler &compiler, Assembler* assembler) con
     }
 }
 
-TypeReference InvokeExpr::evalType(LocalContext& context) const {
+TypeReference InvokeExpr::evalType(Compiler& compiler) const {
     if (auto func = dynamic_cast<FuncType*>(lhs->typeCache.get())) {
         if (rhs.size() != func->P.size()) {
             throw TypeException("expected " + std::to_string(func->P.size()) + " parameters but got " + std::to_string(rhs.size()), range(token1, token2));
@@ -659,7 +655,7 @@ void InvokeExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->opcode(Opcode::CALL);
 }
 
-TypeReference DotExpr::evalType(LocalContext& context) const {
+TypeReference DotExpr::evalType(Compiler& compiler) const {
     if (auto func = dynamic_cast<FuncType*>(rhs->typeCache.get())) {
         if (func->P.empty()) throw TypeException(unexpected(rhs->typeCache, "fn with at least one parameter"), rhs->segment());
         if (func->P[0]->assignableFrom(lhs->typeCache))
@@ -675,7 +671,7 @@ void DotExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->indexed(Opcode::BIND, 1);
 }
 
-TypeReference AsExpr::evalType(LocalContext& context) const {
+TypeReference AsExpr::evalType(Compiler& compiler) const {
     auto type = lhs->typeCache;
     if (T->assignableFrom(type) || isAny(T) && !isNever(type) || isAny(type) && !isNever(T)
         || isSimilar(isArithmetic, type, T)
@@ -730,7 +726,7 @@ void AsExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference IsExpr::evalType(LocalContext& context) const {
+TypeReference IsExpr::evalType(Compiler& compiler) const {
     neverGonnaGiveYouUp(lhs.get(), "");
     return ScalarTypes::BOOL;
 }
@@ -749,7 +745,7 @@ void IsExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference DefaultExpr::evalType(LocalContext& context) const {
+TypeReference DefaultExpr::evalType(Compiler& compiler) const {
     neverGonnaGiveYouUp(T, "for it has no instance at all", segment());
     if (isAny(T)) throw TypeException("any has no default instance", segment());
     if (auto tuple = dynamic_cast<TupleType*>(T.get())) throw TypeException("tuple has no default instance", segment());
@@ -776,7 +772,7 @@ void DefaultExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference TupleExpr::evalType(LocalContext &context) const {
+TypeReference TupleExpr::evalType(Compiler& compiler) const {
     std::vector<TypeReference> E;
     for (auto&& expr: elements) {
         E.push_back(expr->typeCache);
@@ -791,7 +787,7 @@ void TupleExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->indexed(Opcode::TUPLE, elements.size());
 }
 
-TypeReference ListExpr::evalType(LocalContext& context) const {
+TypeReference ListExpr::evalType(Compiler& compiler) const {
     auto type0 = elements.front()->typeCache;
     neverGonnaGiveYouUp(elements.front().get(), "as list element");
     for (size_t i = 1; i < elements.size(); ++i) {
@@ -808,7 +804,7 @@ void ListExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->indexed(Opcode::LIST, elements.size());
 }
 
-TypeReference SetExpr::evalType(LocalContext &context) const {
+TypeReference SetExpr::evalType(Compiler& compiler) const {
     auto type0 = elements.front()->typeCache;
     neverGonnaGiveYouUp(elements.front().get(), "as set element");
     for (size_t i = 1; i < elements.size(); ++i) {
@@ -825,7 +821,7 @@ void SetExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->indexed(Opcode::SET, elements.size());
 }
 
-TypeReference DictExpr::evalType(LocalContext& context) const {
+TypeReference DictExpr::evalType(Compiler& compiler) const {
     auto key0 = elements.front().first->typeCache;
     auto value0 = elements.front().second->typeCache;
     neverGonnaGiveYouUp(elements.front().first.get(), "as dict key");
@@ -847,7 +843,7 @@ void DictExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->indexed(Opcode::DICT, elements.size());
 }
 
-TypeReference ClauseExpr::evalType(LocalContext& context) const {
+TypeReference ClauseExpr::evalType(Compiler& compiler) const {
     for (auto&& expr : lines) if (isNever(expr->typeCache)) return ScalarTypes::NEVER;
     return lines.empty() ? ScalarTypes::NONE : lines.back()->typeCache;
 }
@@ -873,11 +869,11 @@ void ClauseExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     }
 }
 
-TypeReference IfElseExpr::evalType(LocalContext& context) const {
+TypeReference IfElseExpr::evalType(Compiler& compiler) const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     try {
-        if (cond->evalConst(*context.compiler))
+        if (cond->evalConst(compiler))
             return lhs->typeCache;
         else
             return rhs->typeCache;
@@ -894,7 +890,7 @@ void IfElseExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     walkBytecode(cond.get(), lhs.get(), rhs.get(), compiler, assembler);
 }
 
-void IfElseExpr::walkBytecode(Expr* cond, Expr* lhs, Expr* rhs, Compiler& compiler, Assembler* assembler) {
+void IfElseExpr::walkBytecode(Expr const* cond, Expr const* lhs, Expr const* rhs, Compiler& compiler, Assembler* assembler) {
     size_t A = compiler.nextLabelIndex++;
     size_t B = compiler.nextLabelIndex++;
     cond->walkBytecode(compiler, assembler);
@@ -906,7 +902,7 @@ void IfElseExpr::walkBytecode(Expr* cond, Expr* lhs, Expr* rhs, Compiler& compil
     assembler->label(B);
 }
 
-TypeReference BreakExpr::evalType(LocalContext& context) const {
+TypeReference BreakExpr::evalType(Compiler& compiler) const {
     return ScalarTypes::NEVER;
 }
 
@@ -915,7 +911,7 @@ void BreakExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->labeled(Opcode::JMP, A);
 }
 
-TypeReference YieldExpr::evalType(LocalContext& context) const {
+TypeReference YieldExpr::evalType(Compiler& compiler) const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return rhs->typeCache;
 }
@@ -924,12 +920,12 @@ void YieldExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     throw ParserException("yield is not implemented yet", segment());
 }
 
-TypeReference WhileExpr::evalType(LocalContext& context) const {
+TypeReference WhileExpr::evalType(Compiler& compiler) const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     try {
-        if (cond->evalConst(*context.compiler) && hook->breaks.empty())
+        if (cond->evalConst(compiler) && hook->breaks.empty())
             return ScalarTypes::NEVER;
     } catch (ConstException&) {}
     return ScalarTypes::NONE;
@@ -949,7 +945,7 @@ void WhileExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->const0();
 }
 
-TypeReference ForExpr::evalType(LocalContext& context) const {
+TypeReference ForExpr::evalType(Compiler& compiler) const {
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     return ScalarTypes::NONE;
 }
@@ -974,7 +970,7 @@ void ForExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->const0();
 }
 
-TypeReference ForDestructuringExpr::evalType(LocalContext& context) const {
+TypeReference ForDestructuringExpr::evalType(Compiler& compiler) const {
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     return ScalarTypes::NONE;
 }
@@ -1004,7 +1000,7 @@ void ForDestructuringExpr::walkBytecode(Compiler &compiler, Assembler* assembler
     assembler->const0();
 }
 
-TypeReference ReturnExpr::evalType(LocalContext& context) const {
+TypeReference ReturnExpr::evalType(Compiler& compiler) const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return ScalarTypes::NEVER;
 }
@@ -1014,7 +1010,7 @@ void ReturnExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     assembler->opcode(Opcode::RETURN);
 }
 
-TypeReference FnExprBase::evalType(LocalContext &context) const {
+TypeReference FnExprBase::evalType(Compiler& compiler) const {
     return prototype;
 }
 
@@ -1035,7 +1031,7 @@ void LambdaExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
         assembler->indexed(Opcode::BIND, captures.size());
 }
 
-TypeReference LetExpr::evalType(LocalContext& context) const {
+TypeReference LetExpr::evalType(Compiler& compiler) const {
     return designated;
 }
 
@@ -1044,7 +1040,7 @@ void LetExpr::walkBytecode(Compiler &compiler, Assembler* assembler) const {
     lhs->walkStoreBytecode(compiler, assembler);
 }
 
-TypeReference LetDestructuringExpr::evalType(LocalContext& context) const {
+TypeReference LetDestructuringExpr::evalType(Compiler& compiler) const {
     return std::make_shared<TupleType>(designated);
 }
 
