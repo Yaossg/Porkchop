@@ -196,10 +196,6 @@ struct ListType : Type {
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "[]"; }
 };
 
-[[nodiscard]] inline TypeReference listOf(TypeReference const& type) noexcept {
-    return std::make_shared<ListType>(type);
-}
-
 struct SetType : Type {
     TypeReference E;
     explicit SetType(TypeReference E): E(std::move(E)) {}

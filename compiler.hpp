@@ -27,7 +27,7 @@ struct Compiler {
     size_t locals;
     size_t nextLabelIndex = 0;
 
-    explicit Compiler(std::string original) noexcept;
+    explicit Compiler(std::string original);
 
     void tokenize();
 
@@ -48,7 +48,7 @@ struct Compiler {
 
 struct Descriptor {
     [[nodiscard]] virtual std::string_view descriptor(const Compiler& compiler) const noexcept = 0;
-    virtual ~Descriptor() noexcept = default;
+    virtual ~Descriptor() = default;
     [[nodiscard]] virtual std::vector<const Descriptor*> children() const { return {}; }
     [[nodiscard]] std::string walkDescriptor(const Compiler& compiler) const {
         int id = 0;

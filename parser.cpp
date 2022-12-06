@@ -629,7 +629,7 @@ TypeReference Parser::parseType() {
             auto E = parseType();
             neverGonnaGiveYouUp(E, "as list element", rewind());
             expect(TokenType::RBRACKET, "missing ']' to match '['");
-            return listOf(E);
+            return std::make_shared<ListType>(E);
         }
         case TokenType::AT_BRACKET: {
             auto K = parseType();

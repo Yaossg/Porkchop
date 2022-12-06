@@ -69,7 +69,7 @@ void neverGonnaGiveYouUp(const TypeReference &type, const char *msg, Segment seg
     if (isNever(type)) throw TypeException(std::string("'never' is not allowed ") + msg, segment);
 }
 
-std::string mismatch(const TypeReference &type, const char *msg, const TypeReference &expected) noexcept {
+std::string mismatch(const TypeReference &type, const char *msg, const TypeReference &expected) {
     std::string result;
     result += "types mismatch on ";
     result += msg;
@@ -81,7 +81,7 @@ std::string mismatch(const TypeReference &type, const char *msg, const TypeRefer
     return result;
 }
 
-std::string mismatch(const TypeReference &type, const char *msg, size_t index, const TypeReference &expected) noexcept {
+std::string mismatch(const TypeReference &type, const char *msg, size_t index, const TypeReference &expected) {
     std::string result;
     result += "types mismatch on ";
     result += msg;
@@ -95,7 +95,7 @@ std::string mismatch(const TypeReference &type, const char *msg, size_t index, c
     return result;
 }
 
-std::string unexpected(const TypeReference &type, const char *expected) noexcept {
+std::string unexpected(const TypeReference &type, const char *expected) {
     std::string result;
     result += "expected ";
     result += expected;
@@ -105,7 +105,7 @@ std::string unexpected(const TypeReference &type, const char *expected) noexcept
     return result;
 }
 
-std::string unexpected(const TypeReference &type, const TypeReference &expected) noexcept {
+std::string unexpected(const TypeReference &type, const TypeReference &expected) {
     std::string result;
     result += "expected '";
     result += expected->toString();
@@ -115,7 +115,7 @@ std::string unexpected(const TypeReference &type, const TypeReference &expected)
     return result;
 }
 
-std::string unassignable(const TypeReference &type, const TypeReference &expected) noexcept {
+std::string unassignable(const TypeReference &type, const TypeReference &expected) {
     std::string result;
     result += "'";
     result += type->toString();
@@ -129,7 +129,7 @@ void neverGonnaGiveYouUp(Expr const* expr, const char* msg) {
     neverGonnaGiveYouUp(expr->typeCache, msg, expr->segment());
 }
 
-void matchOnBothOperand(Expr const* expr1, Expr const* expr2) {
+void match(Expr const* expr1, Expr const* expr2) {
     if (!expr1->typeCache->equals(expr2->typeCache))
         throw TypeException(mismatch(expr2->typeCache, "both operands", expr1->typeCache), range(expr1->segment(), expr2->segment()));
 }

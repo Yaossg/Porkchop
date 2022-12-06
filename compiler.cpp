@@ -4,7 +4,7 @@
 
 namespace Porkchop {
 
-Compiler::Compiler(std::string original) noexcept: original(std::move(original)) /* default-constructed members... */ {
+Compiler::Compiler(std::string original): original(std::move(original)) /* default-constructed members... */ {
     functions.emplace_back(std::make_unique<ExternalFunction>()); // main function
 }
 

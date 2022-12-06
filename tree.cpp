@@ -265,7 +265,7 @@ TypeReference InfixExpr::evalType() const {
         case TokenType::OP_XOR:
         case TokenType::OP_AND:
             expected(lhs.get(), isIntegral, "integral type");
-            matchOnBothOperand(lhs.get(), rhs.get());
+            match(lhs.get(), rhs.get());
             return type1;
         case TokenType::OP_SHL:
         case TokenType::OP_SHR:
@@ -281,7 +281,7 @@ TypeReference InfixExpr::evalType() const {
         case TokenType::OP_DIV:
         case TokenType::OP_REM:
             expected(lhs.get(), isArithmetic, "arithmetic or string type");
-            matchOnBothOperand(lhs.get(), rhs.get());
+            match(lhs.get(), rhs.get());
             return type1;
         default:
             unreachable("invalid token is classified as infix operator");
@@ -377,7 +377,7 @@ void InfixExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference CompareExpr::evalType() const {
-    matchOnBothOperand(lhs.get(), rhs.get());
+    match(lhs.get(), rhs.get());
     auto type = lhs->typeCache;
     bool equality = token.type == TokenType::OP_EQ || token.type == TokenType::OP_NE;
     if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
@@ -808,7 +808,7 @@ TypeReference ListExpr::evalType() const {
         auto type = elements[i]->typeCache;
         if (!type0->equals(type)) throw TypeException(mismatch(type, "list's elements", i, type0), elements[i]->segment());
     }
-    return listOf(type0);
+    return std::make_shared<ListType>(type0);
 }
 
 void ListExpr::walkBytecode(Assembler* assembler) const {

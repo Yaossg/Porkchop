@@ -161,23 +161,21 @@ const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
     {"--", TokenType::OP_DEC}
 };
 
-struct Token {
-    size_t line, column, width;
-    TokenType type;
-
-    operator struct Segment() const noexcept;
-};
-
 struct Segment {
     size_t line1, line2, column1, column2;
 };
 
+struct Token {
+    size_t line, column, width;
+    TokenType type;
+
+    operator Segment() const noexcept {
+        return {.line1 = line, .line2 = line, .column1 = column, .column2 = column + width};
+    }
+};
+
 inline Segment range(Token from, Token to) noexcept {
     return {.line1 = from.line, .line2 = to.line, .column1 = from.column, .column2 = to.column + to.width};
-}
-
-inline Token::operator Segment() const noexcept {
-    return range(*this, *this);
 }
 
 inline Segment range(Segment from, Segment to) noexcept {
