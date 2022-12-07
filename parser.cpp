@@ -361,93 +361,37 @@ ExprHandle Parser::parseWhile() {
     return context.make<WhileExpr>(token, std::move(cond), std::move(clause), popLoop());
 }
 
-void Parser::declaring(IdExprHandle const& lhs, TypeReference& designated, TypeReference const& type, Segment segment) {
-    if (designated == nullptr) designated = type;
-    assignable(type, designated, segment);
-    context.local(lhs->token, designated);
-    lhs->initLookup(context);
-}
-
-void Parser::destructuring(std::vector<IdExprHandle> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment) {
-    if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
-        if (designated.size() != tuple->E.size()) {
-            throw TypeException("expected " + std::to_string(designated.size()) + " elements but got " + std::to_string(tuple->E.size()), segment);
-        }
-        for (size_t i = 0; i < designated.size(); ++i) {
-            if (designated[i] == nullptr)
-                designated[i] = tuple->E[i];
-        }
-        for (size_t i = 0; i < designated.size(); ++i) {
-            assignable(tuple->E[i], designated[i], segment);
-        }
-        for (size_t i = 0; i < designated.size(); ++i) {
-            context.local(lhs[i]->token, designated[i]);
-        }
-        for (auto&& e : lhs) {
-            e->initLookup(context);
-        }
-    } else {
-        throw TypeException(unexpected(type, "tuple type"), segment);
-    }
-}
-
 ExprHandle Parser::parseFor() {
     auto token = next();
-    if (peek().type == TokenType::LPAREN) {
-        auto [lhs, designated] = parseParameters();
-        expect(TokenType::KW_IN, "'in' is expected");
-        pushLoop();
-        LocalContext::Guard guard(context);
-        auto rhs = parseExpression();
-        if (auto element = elementof(rhs->typeCache)) {
-            destructuring(lhs, designated, element, rhs->segment());
-            auto clause = parseClause();
-            return context.make<ForDestructuringExpr>(token, std::move(lhs), std::move(designated), std::move(rhs), std::move(clause), popLoop());
-        }
-        throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
+    auto declarator = parseDeclarator();
+    expect(TokenType::KW_IN, "'in' is expected");
+    pushLoop();
+    LocalContext::Guard guard(context);
+    auto initializer = parseExpression();
+    if (auto element = elementof(initializer->typeCache)) {
+        declarator->infer(element, initializer->segment());
+        declarator->declare(context);
+        auto clause = parseClause();
+        return context.make<ForExpr>(token, std::move(declarator), std::move(initializer), std::move(clause), popLoop());
     } else {
-        auto [lhs, designated] = parseParameter();
-        expect(TokenType::KW_IN, "'in' is expected");
-        pushLoop();
-        LocalContext::Guard guard(context);
-        auto rhs = parseExpression();
-        if (auto element = elementof(rhs->typeCache)) {
-            declaring(lhs, designated, element, rhs->segment());
-            auto clause = parseClause();
-            return context.make<ForExpr>(token, std::move(lhs), std::move(designated), std::move(rhs), std::move(clause), popLoop());
-        }
-        throw TypeException(unexpected(rhs->typeCache, "iterable type"), rhs->segment());
+        throw TypeException(unexpected(initializer->typeCache, "iterable type"), initializer->segment());
     }
-}
-
-std::pair<IdExprHandle, TypeReference> Parser::parseParameter() {
-    auto id = parseId(false);
-    auto type = optionalType();
-    bool underscore = compiler->of(id->token) == "_";
-    if (type == nullptr) {
-        type = underscore ? ScalarTypes::NONE : nullptr;
-    } else if (underscore && !isNone(type)) {
-        throw ParserException("the type of '_' must be none", id->token);
-    }
-    return {std::move(id), std::move(type)};
 }
 
 std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parseParameters() {
     expect(TokenType::LPAREN, "'(' is expected");
-    std::vector<IdExprHandle> parameters;
-    std::vector<TypeReference> P;
+    std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parameters;
     while (true) {
         if (peek().type == TokenType::RPAREN) break;
-        auto [id, type] = parseParameter();
-        parameters.emplace_back(std::move(id));
-        P.emplace_back(std::move(type));
-        neverGonnaGiveYouUp(P.back(), "as parameter or tuple element", rewind());
+        auto declarator = parseSimpleDeclarator();
+        parameters.first.push_back(std::move(declarator->name));
+        parameters.second.push_back(declarator->designated);
         if (peek().type == TokenType::RPAREN) break;
         expectComma();
     }
-    optionalComma(P.size());
+    optionalComma(parameters.first.size());
     next();
-    return {std::move(parameters), std::move(P)};
+    return parameters;
 }
 
 std::pair<ExprHandle, TypeReference> Parser::parseFnBody() {
@@ -544,19 +488,12 @@ ExprHandle Parser::parseLambda() {
 
 ExprHandle Parser::parseLet() {
     auto token = next();
-    if (peek().type == TokenType::LPAREN) {
-        auto [lhs, designated] = parseParameters();
-        expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
-        auto rhs = parseExpression();
-        destructuring(lhs, designated, rhs->typeCache, rhs->segment());
-        return context.make<LetDestructuringExpr>(token, std::move(lhs), std::move(designated), std::move(rhs));
-    } else {
-        auto [lhs, designated] = parseParameter();
-        expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
-        auto rhs = parseExpression();
-        declaring(lhs, designated, rhs->typeCache, rhs->segment());
-        return context.make<LetExpr>(token, std::move(lhs), std::move(designated), std::move(rhs));
-    }
+    auto declarator = parseDeclarator();
+    expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
+    auto initializer = parseExpression();
+    declarator->infer(initializer->typeCache, initializer->segment());
+    declarator->declare(context);
+    return context.make<LetExpr>(token, std::move(declarator), std::move(initializer));
 }
 
 TypeReference Parser::parseType() {
@@ -654,7 +591,7 @@ TypeReference Parser::parseType() {
                 expectComma();
             }
             optionalComma(P.size());
-            auto token2 = next();
+            next();
             if (auto R = optionalType()) {
                 return std::make_shared<FuncType>(std::move(P), std::move(R));
             } else {
@@ -680,6 +617,46 @@ IdExprHandle Parser::parseId(bool initialize) {
         id->initialize();
     }
     return id;
+}
+
+std::unique_ptr<SimpleDeclarator> Parser::parseSimpleDeclarator() {
+    auto id = parseId(false);
+    auto type = optionalType();
+    bool underscore = compiler->of(id->token) == "_";
+    if (type == nullptr) {
+        if (underscore) type = ScalarTypes::NONE;
+    } else {
+        neverGonnaGiveYouUp(type, "invalid never declarator", id->token);
+        if (underscore && !isNone(type)) {
+            throw ParserException("the type of '_' must be none", id->token);
+        }
+    }
+    return std::make_unique<SimpleDeclarator>(std::move(id), std::move(type));
+}
+
+DeclaratorHandle Parser::parseDeclarator() {
+    if (peek().type == TokenType::LPAREN) {
+        auto token1 = next();
+        std::vector<DeclaratorHandle> elements;
+        while (true) {
+            if (peek().type == TokenType::RPAREN) break;
+            elements.emplace_back(parseDeclarator());
+            if (peek().type == TokenType::RPAREN) break;
+            expectComma();
+        }
+        optionalComma(elements.size());
+        auto token2 = next();
+        switch (elements.size()) {
+            case 0:
+                throw ParserException("invalid empty declarator", range(token1, token2));
+            case 1:
+                return std::move(elements.front());
+            default:
+                return std::make_unique<TupleDeclarator>(std::move(elements));
+        }
+    } else {
+        return parseSimpleDeclarator();
+    }
 }
 
 }

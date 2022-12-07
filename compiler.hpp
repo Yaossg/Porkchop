@@ -12,6 +12,8 @@ struct Expr;
 struct IdExpr;
 using ExprHandle = std::unique_ptr<Expr>;
 using IdExprHandle = std::unique_ptr<IdExpr>;
+struct Declarator;
+using DeclaratorHandle = std::unique_ptr<Declarator>;
 struct Token;
 struct Function;
 struct Assembler;

@@ -150,7 +150,7 @@ void IdExpr::walkBytecode(Assembler* assembler) const {
     }
 }
 
-void IdExpr::walkStoreBytecode(Compiler &compiler, Assembler* assembler) const {
+void IdExpr::walkStoreBytecode(Assembler* assembler) const {
     if (lookup.function) {
         throw ParserException("function is not assignable", segment());
     } else if (compiler.of(token) == "_") {
@@ -235,7 +235,7 @@ void IdPrefixExpr::walkBytecode(Assembler* assembler) const {
         rhs->walkBytecode(assembler);
         assembler->const1();
         assembler->opcode(token.type == TokenType::OP_INC ? Opcode::IADD : Opcode::ISUB);
-        rhs->walkStoreBytecode(compiler, assembler);
+        rhs->walkStoreBytecode(assembler);
     }
 }
 
@@ -253,7 +253,7 @@ void IdPostfixExpr::walkBytecode(Assembler* assembler) const {
         assembler->opcode(Opcode::DUP);
         assembler->const1();
         assembler->opcode(token.type == TokenType::OP_INC ? Opcode::IADD : Opcode::ISUB);
-        lhs->walkStoreBytecode(compiler, assembler);
+        lhs->walkStoreBytecode(assembler);
         assembler->opcode(Opcode::POP);
     }
 }
@@ -274,14 +274,16 @@ TypeReference InfixExpr::evalType() const {
             expected(rhs.get(), ScalarTypes::INT);
             return type1;
         case TokenType::OP_ADD:
-            if (isString(lhs->typeCache) && isString(rhs->typeCache))
-                return ScalarTypes::STRING;
+            match(lhs.get(), rhs.get());
+            if (!isString(lhs->typeCache))
+                expected(lhs.get(), isArithmetic, "arithmetic or string");
+            return type1;
         case TokenType::OP_SUB:
         case TokenType::OP_MUL:
         case TokenType::OP_DIV:
         case TokenType::OP_REM:
-            expected(lhs.get(), isArithmetic, "arithmetic or string type");
             match(lhs.get(), rhs.get());
+            expected(lhs.get(), isArithmetic, "arithmetic");
             return type1;
         default:
             unreachable("invalid token is classified as infix operator");
@@ -545,7 +547,7 @@ TypeReference AssignExpr::evalType() const {
 void AssignExpr::walkBytecode(Assembler* assembler) const {
     if (token.type == TokenType::OP_ASSIGN) {
         rhs->walkBytecode(assembler);
-        lhs->walkStoreBytecode(compiler, assembler);
+        lhs->walkStoreBytecode(assembler);
     } else {
         bool i = isInt(lhs->typeCache);
         bool s = isString(lhs->typeCache);
@@ -588,7 +590,7 @@ void AssignExpr::walkBytecode(Assembler* assembler) const {
             default:
                 unreachable("invalid token is classified as compound assignment operator");
         }
-        lhs->walkStoreBytecode(compiler, assembler);
+        lhs->walkStoreBytecode(assembler);
     }
 }
 
@@ -628,7 +630,7 @@ void AccessExpr::walkBytecode(Assembler* assembler) const {
     }
 }
 
-void AccessExpr::walkStoreBytecode(Compiler &compiler, Assembler* assembler) const {
+void AccessExpr::walkStoreBytecode(Assembler* assembler) const {
     lhs->walkBytecode(assembler);
     TypeReference type1 = lhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
@@ -801,22 +803,17 @@ void TupleExpr::walkBytecode(Assembler* assembler) const {
     assembler->indexed(Opcode::TUPLE, elements.size());
 }
 
-void TupleExpr::walkStoreBytecode(Compiler& compiler, Assembler* assembler) const {
+void TupleExpr::walkStoreBytecode(Assembler* assembler) const {
     for (size_t i = 0; i < elements.size(); ++i) {
         assembler->opcode(Opcode::DUP);
         assembler->indexed(Opcode::TLOAD, i);
         if (auto load = dynamic_cast<LoadExpr*>(elements[i].get())) {
-            load->walkStoreBytecode(compiler, assembler);
+            load->walkStoreBytecode(assembler);
         } else {
             throw ParserException("lvalue expression is expected", elements[i]->segment());
         }
         assembler->opcode(Opcode::POP);
     }
-    assembler->opcode(Opcode::POP);
-    for (auto&& e : elements) {
-        e->walkBytecode(assembler);
-    }
-    assembler->indexed(Opcode::TUPLE, elements.size());
 }
 
 TypeReference ListExpr::evalType() const {
@@ -977,61 +974,6 @@ void WhileExpr::walkBytecode(Assembler* assembler) const {
     assembler->const0();
 }
 
-TypeReference ForExpr::evalType() const {
-    if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
-    return ScalarTypes::NONE;
-}
-
-void ForExpr::walkBytecode(Assembler* assembler) const {
-    size_t A = compiler.nextLabelIndex++;
-    size_t B = compiler.nextLabelIndex++;
-    breakpoint = B;
-    rhs->walkBytecode(assembler);
-    assembler->indexed(Opcode::ITER, iterableID(rhs->typeCache));
-    assembler->label(A);
-    assembler->opcode(Opcode::PEEK);
-    assembler->labeled(Opcode::JMP0, B);
-    assembler->opcode(Opcode::NEXT);
-    lhs->walkStoreBytecode(compiler, assembler);
-    assembler->opcode(Opcode::POP);
-    clause->walkBytecode(assembler);
-    assembler->opcode(Opcode::POP);
-    assembler->labeled(Opcode::JMP, A);
-    assembler->label(B);
-    assembler->opcode(Opcode::POP);
-    assembler->const0();
-}
-
-TypeReference ForDestructuringExpr::evalType() const {
-    if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
-    return ScalarTypes::NONE;
-}
-
-void ForDestructuringExpr::walkBytecode(Assembler* assembler) const {
-    size_t A = compiler.nextLabelIndex++;
-    size_t B = compiler.nextLabelIndex++;
-    breakpoint = B;
-    rhs->walkBytecode(assembler);
-    assembler->indexed(Opcode::ITER, iterableID(rhs->typeCache));
-    assembler->label(A);
-    assembler->opcode(Opcode::PEEK);
-    assembler->labeled(Opcode::JMP0, B);
-    assembler->opcode(Opcode::NEXT);
-    for (size_t i = 0; i < lhs.size(); ++i) {
-        assembler->opcode(Opcode::DUP);
-        assembler->indexed(Opcode::TLOAD, i);
-        lhs[i]->walkStoreBytecode(compiler, assembler);
-        assembler->opcode(Opcode::POP);
-    }
-    assembler->opcode(Opcode::POP);
-    clause->walkBytecode(assembler);
-    assembler->opcode(Opcode::POP);
-    assembler->labeled(Opcode::JMP, A);
-    assembler->label(B);
-    assembler->opcode(Opcode::POP);
-    assembler->const0();
-}
-
 TypeReference ReturnExpr::evalType() const {
     neverGonnaGiveYouUp(rhs.get(), "");
     return ScalarTypes::NEVER;
@@ -1063,32 +1005,88 @@ void LambdaExpr::walkBytecode(Assembler* assembler) const {
         assembler->indexed(Opcode::BIND, captures.size());
 }
 
-TypeReference LetExpr::evalType() const {
-    return designated;
+void SimpleDeclarator::infer(TypeReference type, Segment segment) {
+    if (designated == nullptr) {
+        designated = type;
+    } else {
+        assignable(type, designated, segment);
+    }
+    typeCache = designated;
 }
 
-void LetExpr::walkBytecode(Assembler* assembler) const {
-    rhs->walkBytecode(assembler);
-    lhs->walkStoreBytecode(compiler, assembler);
+void SimpleDeclarator::declare(LocalContext &context) const {
+    context.local(name->token, designated);
+    name->initLookup(context);
 }
 
-TypeReference LetDestructuringExpr::evalType() const {
-    return std::make_shared<TupleType>(designated);
+void SimpleDeclarator::walkBytecode(Assembler *assembler) const {
+    name->walkStoreBytecode(assembler);
 }
 
-void LetDestructuringExpr::walkBytecode(Assembler* assembler) const {
-    rhs->walkBytecode(assembler);
-    for (size_t i = 0; i < lhs.size(); ++i) {
+void TupleDeclarator::infer(TypeReference type, Segment segment) {
+    if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
+        if (elements.size() != tuple->E.size()) {
+            throw TypeException("expected " + std::to_string(elements.size()) + " elements but got " + std::to_string(tuple->E.size()), segment);
+        }
+        std::vector<TypeReference> types;
+        for (size_t i = 0; i < elements.size(); ++i) {
+            elements[i]->infer(tuple->E[i], segment);
+            types.push_back(elements[i]->typeCache);
+        }
+        typeCache = std::make_shared<TupleType>(std::move(types));
+    } else {
+        throw TypeException(unexpected(type, "tuple type"), segment);
+    }
+}
+
+void TupleDeclarator::declare(LocalContext &context) const {
+    for (auto&& element : elements) {
+        element->declare(context);
+    }
+}
+
+void TupleDeclarator::walkBytecode(Assembler *assembler) const {
+    for (size_t i = 0; i < elements.size(); ++i) {
         assembler->opcode(Opcode::DUP);
         assembler->indexed(Opcode::TLOAD, i);
-        lhs[i]->walkStoreBytecode(compiler, assembler);
+        elements[i]->walkBytecode(assembler);
         assembler->opcode(Opcode::POP);
     }
-    assembler->opcode(Opcode::POP);
-    for (auto&& e : lhs) {
-        e->walkBytecode(assembler);
-    }
-    assembler->indexed(Opcode::TUPLE, lhs.size());
 }
+
+TypeReference LetExpr::evalType() const {
+    return declarator->typeCache;
+}
+
+void LetExpr::walkBytecode(Assembler *assembler) const {
+    initializer->walkBytecode(assembler);
+    declarator->walkBytecode(assembler);
+}
+
+
+TypeReference ForExpr::evalType() const {
+    return ScalarTypes::NONE;
+}
+
+void ForExpr::walkBytecode(Assembler *assembler) const {
+    size_t A = compiler.nextLabelIndex++;
+    size_t B = compiler.nextLabelIndex++;
+    breakpoint = B;
+    initializer->walkBytecode(assembler);
+    assembler->indexed(Opcode::ITER, iterableID(initializer->typeCache));
+    assembler->label(A);
+    assembler->opcode(Opcode::PEEK);
+    assembler->labeled(Opcode::JMP0, B);
+    assembler->opcode(Opcode::NEXT);
+    declarator->walkBytecode(assembler);
+    assembler->opcode(Opcode::POP);
+    clause->walkBytecode(assembler);
+    assembler->opcode(Opcode::POP);
+    assembler->labeled(Opcode::JMP, A);
+    assembler->label(B);
+    assembler->opcode(Opcode::POP);
+    assembler->const0();
+}
+
 
 }

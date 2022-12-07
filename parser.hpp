@@ -42,11 +42,10 @@ struct Parser {
     TypeReference parseType();
     std::pair<ExprHandle, TypeReference> parseFnBody();
 
-    std::pair<IdExprHandle, TypeReference> parseParameter();
     std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters();
 
-    void declaring(IdExprHandle const& lhs, TypeReference& designated, TypeReference const& type, Segment segment);
-    void destructuring(std::vector<IdExprHandle> const& lhs, std::vector<TypeReference>& designated, TypeReference const& type, Segment segment);
+    std::unique_ptr<SimpleDeclarator> parseSimpleDeclarator();
+    DeclaratorHandle parseDeclarator();
 
     Token expect(TokenType type, const char* msg) {
         auto token = next();
