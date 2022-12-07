@@ -11,7 +11,8 @@ namespace Porkchop {
 using Instructions = std::vector<std::pair<Opcode, std::variant<
         std::monostate,
         std::size_t,
-        std::string
+        std::string,
+        TypeReference
 >>>;
 
 struct Assembly {

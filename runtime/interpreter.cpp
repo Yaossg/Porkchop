@@ -36,12 +36,10 @@ struct Interpretation : Assembler, Assembly {
         instructions.push_back(std::pair<Opcode, size_t>{opcode, index});
     }
     void typed(Opcode opcode, const TypeReference& type) override {
-        instructions.push_back(std::pair<Opcode, std::string>{opcode, type->toString()});
+        instructions.push_back(std::pair<Opcode, TypeReference>{opcode, type});
     }
 
-    void beginFunction() override {
-
-    }
+    void beginFunction() override {}
 
     void processLabels() {
         for (auto& [opcode, args] : instructions) {

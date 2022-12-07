@@ -70,7 +70,7 @@ struct TextAssembler : Assembler {
         assemblies.emplace_back(buf);
     }
     void typed(Opcode opcode, const TypeReference& type) override {
-        assemblies.emplace_back(std::string(OPCODE_NAME[(size_t)opcode].data()) + " " + type->toString());
+        assemblies.emplace_back(std::string(OPCODE_NAME[(size_t)opcode].data()) + " " + type->serialize());
     }
 
     void beginFunction() override {

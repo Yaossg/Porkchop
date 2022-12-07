@@ -107,7 +107,9 @@ struct TextAssembly : Assembly {
                         case Opcode::IS:
                         case Opcode::ANY: {
                             // type
-                            instructions.emplace_back(opcode, std::string(args));
+                            std::string type(args);
+                            const char* str = type.c_str();
+                            instructions.emplace_back(opcode, deserialize(str));
                             break;
                         }
                     }

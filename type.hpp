@@ -18,7 +18,7 @@ enum class ScalarTypeKind {
     STRING,
 };
 
-constexpr std::string_view TYPE_KIND_NAME[] = {
+constexpr std::string_view SCALAR_TYPE_NAME[] = {
     "any",
     "none",
     "never",
@@ -28,6 +28,19 @@ constexpr std::string_view TYPE_KIND_NAME[] = {
     "float",
     "char",
     "string"
+};
+
+
+constexpr std::string_view SCALAR_TYPE_DESC[] = {
+    "a",
+    "v",
+    "n",
+    "z",
+    "b",
+    "i",
+    "f",
+    "c",
+    "s"
 };
 
 const std::unordered_map<std::string_view, ScalarTypeKind> TYPE_KINDS {
@@ -48,6 +61,7 @@ struct Type : Descriptor {
     [[nodiscard]] virtual bool assignableFrom(const TypeReference& type) const noexcept {
         return equals(type);
     }
+    [[nodiscard]] virtual std::string serialize() const = 0;
 };
 
 [[nodiscard]] inline bool isNever(TypeReference const& type) noexcept;
@@ -56,7 +70,7 @@ struct ScalarType : Type {
     ScalarTypeKind S;
     explicit ScalarType(ScalarTypeKind S): S(S) {}
     [[nodiscard]] std::string toString() const override {
-        return std::string{TYPE_KIND_NAME[(size_t) S]};
+        return std::string{SCALAR_TYPE_NAME[(size_t) S]};
     }
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
         if (auto scalar = dynamic_cast<const ScalarType*>(type.get()))
@@ -73,8 +87,11 @@ struct ScalarType : Type {
                 return equals(type);
         }
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return TYPE_KIND_NAME[(size_t) S]; }
+    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return SCALAR_TYPE_NAME[(size_t) S]; }
 
+    [[nodiscard]] std::string serialize() const override {
+        return std::string{SCALAR_TYPE_DESC[(size_t) S]};
+    }
 };
 
 namespace ScalarTypes {
@@ -186,6 +203,12 @@ struct TupleType : Type {
         return ret;
     }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
+
+    [[nodiscard]] std::string serialize() const override {
+        std::string ret = "(";
+        for (auto&& e : E) ret += e->serialize();
+        return ret + ')';
+    }
 };
 
 struct ListType : Type {
@@ -202,6 +225,10 @@ struct ListType : Type {
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "[]"; }
+
+    [[nodiscard]] std::string serialize() const override {
+        return '[' + E->serialize();
+    }
 };
 
 struct SetType : Type {
@@ -218,6 +245,10 @@ struct SetType : Type {
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[]"; }
+
+    [[nodiscard]] std::string serialize() const override {
+        return '{' + E->serialize();
+    }
 };
 
 struct DictType : Type {
@@ -234,6 +265,10 @@ struct DictType : Type {
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {K.get(), V.get()}; }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[:]"; }
+
+    [[nodiscard]] std::string serialize() const override {
+        return '@' + K->serialize() + V->serialize();
+    }
 };
 
 struct FuncType : Type {
@@ -275,6 +310,12 @@ struct FuncType : Type {
         return ret;
     }
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "():"; }
+
+    [[nodiscard]] std::string serialize() const override {
+        std::string ret = "$";
+        for (auto&& e : P) ret += e->serialize();
+        return ret + ':' + R->serialize();
+    }
 };
 
 [[nodiscard]] inline TypeReference eithertype(TypeReference const& type1, TypeReference const& type2) noexcept {
@@ -307,6 +348,46 @@ struct FuncType : Type {
     } else {
         return -1;
     }
+}
+
+inline TypeReference deserialize(const char*& str) {
+    switch (*str++) {
+        case 'a': return ScalarTypes::ANY;
+        case 'v': return ScalarTypes::NONE;
+        case 'n': return ScalarTypes::NEVER;
+        case 'z': return ScalarTypes::BOOL;
+        case 'b': return ScalarTypes::BYTE;
+        case 'i': return ScalarTypes::INT;
+        case 'f': return ScalarTypes::FLOAT;
+        case 'c': return ScalarTypes::CHAR;
+        case 's': return ScalarTypes::STRING;
+        case '(': {
+            std::vector<TypeReference> elements;
+            while (*str != ')') {
+                elements.emplace_back(deserialize(str));
+            }
+            ++str;
+            return std::make_shared<TupleType>(std::move(elements));
+        }
+        case '[': return std::make_shared<ListType>(deserialize(str));
+        case '{': return std::make_shared<SetType>(deserialize(str));
+        case '@': {
+            auto key = deserialize(str);
+            auto value = deserialize(str);
+            return std::make_shared<DictType>(std::move(key), std::move(value));
+        }
+        case '$': {
+            std::vector<TypeReference> parameters;
+            while (*str != ':') {
+                parameters.emplace_back(deserialize(str));
+            }
+            ++str;
+            return std::make_shared<FuncType>(std::move(parameters), deserialize(str));
+        }
+    }
+    std::string msg = "error to deserialize type at ";
+    msg += --str;
+    throw std::runtime_error(msg);
 }
 
 }

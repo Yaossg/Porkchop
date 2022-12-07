@@ -27,7 +27,7 @@ struct Runtime {
 
     struct Any {
         size_t value;
-        std::string type;
+        TypeReference type;
     };
 
     struct Func {
@@ -203,18 +203,18 @@ struct Runtime {
         }
     }
 
-    void as(std::string const &type) {
+    void as(TypeReference const& type) {
         auto any = std::bit_cast<Any *>(pop());
-        if (any->type != type)
-            throw Exception("cannot cast " + any->type + " to " + type);
+        if (!any->type->equals(type))
+            throw Exception("cannot cast " + any->type->toString() + " to " + type->toString());
         stack.emplace_back(any->value);
     }
 
-    void is(std::string const &type) {
-        stack.emplace_back(std::bit_cast<Any *>(pop())->type == type);
+    void is(TypeReference const& type) {
+        stack.emplace_back(std::bit_cast<Any *>(pop())->type->equals(type));
     }
 
-    void any(std::string const &type) {
+    void any(TypeReference const& type) {
         push(new Any{pop(), type});
     }
 
@@ -567,13 +567,13 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
                     runtime.local(std::get<size_t>(args));
                     break;
                 case Opcode::AS:
-                    runtime.as(std::get<std::string>(args));
+                    runtime.as(std::get<TypeReference>(args));
                     break;
                 case Opcode::IS:
-                    runtime.is(std::get<std::string>(args));
+                    runtime.is(std::get<TypeReference>(args));
                     break;
                 case Opcode::ANY:
-                    runtime.any(std::get<std::string>(args));
+                    runtime.any(std::get<TypeReference>(args));
                     break;
                 case Opcode::I2B:
                     runtime.i2b();
