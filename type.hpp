@@ -165,9 +165,17 @@ struct TupleType : Type {
         return buf;
     }
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
-        if (auto func = dynamic_cast<const TupleType*>(type.get())) {
-            return std::equal(E.begin(), E.end(), func->E.begin(), func->E.end(),
+        if (auto tuple = dynamic_cast<const TupleType*>(type.get())) {
+            return std::equal(E.begin(), E.end(), tuple->E.begin(), tuple->E.end(),
                               [](const TypeReference& type1, const TypeReference& type2) { return type1->equals(type2); });
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool assignableFrom(const TypeReference& type) const noexcept override {
+        if (auto tuple = dynamic_cast<const TupleType*>(type.get())) {
+            return std::equal(E.begin(), E.end(), tuple->E.begin(), tuple->E.end(),
+                              [](const TypeReference& type1, const TypeReference& type2) { return type1->assignableFrom(type2); });
         }
         return false;
     }

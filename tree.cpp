@@ -801,6 +801,24 @@ void TupleExpr::walkBytecode(Assembler* assembler) const {
     assembler->indexed(Opcode::TUPLE, elements.size());
 }
 
+void TupleExpr::walkStoreBytecode(Compiler& compiler, Assembler* assembler) const {
+    for (size_t i = 0; i < elements.size(); ++i) {
+        assembler->opcode(Opcode::DUP);
+        assembler->indexed(Opcode::TLOAD, i);
+        if (auto load = dynamic_cast<LoadExpr*>(elements[i].get())) {
+            load->walkStoreBytecode(compiler, assembler);
+        } else {
+            throw ParserException("lvalue expression is expected", elements[i]->segment());
+        }
+        assembler->opcode(Opcode::POP);
+    }
+    assembler->opcode(Opcode::POP);
+    for (auto&& e : elements) {
+        e->walkBytecode(assembler);
+    }
+    assembler->indexed(Opcode::TUPLE, elements.size());
+}
+
 TypeReference ListExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
     neverGonnaGiveYouUp(elements.front().get(), "as list element");

@@ -554,6 +554,20 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 }
 ```
 
+经典的不借助第三个变量交换两个数：
+
+```
+{
+    let a = 5
+    let b = 6
+
+    (a, b) = (b, a)
+
+    println("a = " + i2s(a))
+    println("b = " + i2s(b))
+}
+```
+
 ## Unicode 支持
 
 Porkchop 的源文件应该是一个 UTF-8 文件。Porkchop 的标识符和字符串都支持 Unicode。

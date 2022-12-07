@@ -71,7 +71,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                             if (auto load = dynamic_pointer_cast<LoadExpr>(std::move(lhs))) {
                                 return context.make<AssignExpr>(token, std::move(load), std::move(rhs));
                             } else {
-                                throw ParserException("id-expression or access expression is expected", token);
+                                throw ParserException("lvalue expression is expected", token);
                             }
                         }
                     }
@@ -120,7 +120,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     if (auto load = dynamic_pointer_cast<LoadExpr>(std::move(rhs))) {
                         return context.make<IdPrefixExpr>(token, std::move(load));
                     } else {
-                        throw ParserException("id-expression or access expression is expected", token);
+                        throw ParserException("lvalue expression is expected", token);
                     }
                 }
                 default: {

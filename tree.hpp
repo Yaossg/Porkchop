@@ -401,11 +401,11 @@ struct DefaultExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct TupleExpr : Expr {
+struct TupleExpr : LoadExpr {
     Token token1, token2;
     std::vector<ExprHandle> elements;
 
-    TupleExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> elements): Expr(compiler),
+    TupleExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> elements): LoadExpr(compiler),
         token1(token1), token2(token2), elements(std::move(elements)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -422,6 +422,8 @@ struct TupleExpr : Expr {
     [[nodiscard]] TypeReference evalType() const override;
 
     void walkBytecode(Assembler* assembler) const override;
+
+    void walkStoreBytecode(Compiler& compiler, Assembler* assembler) const override;
 };
 
 struct ListExpr : Expr {
