@@ -512,6 +512,7 @@ void LogicalExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference AssignExpr::evalType() const {
+    lhs->checkLoadExpr();
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_ASSIGN:
@@ -810,9 +811,19 @@ void TupleExpr::walkStoreBytecode(Assembler* assembler) const {
         if (auto load = dynamic_cast<LoadExpr*>(elements[i].get())) {
             load->walkStoreBytecode(assembler);
         } else {
-            throw ParserException("lvalue expression is expected", elements[i]->segment());
+            unreachable("load expr should have been checked");
         }
         assembler->opcode(Opcode::POP);
+    }
+}
+
+void TupleExpr::checkLoadExpr() const {
+    for (auto&& element : elements) {
+        if (auto load = dynamic_cast<LoadExpr*>(element.get())) {
+            load->checkLoadExpr();
+        } else {
+            throw ParserException("lvalue expression is expected", element->segment());
+        }
     }
 }
 

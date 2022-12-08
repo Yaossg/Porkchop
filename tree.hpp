@@ -120,6 +120,8 @@ struct LoadExpr : Expr {
     explicit LoadExpr(Compiler& compiler): Expr(compiler) {}
 
     virtual void walkStoreBytecode(Assembler* assembler) const = 0;
+
+    virtual void checkLoadExpr() const {}
 };
 
 struct IdExpr : LoadExpr {
@@ -424,6 +426,8 @@ struct TupleExpr : LoadExpr {
     void walkBytecode(Assembler* assembler) const override;
 
     void walkStoreBytecode(Assembler* assembler) const override;
+
+    void checkLoadExpr() const override;
 };
 
 struct ListExpr : Expr {
