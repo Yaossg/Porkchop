@@ -24,8 +24,8 @@ add_executable(Porkchop
 add_executable(PorkchopRuntime
         runtime/main.cpp
         runtime/assembly.hpp
-        runtime/external.hpp
-        runtime/runtime.hpp
+        runtime/external.hpp runtime/external.cpp
+        runtime/runtime.hpp runtime/runtime.cpp
         runtime/text-asm.hpp
         opcode.hpp
         util.hpp
@@ -46,8 +46,8 @@ add_executable(PorkchopInterpreter
         util.hpp
 
         runtime/assembly.hpp
-        runtime/external.hpp
-        runtime/runtime.hpp
+        runtime/external.hpp runtime/external.cpp
+        runtime/runtime.hpp runtime/runtime.cpp
 
         runtime/interpreter.cpp
 )

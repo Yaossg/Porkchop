@@ -40,6 +40,7 @@ void Compiler::parse() {
     parser.context.defineExternal("input", std::make_shared<FuncType>(std::vector{ScalarTypes::STRING}, ScalarTypes::NONE));
     parser.context.defineExternal("flush", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::NONE));
     parser.context.defineExternal("eof", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::BOOL));
+    parser.context.defineExternal("typename", std::make_shared<FuncType>(std::vector{ScalarTypes::ANY}, ScalarTypes::STRING));
     std::tie(tree, type) = parser.parseFnBody();
     parser.expect(TokenType::LINEBREAK, "a linebreak is expected");
     if (parser.remains())
