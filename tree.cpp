@@ -1005,7 +1005,7 @@ void LambdaExpr::walkBytecode(Assembler* assembler) const {
         assembler->indexed(Opcode::BIND, captures.size());
 }
 
-void SimpleDeclarator::infer(TypeReference type, Segment segment) {
+void SimpleDeclarator::infer(TypeReference type) {
     if (designated == nullptr) {
         designated = type;
     } else {
@@ -1023,14 +1023,14 @@ void SimpleDeclarator::walkBytecode(Assembler *assembler) const {
     name->walkStoreBytecode(assembler);
 }
 
-void TupleDeclarator::infer(TypeReference type, Segment segment) {
+void TupleDeclarator::infer(TypeReference type) {
     if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
         if (elements.size() != tuple->E.size()) {
             throw TypeException("expected " + std::to_string(elements.size()) + " elements but got " + std::to_string(tuple->E.size()), segment);
         }
         std::vector<TypeReference> types;
         for (size_t i = 0; i < elements.size(); ++i) {
-            elements[i]->infer(tuple->E[i], segment);
+            elements[i]->infer(tuple->E[i]);
             types.push_back(elements[i]->typeCache);
         }
         typeCache = std::make_shared<TupleType>(std::move(types));

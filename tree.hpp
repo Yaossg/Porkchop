@@ -728,8 +728,12 @@ struct LambdaExpr : DefinedFnExpr {
 };
 
 struct Declarator : Descriptor {
+    Segment segment;
     TypeReference typeCache;
-    virtual void infer(TypeReference type, Segment segment) = 0;
+
+    explicit Declarator(Segment segment): segment(segment) {}
+
+    virtual void infer(TypeReference type) = 0;
     virtual void declare(LocalContext& context) const = 0;
     virtual void walkBytecode(Assembler* assembler) const = 0;
 };
@@ -738,12 +742,12 @@ struct SimpleDeclarator : Declarator {
     IdExprHandle name;
     TypeReference designated;
 
-    SimpleDeclarator(IdExprHandle name, TypeReference designated): name(std::move(name)), designated(std::move(designated)) {}
+    SimpleDeclarator(Segment segment, IdExprHandle name, TypeReference designated): Declarator(segment), name(std::move(name)), designated(std::move(designated)) {}
 
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return ":"; }
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {name.get(), designated.get()}; }
 
-    void infer(TypeReference type, Segment segment) override;
+    void infer(TypeReference type) override;
     void declare(LocalContext &context) const override;
     void walkBytecode(Assembler *assembler) const override;
 };
@@ -751,7 +755,7 @@ struct SimpleDeclarator : Declarator {
 struct TupleDeclarator : Declarator  {
     std::vector<DeclaratorHandle> elements;
 
-    TupleDeclarator(std::vector<DeclaratorHandle> elements): elements(std::move(elements)) {}
+    TupleDeclarator(Segment segment, std::vector<DeclaratorHandle> elements): Declarator(segment), elements(std::move(elements)) {}
 
     [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -760,7 +764,7 @@ struct TupleDeclarator : Declarator  {
         return ret;
     }
 
-    void infer(TypeReference type, Segment segment) override;
+    void infer(TypeReference type) override;
     void declare(LocalContext &context) const override;
     void walkBytecode(Assembler *assembler) const override;
 };

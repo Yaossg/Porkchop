@@ -377,7 +377,7 @@ ExprHandle Parser::parseFor() {
     LocalContext::Guard guard(context);
     auto initializer = parseExpression();
     if (auto element = elementof(initializer->typeCache)) {
-        declarator->infer(element, initializer->segment());
+        declarator->infer(element);
         declarator->declare(context);
         auto clause = parseClause();
         return context.make<ForExpr>(token, std::move(declarator), std::move(initializer), std::move(clause), popLoop());
@@ -499,7 +499,7 @@ ExprHandle Parser::parseLet() {
     auto declarator = parseDeclarator();
     expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
     auto initializer = parseExpression();
-    declarator->infer(initializer->typeCache, initializer->segment());
+    declarator->infer(initializer->typeCache);
     declarator->declare(context);
     return context.make<LetExpr>(token, std::move(declarator), std::move(initializer));
 }
@@ -639,7 +639,7 @@ std::unique_ptr<SimpleDeclarator> Parser::parseSimpleDeclarator() {
             throw ParserException("the type of '_' must be none", id->token);
         }
     }
-    return std::make_unique<SimpleDeclarator>(std::move(id), std::move(type));
+    return std::make_unique<SimpleDeclarator>(range(id->segment(), rewind()), std::move(id), std::move(type));
 }
 
 DeclaratorHandle Parser::parseDeclarator() {
@@ -654,13 +654,14 @@ DeclaratorHandle Parser::parseDeclarator() {
         }
         optionalComma(elements.size());
         auto token2 = next();
+        auto segment = range(token1, token2);
         switch (elements.size()) {
             case 0:
-                throw ParserException("invalid empty declarator", range(token1, token2));
+                throw ParserException("invalid empty declarator", segment);
             case 1:
                 return std::move(elements.front());
             default:
-                return std::make_unique<TupleDeclarator>(std::move(elements));
+                return std::make_unique<TupleDeclarator>(segment, std::move(elements));
         }
     } else {
         return parseSimpleDeclarator();
