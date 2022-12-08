@@ -49,27 +49,27 @@ struct Compiler {
 }
 
 struct Descriptor {
-    [[nodiscard]] virtual std::string_view descriptor(const Compiler& compiler) const noexcept = 0;
+    [[nodiscard]] virtual std::string_view descriptor() const noexcept = 0;
     virtual ~Descriptor() = default;
     [[nodiscard]] virtual std::vector<const Descriptor*> children() const { return {}; }
-    [[nodiscard]] std::string walkDescriptor(const Compiler& compiler) const {
+    [[nodiscard]] std::string walkDescriptor() const {
         int id = 0;
         std::string buf;
-        walkDescriptor(buf, id, compiler);
+        walkDescriptor(buf, id);
         return buf;
     }
 
 private:
-    void walkDescriptor(std::string& buf, int& id, const Compiler& compiler) const {
+    void walkDescriptor(std::string& buf, int& id) const {
         std::string pid = std::to_string(id);
         buf += pid;
         buf += "[\"";
-        buf += descriptor(compiler);
+        buf += descriptor();
         buf += "\"]\n";
         for (auto&& child : children()) {
             ++id;
             buf += pid + "-->" + std::to_string(id) + "\n";
-            child->walkDescriptor(buf, id, compiler);
+            child->walkDescriptor(buf, id);
         }
     }
 };

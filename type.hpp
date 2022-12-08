@@ -87,7 +87,7 @@ struct ScalarType : Type {
                 return equals(type);
         }
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return SCALAR_TYPE_NAME[(size_t) S]; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return SCALAR_TYPE_NAME[(size_t) S]; }
 
     [[nodiscard]] std::string serialize() const override {
         return std::string{SCALAR_TYPE_DESC[(size_t) S]};
@@ -202,7 +202,7 @@ struct TupleType : Type {
         for (auto&& e : E) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "()"; }
 
     [[nodiscard]] std::string serialize() const override {
         std::string ret = "(";
@@ -224,7 +224,7 @@ struct ListType : Type {
     }
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "[]"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "[]"; }
 
     [[nodiscard]] std::string serialize() const override {
         return '[' + E->serialize();
@@ -244,7 +244,7 @@ struct SetType : Type {
     }
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[]"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "@[]"; }
 
     [[nodiscard]] std::string serialize() const override {
         return '{' + E->serialize();
@@ -264,7 +264,7 @@ struct DictType : Type {
     }
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {K.get(), V.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[:]"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "@[:]"; }
 
     [[nodiscard]] std::string serialize() const override {
         return '@' + K->serialize() + V->serialize();
@@ -309,7 +309,7 @@ struct FuncType : Type {
         ret.push_back(R.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "():"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "():"; }
 
     [[nodiscard]] std::string serialize() const override {
         std::string ret = "$";

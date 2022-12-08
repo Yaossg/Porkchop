@@ -59,7 +59,7 @@ void Compiler::compile(Assembler* assembler) {
 }
 
 std::string Compiler::descriptor() const {
-    return tree->walkDescriptor(*this);
+    return tree->walkDescriptor();
 }
 
 }

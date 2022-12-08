@@ -50,7 +50,7 @@ struct ConstExpr : Expr {
 
     explicit ConstExpr(Compiler& compiler, Token token): Expr(compiler), token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -128,7 +128,7 @@ struct IdExpr : LoadExpr {
 
     explicit IdExpr(Compiler& compiler, Token token): LoadExpr(compiler), token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -154,7 +154,7 @@ struct PrefixExpr : Expr {
     PrefixExpr(Compiler& compiler, Token token, ExprHandle rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -174,7 +174,7 @@ struct IdPrefixExpr : Expr {
     IdPrefixExpr(Compiler& compiler, Token token, std::unique_ptr<LoadExpr> rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -192,7 +192,7 @@ struct IdPostfixExpr : Expr {
     IdPostfixExpr(Compiler& compiler, Token token, std::unique_ptr<LoadExpr> lhs): Expr(compiler), token(token), lhs(std::move(lhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token);
@@ -212,7 +212,7 @@ struct InfixExprBase : Expr {
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -261,7 +261,7 @@ struct AssignExpr : Expr {
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -281,7 +281,7 @@ struct AccessExpr : LoadExpr {
         token1(token1), token2(token2), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "[]"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "[]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
@@ -307,7 +307,7 @@ struct InvokeExpr : Expr {
         for (auto&& e : rhs) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "()"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
@@ -325,7 +325,7 @@ struct DotExpr : Expr {
     DotExpr(Compiler& compiler, ExprHandle lhs, IdExprHandle rhs): Expr(compiler), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "."; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "."; }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), rhs->segment());
@@ -345,7 +345,7 @@ struct AsExpr : Expr {
         token(token), token2(token2), lhs(std::move(lhs)), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), T.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "as"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "as"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(lhs->segment(), token2);
@@ -367,7 +367,7 @@ struct IsExpr : Expr {
         token(token), token2(token2), lhs(std::move(lhs)), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), T.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "is"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "is"; }
 
     [[nodiscard]] TypeReference evalType() const override;
 
@@ -388,7 +388,7 @@ struct DefaultExpr : Expr {
         token(token), token2(token2), T(std::move(T)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {T.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "default"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "default"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, token2);
@@ -413,7 +413,7 @@ struct TupleExpr : LoadExpr {
         for (auto&& e : elements) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "()"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -438,7 +438,7 @@ struct ListExpr : Expr {
         for (auto&& e : elements) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "[]"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "[]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -461,7 +461,7 @@ struct SetExpr : Expr {
         for (auto&& e : elements) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[]"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "@[]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -487,7 +487,7 @@ struct DictExpr : Expr {
         }
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "@[:]"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "@[:]"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -510,7 +510,7 @@ struct ClauseExpr : Expr {
         for (auto&& e : lines) ret.push_back(e.get());
         return ret;
     }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "{}"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "{}"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token1, token2);
@@ -533,7 +533,7 @@ struct IfElseExpr : Expr {
         token(token), cond(std::move(cond)), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), lhs.get(), rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "if-else"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "if-else"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -557,7 +557,7 @@ struct BreakExpr : Expr {
 
     explicit BreakExpr(Compiler& compiler, Token token): Expr(compiler), token(token) {}
 
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "break"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "break"; }
 
     [[nodiscard]] Segment segment() const override {
         return token;
@@ -575,7 +575,7 @@ struct YieldExpr : Expr {
     YieldExpr(Compiler& compiler, Token token, ExprHandle rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "yield"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "yield"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -617,7 +617,7 @@ struct WhileExpr : LoopExpr {
         cond(std::move(cond)), LoopExpr(compiler, token, std::move(clause), std::move(hook)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {cond.get(), clause.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "while"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "while"; }
 
     [[nodiscard]] TypeReference evalType() const override;
 
@@ -631,7 +631,7 @@ struct ReturnExpr : Expr {
     ReturnExpr(Compiler& compiler, Token token, ExprHandle rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -656,7 +656,7 @@ struct NamedFnExpr : virtual FnExprBase {
 
     explicit NamedFnExpr(IdExprHandle name): name(std::move(name)) {}
 
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "fn"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "fn"; }
 };
 
 struct DefinedFnExpr : virtual FnExprBase {
@@ -722,7 +722,7 @@ struct LambdaExpr : DefinedFnExpr {
         return ret;
     }
 
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "$"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "$"; }
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -744,7 +744,7 @@ struct SimpleDeclarator : Declarator {
 
     SimpleDeclarator(Segment segment, IdExprHandle name, TypeReference designated): Declarator(segment), name(std::move(name)), designated(std::move(designated)) {}
 
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return ":"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return ":"; }
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {name.get(), designated.get()}; }
 
     void infer(TypeReference type) override;
@@ -757,7 +757,7 @@ struct TupleDeclarator : Declarator  {
 
     TupleDeclarator(Segment segment, std::vector<DeclaratorHandle> elements): Declarator(segment), elements(std::move(elements)) {}
 
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "()"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "()"; }
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
         for (auto&& e : elements) ret.push_back(e.get());
@@ -778,7 +778,7 @@ struct LetExpr : Expr {
            token(token), declarator(std::move(declarator)), initializer(std::move(initializer)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {declarator.get(), initializer.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "let"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "let"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, initializer->segment());
@@ -797,7 +797,7 @@ struct ForExpr : LoopExpr {
             declarator(std::move(declarator)), initializer(std::move(initializer)), LoopExpr(compiler, token, std::move(clause), std::move(hook)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {declarator.get(), initializer.get(), clause.get()}; }
-    [[nodiscard]] std::string_view descriptor(const Compiler &compiler) const noexcept override { return "for"; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "for"; }
 
     [[nodiscard]] TypeReference evalType() const override;
 
