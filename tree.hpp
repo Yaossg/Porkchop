@@ -572,24 +572,6 @@ struct BreakExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct YieldExpr : Expr {
-    Token token;
-    ExprHandle rhs;
-
-    YieldExpr(Compiler& compiler, Token token, ExprHandle rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
-
-    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor() const noexcept override { return "yield"; }
-
-    [[nodiscard]] Segment segment() const override {
-        return range(token, rhs->segment());
-    }
-
-    [[nodiscard]] TypeReference evalType() const override;
-
-    void walkBytecode(Assembler* assembler) const override;
-};
-
 struct LoopHook {
     std::vector<BreakExpr*> breaks;
     const LoopExpr* loop;

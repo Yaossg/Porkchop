@@ -46,11 +46,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     returns.push_back(expr.get());
                     return expr;
                 }
-                case TokenType::KW_YIELD: {
-                    next();
-                    auto expr = context.make<YieldExpr>(token, parseExpression(level));
-                    return expr;
-                }
                 default: {
                     auto lhs = parseExpression(Expr::upper(level));
                     switch (Token token = peek(); token.type) {
@@ -303,7 +298,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     throw ParserException("stray 'else'", next());
 
                 case TokenType::KW_RETURN:
-                case TokenType::KW_YIELD:
                     return parseExpression();
 
                 case TokenType::LINEBREAK:
@@ -524,6 +518,7 @@ TypeReference Parser::parseType() {
                     expectComma();
                     auto expr = parseExpression();
                     expect(TokenType::RPAREN, "missing ')' to match '('");
+                    expected(expr.get(), ScalarTypes::INT);
                     auto index = expr->evalConst();
                     if (0 <= index && index < tuple->E.size()) {
                         return tuple->E[index];
@@ -549,22 +544,14 @@ TypeReference Parser::parseType() {
                     throw TypeException("returnof expect a func type", token);
                 }
             }
-            if (id == "parameterof") {
+            if (id == "parametersof") {
                 expect(TokenType::LPAREN, "'(' is expected");
                 auto type = parseType();
-                expectComma();
-                auto expr = parseExpression();
                 expect(TokenType::RPAREN, "missing ')' to match '('");
-                expected(expr.get(), ScalarTypes::INT);
                 if (auto func = dynamic_cast<FuncType*>(type.get())) {
-                    auto index = expr->evalConst();
-                    if (0 <= index && index < func->P.size()) {
-                        return func->P[index];
-                    } else {
-                        throw TypeException("index out of bound", expr->segment());
-                    }
+                    return std::make_shared<TupleType>(func->P);
                 } else {
-                    throw TypeException("parameterof expect a func type", token);
+                    throw TypeException("parametersof expect a func type", token);
                 }
             }
         }

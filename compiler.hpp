@@ -49,8 +49,8 @@ struct Compiler {
 }
 
 struct Descriptor {
-    [[nodiscard]] virtual std::string_view descriptor() const noexcept = 0;
     virtual ~Descriptor() = default;
+    [[nodiscard]] virtual std::string_view descriptor() const noexcept = 0;
     [[nodiscard]] virtual std::vector<const Descriptor*> children() const { return {}; }
     [[nodiscard]] std::string walkDescriptor() const {
         int id = 0;

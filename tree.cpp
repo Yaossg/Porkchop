@@ -951,15 +951,6 @@ void BreakExpr::walkBytecode(Assembler* assembler) const {
     assembler->labeled(Opcode::JMP, A);
 }
 
-TypeReference YieldExpr::evalType() const {
-    neverGonnaGiveYouUp(rhs.get(), "");
-    return rhs->typeCache;
-}
-
-void YieldExpr::walkBytecode(Assembler* assembler) const {
-    throw ParserException("yield is not implemented yet", segment());
-}
-
 TypeReference WhileExpr::evalType() const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     expected(cond.get(), ScalarTypes::BOOL);
