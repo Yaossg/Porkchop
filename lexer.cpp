@@ -1,6 +1,7 @@
 #include "token.hpp"
 #include "diagnostics.hpp"
 #include "unicode/unicode.hpp"
+#include "util.hpp"
 
 namespace Porkchop {
 
@@ -27,15 +28,22 @@ namespace Porkchop {
     return isUnicodeIdentifierPart(ch); // contains '_' already
 }
 
-struct Tokenizer {
+struct LexContext {
+    std::vector<Token> tokens;
+    std::vector<Token> braces;
+};
+
+struct LineTokenizer {
+    LexContext& context;
     const char *const o, *p, *q, *const r;
     const size_t line;
 
-    std::vector<Token> tokens;
-
-    Tokenizer(std::string_view view, size_t line):
-            o(view.begin()), p(o), q(p), r(view.end()),
-            line(line) { tokenize(); }
+    LineTokenizer(LexContext& context,
+                  std::string_view view, size_t line):
+                  context(context),
+                  o(view.begin()), p(o), q(p), r(view.end()),
+                  line(line)
+                  { tokenize(); }
 
     [[nodiscard]] size_t column() const noexcept {
         return q - o;
@@ -71,7 +79,42 @@ struct Tokenizer {
     }
 
     void add(TokenType type) {
-        tokens.push_back(make(type));
+        auto token = make(type);
+        context.tokens.push_back(token);
+        switch (type) {
+            case TokenType::LPAREN:
+            case TokenType::LBRACKET:
+            case TokenType::LBRACE:
+                context.braces.push_back(token);
+                break;
+            case TokenType::RPAREN:
+                if (context.braces.empty()) {
+                    throw TokenException("stray ')'", token);
+                } else if (context.braces.back().type != TokenType::LPAREN) {
+                    throw TokenException("mismatch braces, '(' is expected", range(context.braces.back(), token));
+                } else {
+                    context.braces.pop_back();
+                }
+                break;
+            case TokenType::RBRACKET:
+                if (context.braces.empty()) {
+                    throw TokenException("stray ']'", token);
+                } else if (context.braces.back().type != TokenType::LBRACKET) {
+                    throw TokenException("mismatch braces, '[' is expected", range(context.braces.back(), token));
+                } else {
+                    context.braces.pop_back();
+                }
+                break;
+            case TokenType::RBRACE:
+                if (context.braces.empty()) {
+                    throw TokenException("stray '}'", token);
+                } else if (context.braces.back().type != TokenType::LBRACE) {
+                    throw TokenException("mismatch braces, '{' is expected", range(context.braces.back(), token));
+                } else {
+                    context.braces.pop_back();
+                }
+                break;
+        }
     }
 
     void raise(const char* msg) const {
@@ -236,8 +279,17 @@ struct Tokenizer {
     }
 };
 
-[[nodiscard]] std::vector<Token> tokenize(std::string_view view, size_t line) {
-    return Tokenizer(view, line).tokens;
+
+void Compiler::tokenize() {
+    lines = Porkchop::splitLines(original);
+    LexContext context;
+    for (size_t line = 0; line < lines.size(); ++line) {
+        LineTokenizer(context, lines[line], line);
+    }
+    if (!context.braces.empty()) {
+        throw TokenException("open brace unclosed", context.braces.back());
+    }
+    tokens = std::move(context.tokens);
 }
 
 int64_t parseInt(Compiler &compiler, Token token) try {
