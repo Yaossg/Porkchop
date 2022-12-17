@@ -14,6 +14,7 @@ struct Function {
 struct NamedFunction : Function {
     FnDeclExpr* decl;
     FnDefExpr* def;
+
     void assemble(Assembler* assembler) const override {
         assembler->beginFunction();
         assembler->indexed(Opcode::LOCAL, def->locals);
@@ -29,6 +30,7 @@ struct NamedFunction : Function {
 
 struct LambdaFunction : Function {
     LambdaExpr* lambda;
+
     void assemble(Assembler* assembler) const override {
         assembler->beginFunction();
         assembler->indexed(Opcode::LOCAL, lambda->locals);
@@ -44,6 +46,7 @@ struct LambdaFunction : Function {
 
 struct ExternalFunction : Function {
     TypeReference type;
+
     void assemble(Assembler* assembler) const override {}
 
     [[nodiscard]] TypeReference prototype() const override {

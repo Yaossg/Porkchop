@@ -502,7 +502,7 @@ TypeReference Parser::parseType() {
     switch (Token token = next(); token.type) {
         case TokenType::IDENTIFIER: {
             auto id = compiler->of(token);
-            if (auto it = TYPE_KINDS.find(id); it != TYPE_KINDS.end()) {
+            if (auto it = SCALAR_TYPES.find(id); it != SCALAR_TYPES.end()) {
                 return std::make_shared<ScalarType>(it->second);
             }
             if (id == "typeof") {

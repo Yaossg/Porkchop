@@ -15,7 +15,7 @@ struct TextAssembly : Assembly {
     explicit TextAssembly(std::string original) : original(std::move(original)) {}
 
     void parse() {
-        lines = Porkchop::splitLines(original);
+        lines = splitLines(original);
         for (auto it = lines.begin(); it != lines.end(); ++it) {
             if (*it == "(") {
                 std::vector<std::string_view> collect;

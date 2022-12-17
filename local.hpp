@@ -22,6 +22,7 @@ struct LocalContext {
     LocalContext* parent;
 
     explicit LocalContext(Compiler* compiler, LocalContext* parent);
+
     void push();
     void pop();
     void local(Token token, TypeReference const& type);

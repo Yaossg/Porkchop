@@ -10,6 +10,7 @@ enum class TokenType {
     INVALID,
 
     IDENTIFIER,
+
     KW_FALSE,
     KW_TRUE,
     KW_LINE,
@@ -35,6 +36,8 @@ enum class TokenType {
     RBRACKET,
     LBRACE,
     RBRACE,
+
+    AT_BRACKET,
 
     OP_ASSIGN,
     OP_ASSIGN_AND,
@@ -69,12 +72,11 @@ enum class TokenType {
     OP_REM,
     OP_NOT,
     OP_INV,
-    OP_COMMA,
-    OP_DOLLAR,
+    OP_DOT,
     OP_INC,
     OP_DEC,
-    AT_BRACKET,
-    OP_DOT,
+    OP_DOLLAR,
+    OP_COMMA,
     OP_COLON,
 
     CHARACTER_LITERAL,
@@ -143,9 +145,11 @@ const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
     {"%", TokenType::OP_REM},
     {"!", TokenType::OP_NOT},
     {"~", TokenType::OP_INV},
-    {",", TokenType::OP_COMMA},
-    {"@[", TokenType::AT_BRACKET},
     {".", TokenType::OP_DOT},
+    {"++", TokenType::OP_INC},
+    {"--", TokenType::OP_DEC},
+    {"$", TokenType::OP_DOLLAR},
+    {",", TokenType::OP_COMMA},
     {":", TokenType::OP_COLON},
     {";", TokenType::LINEBREAK},
     {"(", TokenType::LPAREN},
@@ -154,9 +158,7 @@ const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
     {"]", TokenType::RBRACKET},
     {"{", TokenType::LBRACE},
     {"}", TokenType::RBRACE},
-    {"$", TokenType::OP_DOLLAR},
-    {"++", TokenType::OP_INC},
-    {"--", TokenType::OP_DEC}
+    {"@[", TokenType::AT_BRACKET},
 };
 
 struct Segment {

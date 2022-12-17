@@ -45,6 +45,7 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
 
 struct OutputFile {
     FILE* file;
+
     explicit OutputFile(std::string const& filename) {
         if (filename == "<null>") {
             file = nullptr;

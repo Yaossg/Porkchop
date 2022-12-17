@@ -30,7 +30,6 @@ constexpr std::string_view SCALAR_TYPE_NAME[] = {
     "string"
 };
 
-
 constexpr std::string_view SCALAR_TYPE_DESC[] = {
     "a",
     "v",
@@ -43,7 +42,7 @@ constexpr std::string_view SCALAR_TYPE_DESC[] = {
     "s"
 };
 
-const std::unordered_map<std::string_view, ScalarTypeKind> TYPE_KINDS {
+const std::unordered_map<std::string_view, ScalarTypeKind> SCALAR_TYPES {
     {"any",    ScalarTypeKind::ANY},
     {"none",   ScalarTypeKind::NONE},
     {"never",  ScalarTypeKind::NEVER},
@@ -68,15 +67,19 @@ struct Type : Descriptor {
 
 struct ScalarType : Type {
     ScalarTypeKind S;
+
     explicit ScalarType(ScalarTypeKind S): S(S) {}
+
     [[nodiscard]] std::string toString() const override {
         return std::string{SCALAR_TYPE_NAME[(size_t) S]};
     }
+
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
         if (auto scalar = dynamic_cast<const ScalarType*>(type.get()))
             return scalar->S == S;
         return false;
     }
+
     [[nodiscard]] bool assignableFrom(const TypeReference& type) const noexcept override {
         switch (S) {
             case ScalarTypeKind::NEVER:
@@ -87,7 +90,10 @@ struct ScalarType : Type {
                 return equals(type);
         }
     }
-    [[nodiscard]] std::string_view descriptor() const noexcept override { return SCALAR_TYPE_NAME[(size_t) S]; }
+
+    [[nodiscard]] std::string_view descriptor() const noexcept override {
+        return SCALAR_TYPE_NAME[(size_t) S];
+    }
 
     [[nodiscard]] std::string serialize() const override {
         return std::string{SCALAR_TYPE_DESC[(size_t) S]};
@@ -106,6 +112,11 @@ const TypeReference CHAR = std::make_shared<ScalarType>(ScalarTypeKind::CHAR);
 const TypeReference STRING = std::make_shared<ScalarType>(ScalarTypeKind::STRING);
 }
 
+[[nodiscard]] inline bool isScalar(TypeReference const& type, ScalarTypeKind kind) noexcept {
+    if (auto scalar = dynamic_cast<ScalarType*>(type.get()))
+        return scalar->S == kind;
+    return false;
+}
 
 [[nodiscard]] inline bool isScalar(TypeReference const& type, bool pred(ScalarTypeKind) noexcept) noexcept {
     if (auto scalar = dynamic_cast<ScalarType*>(type.get()))
@@ -114,35 +125,35 @@ const TypeReference STRING = std::make_shared<ScalarType>(ScalarTypeKind::STRING
 }
 
 [[nodiscard]] inline bool isAny(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::ANY; });
+    return isScalar(type, ScalarTypeKind::ANY);
 }
 
 [[nodiscard]] inline bool isNone(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::NONE; });
+    return isScalar(type, ScalarTypeKind::NONE);
 }
 
 [[nodiscard]] inline bool isNever(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::NEVER; });
+    return isScalar(type, ScalarTypeKind::NEVER);
 }
 
 [[nodiscard]] inline bool isByte(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::BYTE; });
+    return isScalar(type, ScalarTypeKind::BYTE);
 }
 
 [[nodiscard]] inline bool isInt(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::INT; });
+    return isScalar(type, ScalarTypeKind::INT);
 }
 
 [[nodiscard]] inline bool isFloat(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::FLOAT; });
+    return isScalar(type, ScalarTypeKind::FLOAT);
 }
 
 [[nodiscard]] inline bool isChar(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::CHAR; });
+    return isScalar(type, ScalarTypeKind::CHAR);
 }
 
 [[nodiscard]] inline bool isString(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return kind == ScalarTypeKind::STRING; });
+    return isScalar(type, ScalarTypeKind::STRING);
 }
 
 [[nodiscard]] inline bool isSimilar(bool pred(TypeReference const&), TypeReference const& type1, TypeReference const& type2) noexcept {
@@ -162,15 +173,17 @@ const TypeReference STRING = std::make_shared<ScalarType>(ScalarTypeKind::STRING
 }
 
 [[nodiscard]] inline bool isValueBased(TypeReference const& type) noexcept {
-    return isScalar(type, [](ScalarTypeKind kind) noexcept { return
-        kind == ScalarTypeKind::NONE || kind == ScalarTypeKind::BOOL || kind == ScalarTypeKind::BYTE
+    return isScalar(type, [](ScalarTypeKind kind) noexcept {
+        return kind == ScalarTypeKind::NONE || kind == ScalarTypeKind::BOOL || kind == ScalarTypeKind::BYTE
         || kind == ScalarTypeKind::CHAR || kind == ScalarTypeKind::INT || kind == ScalarTypeKind::FLOAT;
     });
 }
 
 struct TupleType : Type {
     std::vector<TypeReference> E;
+
     explicit TupleType(std::vector<TypeReference> E): E(std::move(E)) {}
+
     [[nodiscard]] std::string toString() const override {
         std::string buf = "(";
         bool first = true;
@@ -181,6 +194,7 @@ struct TupleType : Type {
         buf += ")";
         return buf;
     }
+
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
         if (auto tuple = dynamic_cast<const TupleType*>(type.get())) {
             return std::equal(E.begin(), E.end(), tuple->E.begin(), tuple->E.end(),
@@ -213,10 +227,13 @@ struct TupleType : Type {
 
 struct ListType : Type {
     TypeReference E;
+
     explicit ListType(TypeReference E): E(std::move(E)) {}
+
     [[nodiscard]] std::string toString() const override {
         return '[' + E->toString() + ']';
     }
+
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
         if (auto list = dynamic_cast<const ListType*>(type.get()))
             return list->E->equals(E);
@@ -233,10 +250,13 @@ struct ListType : Type {
 
 struct SetType : Type {
     TypeReference E;
+
     explicit SetType(TypeReference E): E(std::move(E)) {}
+
     [[nodiscard]] std::string toString() const override {
         return "@[" + E->toString() + ']';
     }
+
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
         if (auto list = dynamic_cast<const SetType*>(type.get()))
             return list->E->equals(E);
@@ -253,10 +273,13 @@ struct SetType : Type {
 
 struct DictType : Type {
     TypeReference K, V;
+
     explicit DictType(TypeReference K, TypeReference V): K(std::move(K)), V(std::move(V)) {}
+
     [[nodiscard]] std::string toString() const override {
         return "@[" + K->toString() + ": " + V->toString() + ']';
     }
+
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
         if (auto dict = dynamic_cast<const DictType*>(type.get()))
             return dict->K->equals(K) && dict->V->equals(V);
@@ -274,7 +297,9 @@ struct DictType : Type {
 struct FuncType : Type {
     std::vector<TypeReference> P;
     TypeReference R;
+
     explicit FuncType(std::vector<TypeReference> P, TypeReference R): P(std::move(P)), R(std::move(R)) {}
+
     [[nodiscard]] std::string toString() const override {
         std::string buf = "(";
         bool first = true;
@@ -286,6 +311,7 @@ struct FuncType : Type {
         buf += R->toString();
         return buf;
     }
+
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
         if (auto func = dynamic_cast<const FuncType*>(type.get())) {
             return func->R->equals(R) &&
@@ -294,6 +320,7 @@ struct FuncType : Type {
         }
         return false;
     }
+
     [[nodiscard]] bool assignableFrom(const TypeReference& type) const noexcept override {
         if (auto func = dynamic_cast<const FuncType*>(type.get())) {
             return (func->R->assignableFrom(R) || isNever(R) && isNever(func->R)) &&

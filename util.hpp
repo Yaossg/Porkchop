@@ -47,9 +47,8 @@ inline void forceUTF8() {
 #endif
 }
 
-inline std::vector<std::string_view> splitLines(std::string const& entire) {
+inline std::vector<std::string_view> splitLines(std::string_view view) {
     std::vector<std::string_view> lines;
-    std::string_view view(entire);
     const char *p = view.begin(), *q = p, *r = view.end();
     while (q != r) {
         switch (*q++) {

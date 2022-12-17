@@ -5,10 +5,21 @@
 
 namespace Porkchop {
 
-[[nodiscard]] constexpr bool isBinary(char ch) noexcept { return ch == '0' || ch == '1'; }
-[[nodiscard]] constexpr bool isOctal(char ch) noexcept { return ch >= '0' && ch <= '7'; }
-[[nodiscard]] constexpr bool isDecimal(char ch) noexcept { return ch >= '0' && ch <= '9'; }
-[[nodiscard]] constexpr bool isHexadecimal(char ch) noexcept { return ch >= '0' && ch <= '9' || ch >= 'a' && ch <= 'f' || ch >= 'A' && ch <= 'F'; }
+[[nodiscard]] constexpr bool isBinary(char ch) noexcept {
+    return ch == '0' || ch == '1';
+}
+
+[[nodiscard]] constexpr bool isOctal(char ch) noexcept {
+    return ch >= '0' && ch <= '7';
+}
+
+[[nodiscard]] constexpr bool isDecimal(char ch) noexcept {
+    return ch >= '0' && ch <= '9';
+}
+
+[[nodiscard]] constexpr bool isHexadecimal(char ch) noexcept {
+    return ch >= '0' && ch <= '9' || ch >= 'a' && ch <= 'f' || ch >= 'A' && ch <= 'F';
+}
 
 [[nodiscard]] constexpr bool isNumberStart(char ch) noexcept {
     return isDecimal(ch);
@@ -85,6 +96,7 @@ struct LineTokenizer {
             case TokenType::LPAREN:
             case TokenType::LBRACKET:
             case TokenType::LBRACE:
+            case TokenType::AT_BRACKET:
                 context.braces.push_back(token);
                 break;
             case TokenType::RPAREN:
@@ -99,8 +111,8 @@ struct LineTokenizer {
             case TokenType::RBRACKET:
                 if (context.braces.empty()) {
                     throw TokenException("stray ']'", token);
-                } else if (context.braces.back().type != TokenType::LBRACKET) {
-                    throw TokenException("mismatch braces, '[' is expected", range(context.braces.back(), token));
+                } else if (auto type0 = context.braces.back().type; type0 != TokenType::LBRACKET && type0 != TokenType::AT_BRACKET) {
+                    throw TokenException("mismatch braces, '[' or '@[' is expected", range(context.braces.back(), token));
                 } else {
                     context.braces.pop_back();
                 }
@@ -201,7 +213,7 @@ struct LineTokenizer {
         }
     }
 
-    void scanDigits(bool pred(char)) {
+    void scanDigits(bool pred(char) noexcept) {
         char ch = getc();
         if (!pred(ch)) raise("invalid number literal");
         do ch = getc();
@@ -211,7 +223,6 @@ struct LineTokenizer {
     }
 
     void addNumber() {
-        if (peekc() == '+' || peekc() == '-') getc();
         // scan number prefix
         TokenType base = TokenType::DECIMAL_INTEGER;
         bool (*pred)(char) noexcept = isDecimal;
@@ -281,7 +292,7 @@ struct LineTokenizer {
 
 
 void Compiler::tokenize() {
-    lines = Porkchop::splitLines(original);
+    lines = splitLines(original);
     LexContext context;
     for (size_t line = 0; line < lines.size(); ++line) {
         LineTokenizer(context, lines[line], line);
