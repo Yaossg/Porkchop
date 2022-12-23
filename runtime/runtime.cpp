@@ -7,7 +7,7 @@ std::pair<size_t, bool> Func::call(Assembly *assembly, VM* vm) const try {
     if (std::holds_alternative<Instructions>(f)) {
         auto& instructions = std::get<Instructions>(f);
         Runtime runtime(assembly, vm->newFrame());
-        runtime.frame->init(captures, companion);
+        runtime.frame->init(captures, prototype->P);
         for (size_t i = 0; i < instructions.size(); ++i) {
             auto&& [opcode, args] = instructions[i];
             switch (opcode) {
@@ -216,7 +216,7 @@ std::pair<size_t, bool> Func::call(Assembly *assembly, VM* vm) const try {
         }
         __builtin_unreachable();
     } else {
-        return {std::get<ExternalFunctionR>(f)(vm, captures), companionR};
+        return {std::get<ExternalFunctionR>(f)(vm, captures), !isValueBased(prototype->R)};
     }
 } catch (Runtime::Exception& e) {
     e.append("at func " + std::to_string(func));

@@ -19,7 +19,7 @@ using Instructions = std::vector<std::pair<Opcode, std::variant<
 struct Assembly {
     std::vector<std::variant<Instructions, ExternalFunctionR>> functions;
     std::vector<std::string> table;
-    std::vector<TypeReference> prototypes;
+    std::vector<std::shared_ptr<FuncType>> prototypes;
 
     void externalFunctions() {
         functions.emplace_back(Externals::print);

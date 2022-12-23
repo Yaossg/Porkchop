@@ -37,9 +37,13 @@ struct VM {
 
         explicit Frame(VM* vm): vm(vm) {}
 
-        void init(std::vector<size_t> const& captures, std::vector<bool> const& companion0) {
+        void init(std::vector<size_t> const& captures, std::vector<TypeReference> const& P) {
             stack = captures;
-            companion = companion0;
+            companion.clear();
+            companion.reserve(P.size());
+            for (auto&& p : P) {
+                companion.push_back(!isValueBased(p));
+            }
         }
 
         void dup() {
@@ -140,29 +144,25 @@ private:
 
 struct Func : Object {
     size_t func;
-    TypeReference prototype;
+    std::shared_ptr<FuncType> prototype;
     std::vector<size_t> captures;
-    std::vector<bool> companion;
-    bool companionR;
 
-    Func(size_t func, TypeReference prototype): func(func), prototype(std::move(prototype)) {
-        companionR = !isValueBased(dynamic_cast<FuncType*>(this->prototype.get())->R);
-    }
+    Func(size_t func, std::shared_ptr<FuncType> prototype): func(func), prototype(std::move(prototype)) {}
     Func(const Func&) = default;
 
     Func* copy() {
         return vm->newObject<Func>(*this);
     }
 
-    void bind(size_t capture, bool type) {
+    void bind(size_t capture) {
         captures.push_back(capture);
-        companion.push_back(type);
     }
 
     void walkMark() override {
         for (size_t i = 0; i < captures.size(); ++i) {
-            if (companion[i])
-                std::bit_cast<Object*>(captures[i])->mark();
+            if (!isValueBased(prototype->P[i])) {
+                std::bit_cast<Object *>(captures[i])->mark();
+            }
         }
     }
 
@@ -185,7 +185,7 @@ struct AnyScalar : Object {
 struct String : Object {
     std::string value;
 
-    explicit String(std::string  value): value(std::move(value)) {}
+    explicit String(std::string value): value(std::move(value)) {}
 
     void walkMark() override {}
 
@@ -193,23 +193,56 @@ struct String : Object {
 };
 
 struct Tuple : Object {
-    std::vector<size_t> elements;
-    TypeReference prototype;
-    TupleType* tuple;
+    virtual std::pair<size_t, bool> load(size_t index) = 0;
+    virtual void store(size_t index, size_t element) = 0;
+};
 
-    Tuple(std::vector<size_t> elements, TypeReference prototype): elements(std::move(elements)), prototype(std::move(prototype)) {
-        tuple = dynamic_cast<TupleType*>(prototype.get());
+struct Pair : Tuple {
+    size_t first, second;
+    TypeReference T, U;
+    bool t, u;
+    Pair(size_t first, size_t second, TypeReference T, TypeReference U)
+        : first(first), second(second), T(std::move(T)), U(std::move(U)), t(isValueBased(this->T)), u(isValueBased(this->U)) {}
+
+    void walkMark() override {
+        if (t) std::bit_cast<Object*>(first)->mark();
+        if (u) std::bit_cast<Object*>(second)->mark();
     }
+
+    std::pair<size_t, bool> load(size_t index) override {
+        return index == 0 ? std::pair{first, t} : std::pair{second, u};
+    }
+
+    void store(size_t index, size_t element) override {
+        (index == 0 ? first : second) = element;
+    }
+
+    TypeReference getType() override { return std::make_shared<TupleType>(std::vector{T, U}); }
+};
+
+struct More : Tuple {
+    std::vector<size_t> elements;
+    std::shared_ptr<TupleType> prototype;
+
+    More(std::vector<size_t> elements, std::shared_ptr<TupleType> prototype)
+            : elements(std::move(elements)), prototype(std::move(prototype)) {}
 
     void walkMark() override {
         for (size_t i = 0; i < elements.size(); ++i) {
-            if (!isValueBased(tuple->E[i]))
+            if (!isValueBased(prototype->E[i]))
                 std::bit_cast<Object*>(elements[i])->mark();
         }
     }
 
-    TypeReference getType() override { return prototype; }
+    std::pair<size_t, bool> load(size_t index) override {
+        return {elements[index], !isValueBased(prototype->E[index])};
+    }
 
+    void store(size_t index, size_t element) override {
+        elements[index] = element;
+    }
+
+    TypeReference getType() override { return prototype; }
 };
 
 struct Iterator : Object {
@@ -218,7 +251,7 @@ struct Iterator : Object {
     virtual bool peek() = 0;
     virtual size_t next() = 0;
 
-    TypeReference getType() override { unreachable("iteration intrinsics"); }
+    TypeReference getType() override { __builtin_unreachable(); }
 };
 
 
@@ -228,15 +261,13 @@ struct Iterable : Object {
 
 struct List : Iterable {
     std::vector<size_t> elements;
-    TypeReference prototype;
-    TypeReference E;
+    std::shared_ptr<ListType> prototype;
 
-    List(std::vector<size_t> elements, TypeReference prototype): elements(std::move(elements)), prototype(std::move(prototype)) {
-        E = dynamic_cast<ListType*>(this->prototype.get())->E;
-    }
+    List(std::vector<size_t> elements, std::shared_ptr<ListType> prototype)
+        : elements(std::move(elements)), prototype(std::move(prototype)) {}
 
     void walkMark() override {
-        if (isValueBased(E)) return;
+        if (isValueBased(prototype->E)) return;
         for (auto&& element : elements) {
             std::bit_cast<Object*>(element)->mark();
         }
@@ -250,7 +281,7 @@ struct List : Iterable {
         std::vector<size_t>::iterator first, last;
 
         explicit ListIterator(List* list): list(list), first(list->elements.begin()), last(list->elements.end()) {
-            E = list->E;
+            E = list->prototype->E;
         }
 
         void walkMark() override {
@@ -274,15 +305,13 @@ struct List : Iterable {
 
 struct Set : Iterable {
     std::unordered_set<size_t> elements;
-    TypeReference prototype;
-    TypeReference E;
+    std::shared_ptr<SetType> prototype;
 
-    Set(std::unordered_set<size_t> elements, TypeReference prototype): elements(std::move(elements)), prototype(std::move(prototype)) {
-        E = dynamic_cast<ListType*>(this->prototype.get())->E;
-    }
+    Set(std::unordered_set<size_t> elements, std::shared_ptr<SetType> prototype)
+        : elements(std::move(elements)), prototype(std::move(prototype)) {}
 
     void walkMark() override {
-        if (isValueBased(E)) return;
+        if (isValueBased(prototype->E)) return;
         for (auto&& element : elements) {
             std::bit_cast<Object*>(element)->mark();
         }
@@ -296,7 +325,7 @@ struct Set : Iterable {
         std::unordered_set<size_t>::iterator first, last;
 
         explicit SetIterator(Set* set): set(set), first(set->elements.begin()), last(set->elements.end()) {
-            E = set->E;
+            E = set->prototype->E;
         }
 
         void walkMark() override {
@@ -320,18 +349,14 @@ struct Set : Iterable {
 
 struct Dict : Iterable {
     std::unordered_map<size_t, size_t> elements;
-    TypeReference prototype;
-    TypeReference K, V;
+    std::shared_ptr<DictType> prototype;
 
-    Dict(std::unordered_map<size_t, size_t> elements, TypeReference prototype): elements(std::move(elements)), prototype(std::move(prototype)) {
-        auto dict = dynamic_cast<DictType*>(this->prototype.get());
-        K = dict->K;
-        V = dict->V;
-    }
+    Dict(std::unordered_map<size_t, size_t> elements, std::shared_ptr<DictType> prototype)
+        : elements(std::move(elements)), prototype(std::move(prototype)) {}
 
     void walkMark() override {
-        auto k = isValueBased(K);
-        auto v = isValueBased(V);
+        auto k = isValueBased(prototype->K);
+        auto v = isValueBased(prototype->V);
         if (k && v) return;
         for (auto&& [key, value] : elements) {
              if (!k) {
@@ -351,7 +376,7 @@ struct Dict : Iterable {
         std::unordered_map<size_t, size_t>::iterator first, last;
 
         explicit DictIterator(Dict* dict): dict(dict), first(dict->elements.begin()), last(dict->elements.end()) {
-            E = std::make_shared<TupleType>(std::vector{dict->K, dict->V});
+            E = std::make_shared<TupleType>(std::vector{dict->prototype->K, dict->prototype->V});
         }
 
         void walkMark() override {
@@ -364,7 +389,7 @@ struct Dict : Iterable {
 
         size_t next() override {
             auto [key, value] = *first++;
-            return as_size(vm->newObject<Tuple>(std::vector{key, value}, E));
+            return as_size(vm->newObject<Pair>(key, value, dict->prototype->K, dict->prototype->V));
         }
 
     };

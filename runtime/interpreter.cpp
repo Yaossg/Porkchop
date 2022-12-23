@@ -47,7 +47,7 @@ struct Interpretation : Assembler, Assembly {
     }
 
     void func(const TypeReference &type) override {
-        prototypes.push_back(type);
+        prototypes.push_back(std::dynamic_pointer_cast<FuncType>(type));
     }
 
     void beginFunction() override {

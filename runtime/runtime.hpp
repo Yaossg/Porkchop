@@ -67,14 +67,13 @@ struct Runtime {
         return std::bit_cast<String*>(pop());
     }
 
-    std::pair<std::vector<size_t>, std::vector<bool>> npop(size_t n) {
+    std::vector<size_t> npop(size_t n) {
         auto b1 = std::prev(frame->stack.end(), n), e1 = frame->stack.end();
         auto b2 = std::prev(frame->companion.end(), n), e2 = frame->companion.end();
         std::vector<size_t> r1{b1, e1};
-        std::vector<bool> r2{b2, e2};
         frame->stack.erase(b1, e1);
         frame->companion.erase(b2, e2);
-        return {r1, r2};
+        return r1;
     }
 
     std::pair<size_t, bool> return_() {
@@ -88,6 +87,10 @@ struct Runtime {
     }
 
     void push(size_t value) {
+        frame->push(value);
+    }
+
+    void push(std::pair<size_t, bool> value) {
         frame->push(value);
     }
 
@@ -116,7 +119,8 @@ struct Runtime {
     }
 
     void fconst(size_t index) {
-        push(frame->vm->newObject<Func>(index, assembly->prototypes[index]));
+        auto func = std::dynamic_pointer_cast<FuncType>(assembly->prototypes[index]);
+        push(frame->vm->newObject<Func>(index, func));
     }
 
     void load(size_t index) {
@@ -129,13 +133,13 @@ struct Runtime {
 
     void tload(size_t index) {
         auto tuple = dynamic_cast<Tuple*>(opop());
-        push(tuple->elements[index], !isValueBased(tuple->tuple->E[index]));
+        push(tuple->load(index));
     }
 
     void tstore(size_t index) {
         auto tuple = dynamic_cast<Tuple*>(opop());
         auto value = top();
-        tuple->elements[index] = value;
+        tuple->store(index, value);
     }
 
     void lload() {
@@ -143,7 +147,7 @@ struct Runtime {
         auto list = dynamic_cast<List*>(opop());
         if (index < 0 || index >= list->elements.size())
             throw Exception("index out of bound");
-        push(list->elements[index], !isValueBased(list->E));
+        push(list->elements[index], !isValueBased(list->prototype->E));
     }
 
     void lstore() {
@@ -158,7 +162,7 @@ struct Runtime {
     void dload() {
         auto key = pop();
         auto dict = dynamic_cast<Dict*>(opop());
-        push(dict->elements[key], !isValueBased(dict->V));
+        push(dict->elements[key], !isValueBased(dict->prototype->V));
     }
 
     void dstore() {
@@ -178,20 +182,20 @@ struct Runtime {
     void bind(size_t size) {
         if (size > 0) {
             auto captures = npop(size);
+            auto unbound = dynamic_cast<Func*>(opop());
             size_t temporaries = 0;
-            for (size_t i = 0; i < captures.first.size(); ++i) {
-                if (captures.second[i]) {
-                    frame->vm->temporaries.push_back(std::bit_cast<Object *>(captures.first[i]));
+            for (size_t i = 0; i < captures.size(); ++i) {
+                if (!isValueBased(unbound->prototype->P[i])) {
+                    frame->vm->temporaries.push_back(std::bit_cast<Object *>(captures[i]));
                     ++temporaries;
                 }
             }
-            auto object = opop();
-            frame->vm->temporaries.push_back(object);
-            auto func = dynamic_cast<Func*>(object)->copy();
-            for (size_t i = 0; i < captures.first.size(); ++i) {
-                func->bind(captures.first[i], captures.second[i]);
+            frame->vm->temporaries.push_back(unbound);
+            auto bound = unbound->copy();
+            for (auto&& capture : captures) {
+                bound->bind(capture);
             }
-            push(func);
+            push(bound);
             frame->vm->temporaries.pop_back();
             for (size_t i = 0; i < temporaries; ++i)
                 frame->vm->temporaries.pop_back();
@@ -244,28 +248,32 @@ struct Runtime {
     }
 
     void tuple(TypeReference const& prototype) {
-        auto tuple = dynamic_cast<TupleType*>(prototype.get());
-        auto [elements, _] = npop(tuple->E.size());
-        push(frame->vm->newObject<Tuple>(std::move(elements), prototype));
+        auto tuple = std::dynamic_pointer_cast<TupleType>(prototype);
+        auto elements = npop(tuple->E.size());
+        if (elements.size() == 2) {
+            push(frame->vm->newObject<Pair>(elements.front(), elements.back(), tuple->E.front(), tuple->E.back()));
+        } else {
+            push(frame->vm->newObject<More>(std::move(elements), tuple));
+        }
     }
 
     void list(std::pair<TypeReference, size_t> const& cons) {
-        auto [elements, _] = npop(cons.second);
-        push(frame->vm->newObject<List>(std::move(elements), cons.first));
+        auto elements = npop(cons.second);
+        push(frame->vm->newObject<List>(std::move(elements), std::dynamic_pointer_cast<ListType>(cons.first)));
     }
 
     void set(std::pair<TypeReference, size_t> const& cons) {
-        auto [elements, _] = npop(cons.second);
-        push(frame->vm->newObject<Set>(std::unordered_set(elements.begin(), elements.end()), cons.first));
+        auto elements = npop(cons.second);
+        push(frame->vm->newObject<Set>(std::unordered_set(elements.begin(), elements.end()), std::dynamic_pointer_cast<SetType>(cons.first)));
     }
 
     void dict(std::pair<TypeReference, size_t> const& cons) {
-        auto [elements, _] = npop(cons.second * 2);
+        auto elements = npop(cons.second * 2);
         std::unordered_map<size_t, size_t> map;
         for (size_t i = 0; i < cons.second; ++i) {
             map.insert_or_assign(elements[2 * i], elements[2 * i + 1]);
         }
-        push(frame->vm->newObject<Dict>(map, cons.first));
+        push(frame->vm->newObject<Dict>(map, std::dynamic_pointer_cast<DictType>(cons.first)));
     }
 
     void ineg() {
