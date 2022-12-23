@@ -10,10 +10,11 @@ int main(int argc, const char* argv[]) try {
     }
     Porkchop::TextAssembly c(Porkchop::readAll(argv[1]));
     c.parse();
-    Porkchop::Externals::init(argc, argv);
-    Porkchop::Runtime::Func main_{0, {}};
-    auto ret = main_.call(&c);
-    fprintf(stdout, "\nProgram finished with exit code %zu\n", ret);
+    Porkchop::VM vm;
+    Porkchop::Externals::init(&vm, argc, argv);
+    Porkchop::Func main_{0, c.prototypes[0]};
+    auto ret = main_.call(&c, &vm);
+    fprintf(stdout, "\nProgram finished with exit code %zu\n", ret.first);
     return 0;
 } catch (std::bad_alloc& e) {
     fprintf(stderr, "Execution Failed: Runtime run out of memory: %s\n", e.what());

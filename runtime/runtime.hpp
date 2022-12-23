@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include "assembly.hpp"
+#include "vm.hpp"
 
 namespace Porkchop {
 
@@ -25,78 +26,29 @@ struct Runtime {
         }
     };
 
-    struct Any {
-        size_t value;
-        TypeReference type;
-    };
-
-    struct Func {
-        size_t func;
-        std::vector<size_t> captures;
-
-        size_t call(Assembly *assembly) const;
-    };
-
-    struct Iter {
-        virtual ~Iter() = default;
-
-        [[nodiscard]] virtual bool peek() const = 0;
-        virtual size_t next() = 0;
-    };
-
-    template<typename It>
-    struct IterImpl : Iter {
-        It first, last;
-        IterImpl(It first, It last): first(first), last(last) {}
-
-        [[nodiscard]] bool peek() const override {
-            return first != last;
-        }
-
-        size_t next() override {
-            return *first++;
-        }
-    };
-
-
-    template<typename It>
-    struct DictIterImpl : Iter {
-        It first, last;
-        DictIterImpl(It first, It last): first(first), last(last) {}
-
-        [[nodiscard]] bool peek() const override {
-            return first != last;
-        }
-
-        size_t next() override {
-            auto [key, value] = *first++;
-            return as_size(new std::vector{key, value});
-        }
-    };
-
     Assembly *assembly;
-    std::deque<size_t> stack;
-    std::vector<size_t> locals;
+    std::shared_ptr<VM::Frame> frame;
 
-    Runtime(Assembly *assembly, std::vector<size_t> const &captures)
-        : assembly(assembly), locals(captures.begin(), captures.end()) {}
+    Runtime(Assembly *assembly, std::shared_ptr<VM::Frame> frame)
+            : assembly(assembly), frame(std::move(frame)) {}
 
-    void local(size_t size) {
-        locals.resize(size);
+    void local(TypeReference const& type) {
+        frame->stack.push_back(0);
+        frame->companion.push_back(!isValueBased(type));
     }
 
     void dup() {
-        stack.push_back(stack.back());
+        frame->dup();
+    }
+
+    size_t top() {
+        return frame->stack.back();
     }
 
     size_t pop() {
-        auto back = stack.back();
-        stack.pop_back();
+        auto back = frame->stack.back();
+        frame->pop();
         return back;
-    }
-
-    size_t return_() {
-        return pop();
     }
 
     int64_t ipop() {
@@ -107,127 +59,178 @@ struct Runtime {
         return as_double(pop());
     }
 
-    std::string *spop() {
-        return as_string(pop());
+    Object* opop() {
+        return std::bit_cast<Object*>(pop());
     }
 
-    std::vector<size_t> npop(size_t n) {
-        if (n == 1) return {pop()};
-        auto b = std::prev(stack.end(), n), e = stack.end();
-        std::vector<size_t> r{b, e};
-        stack.erase(b, e);
-        return r;
+    String* spop() {
+        return std::bit_cast<String*>(pop());
+    }
+
+    std::pair<std::vector<size_t>, std::vector<bool>> npop(size_t n) {
+        auto b1 = std::prev(frame->stack.end(), n), e1 = frame->stack.end();
+        auto b2 = std::prev(frame->companion.end(), n), e2 = frame->companion.end();
+        std::vector<size_t> r1{b1, e1};
+        std::vector<bool> r2{b2, e2};
+        frame->stack.erase(b1, e1);
+        frame->companion.erase(b2, e2);
+        return {r1, r2};
+    }
+
+    std::pair<size_t, bool> return_() {
+        std::pair<size_t, bool> ret = {frame->stack.back(), frame->companion.back()};
+        frame->vm->frames.pop_back();
+        return ret;
     }
 
     void const_(size_t value) {
-        stack.push_back(value);
+        frame->push(value);
+    }
+
+    void push(size_t value) {
+        frame->push(value);
+    }
+
+    void push(size_t value, bool type) {
+        frame->push({value, type});
+    }
+
+    void push(bool value) {
+        frame->push(value);
+    }
+
+    void push(int64_t value) {
+        frame->push(value);
     }
 
     void push(double value) {
-        stack.push_back(as_size(value));
+        frame->push(as_size(value));
     }
 
-    void push(void *ptr) {
-        stack.push_back(as_size(ptr));
+    void push(Object* object) {
+        frame->push(object);
     }
 
-    void string(std::string const &s) {
-        push(new std::string(s));
+    void sconst(size_t index) {
+        push(frame->vm->newObject<String>(assembly->table[index]));
     }
 
-    void func(size_t index) {
-        push(new Func{index});
+    void fconst(size_t index) {
+        push(frame->vm->newObject<Func>(index, assembly->prototypes[index]));
     }
 
     void load(size_t index) {
-        stack.push_back(locals[index]);
+        frame->load(index);
     }
 
     void store(size_t index) {
-        locals[index] = stack.back();
+        frame->store(index);
     }
 
     void tload(size_t index) {
-        auto tuple = std::bit_cast<std::vector<size_t> *>(pop());
-        stack.push_back(tuple->at(index));
+        auto tuple = dynamic_cast<Tuple*>(opop());
+        push(tuple->elements[index], !isValueBased(tuple->tuple->E[index]));
+    }
+
+    void tstore(size_t index) {
+        auto tuple = dynamic_cast<Tuple*>(opop());
+        auto value = top();
+        tuple->elements[index] = value;
     }
 
     void lload() {
-        auto index = pop();
-        auto list = std::bit_cast<std::vector<size_t> *>(pop());
-        if (index >= list->size())
+        auto index = ipop();
+        auto list = dynamic_cast<List*>(opop());
+        if (index < 0 || index >= list->elements.size())
             throw Exception("index out of bound");
-        stack.push_back(list->at(index));
+        push(list->elements[index], !isValueBased(list->E));
+    }
+
+    void lstore() {
+        auto index = ipop();
+        auto list = dynamic_cast<List*>(opop());
+        if (index < 0 || index >= list->elements.size())
+            throw Exception("index out of bound");
+        auto value = top();
+        list->elements[index] = value;
     }
 
     void dload() {
         auto key = pop();
-        auto dict = std::bit_cast<std::unordered_map<size_t, size_t> *>(pop());
-        stack.push_back(dict->at(key));
-    }
-
-    void tstore(size_t index) {
-        auto tuple = std::bit_cast<std::vector<size_t> *>(pop());
-        auto value = stack.back();
-        tuple->at(index) = value;
-    }
-
-    void lstore() {
-        auto index = pop();
-        auto list = std::bit_cast<std::vector<size_t> *>(pop());
-        if (index >= list->size())
-            throw Exception("index out of bound");
-        auto value = stack.back();
-        list->at(index) = value;
+        auto dict = dynamic_cast<Dict*>(opop());
+        push(dict->elements[key], !isValueBased(dict->V));
     }
 
     void dstore() {
         auto key = pop();
-        auto dict = std::bit_cast<std::unordered_map<size_t, size_t> *>(pop());
-        auto value = stack.back();
-        dict->insert_or_assign(key, value);
+        auto dict = dynamic_cast<Dict*>(opop());
+        auto value = top();
+        dict->elements.insert_or_assign(key, value);
     }
 
     void call() {
-        stack.emplace_back(std::bit_cast<Func *>(pop())->call(assembly));
+        auto object = opop();
+        frame->vm->temporaries.push_back(object);
+        frame->push(dynamic_cast<Func *>(object)->call(assembly, frame->vm));
+        frame->vm->temporaries.pop_back();
     }
 
     void bind(size_t size) {
         if (size > 0) {
-            auto v = npop(size);
-            auto f = new Func(*std::bit_cast<Func *>(pop()));
-            for (auto e: v) {
-                f->captures.push_back(e);
+            auto captures = npop(size);
+            size_t temporaries = 0;
+            for (size_t i = 0; i < captures.first.size(); ++i) {
+                if (captures.second[i]) {
+                    frame->vm->temporaries.push_back(std::bit_cast<Object *>(captures.first[i]));
+                    ++temporaries;
+                }
             }
-            push(f);
+            auto object = opop();
+            frame->vm->temporaries.push_back(object);
+            auto func = dynamic_cast<Func*>(object)->copy();
+            for (size_t i = 0; i < captures.first.size(); ++i) {
+                func->bind(captures.first[i], captures.second[i]);
+            }
+            push(func);
+            frame->vm->temporaries.pop_back();
+            for (size_t i = 0; i < temporaries; ++i)
+                frame->vm->temporaries.pop_back();
         }
     }
 
     void as(TypeReference const& type) {
-        auto any = std::bit_cast<Any *>(pop());
-        if (!any->type->equals(type))
-            throw Exception("cannot cast " + any->type->toString() + " to " + type->toString());
-        stack.emplace_back(any->value);
+        auto object = opop();
+        auto type0 = object->getType();
+        if (!type->assignableFrom(type0)) {
+            throw Exception("cannot cast " + type0->toString() + " to " + type->toString());
+        }
+        if (isValueBased(type)) {
+            push(dynamic_cast<AnyScalar*>(object)->value);
+        } else {
+            push(object);
+        }
     }
 
     void is(TypeReference const& type) {
-        stack.emplace_back(std::bit_cast<Any *>(pop())->type->equals(type));
+        push(opop()->getType()->equals(type));
     }
 
     void any(TypeReference const& type) {
-        push(new Any{pop(), type});
+        if (isValueBased(type)) {
+            push(frame->vm->newObject<AnyScalar>(pop(), dynamic_cast<ScalarType *>(type.get())->S));
+        }
     }
 
     void i2b() {
         auto value = ipop();
-        stack.push_back(value & 0xFF);
+        push(value & 0xFF);
     }
 
     void i2c() {
         auto value = ipop();
         if (isInvalidChar(value))
             throw Exception("int is invalid to cast to char");
-        stack.push_back(value);
+        push(value);
     }
 
     void i2f() {
@@ -237,33 +240,36 @@ struct Runtime {
 
     void f2i() {
         auto value = int64_t(fpop());
-        stack.push_back(value);
+        push(value);
     }
 
-    void tuple(size_t size) {
-        push(new std::vector(npop(size)));
+    void tuple(TypeReference const& prototype) {
+        auto tuple = dynamic_cast<TupleType*>(prototype.get());
+        auto [elements, _] = npop(tuple->E.size());
+        push(frame->vm->newObject<Tuple>(std::move(elements), prototype));
     }
 
-    void list(size_t size) {
-        push(new std::vector(npop(size)));
+    void list(std::pair<TypeReference, size_t> const& cons) {
+        auto [elements, _] = npop(cons.second);
+        push(frame->vm->newObject<List>(std::move(elements), cons.first));
     }
 
-    void set(size_t size) {
-        auto v = npop(size);
-        push(new std::unordered_set(v.begin(), v.end()));
+    void set(std::pair<TypeReference, size_t> const& cons) {
+        auto [elements, _] = npop(cons.second);
+        push(frame->vm->newObject<Set>(std::unordered_set(elements.begin(), elements.end()), cons.first));
     }
 
-    void dict(size_t size) {
-        auto v = npop(2 * size);
-        auto m = new std::unordered_map<size_t, size_t>;
-        for (size_t i = 0; i < size; ++i) {
-            m->insert_or_assign(v[2 * i], v[2 * i + 1]);
+    void dict(std::pair<TypeReference, size_t> const& cons) {
+        auto [elements, _] = npop(cons.second * 2);
+        std::unordered_map<size_t, size_t> map;
+        for (size_t i = 0; i < cons.second; ++i) {
+            map.insert_or_assign(elements[2 * i], elements[2 * i + 1]);
         }
-        push(m);
+        push(frame->vm->newObject<Dict>(map, cons.first));
     }
 
     void ineg() {
-        stack.push_back(-ipop());
+        push(-ipop());
     }
 
     void fneg() {
@@ -271,29 +277,29 @@ struct Runtime {
     }
 
     void not_() {
-        stack.push_back(!ipop());
+        push(!ipop());
     }
 
     void inv() {
-        stack.push_back(~ipop());
+        push(~ipop());
     }
 
     void or_() {
         auto value2 = ipop();
         auto value1 = ipop();
-        stack.push_back(value1 | value2);
+        push(value1 | value2);
     }
 
     void xor_() {
         auto value2 = ipop();
         auto value1 = ipop();
-        stack.push_back(value1 ^ value2);
+        push(value1 ^ value2);
     }
 
     void and_() {
         auto value2 = ipop();
         auto value1 = ipop();
-        stack.push_back(value1 & value2);
+        push(value1 & value2);
     }
 
     void shl() {
@@ -301,7 +307,7 @@ struct Runtime {
         auto value1 = ipop();
         if (value2 < 0)
             throw Exception("shift a negative");
-        stack.push_back(value1 << value2);
+        push(value1 << value2);
     }
 
     void shr() {
@@ -309,7 +315,7 @@ struct Runtime {
         auto value1 = ipop();
         if (value2 < 0)
             throw Exception("shift a negative");
-        stack.push_back(value1 >> value2);
+        push(value1 >> value2);
     }
 
     void ushr() {
@@ -317,7 +323,7 @@ struct Runtime {
         auto value1 = pop();
         if (value2 < 0)
             throw Exception("shift a negative");
-        stack.push_back(value1 >> value2);
+        push(value1 >> value2);
     }
 
     static constexpr size_t less = 0;
@@ -327,13 +333,13 @@ struct Runtime {
 
     void compare_three_way(std::partial_ordering o) {
         if (o == std::partial_ordering::less) {
-            stack.push_back(less);
+            push(less);
         } else if (o == std::partial_ordering::equivalent) {
-            stack.push_back(equivalent);
+            push(equivalent);
         } else if (o == std::partial_ordering::greater) {
-            stack.push_back(greater);
+            push(greater);
         } else if (o == std::partial_ordering::unordered) {
-            stack.push_back(unordered);
+            push(unordered);
         }
     }
 
@@ -358,61 +364,62 @@ struct Runtime {
     void scmp() {
         auto value2 = spop();
         auto value1 = spop();
-        compare_three_way(*value1 <=> *value2);
+        compare_three_way(value1->value <=> value2->value);
     }
 
     void eq() {
         auto cmp = pop();
-        stack.push_back(cmp == equivalent);
+        push(cmp == equivalent);
     }
 
     void ne() {
         auto cmp = pop();
-        stack.push_back(cmp != equivalent);
+        push(cmp != equivalent);
     }
 
     void lt() {
         auto cmp = pop();
-        stack.push_back(cmp == less);
+        push(cmp == less);
     }
 
     void gt() {
         auto cmp = pop();
-        stack.push_back(cmp == greater);
+        push(cmp == greater);
     }
 
     void le() {
         auto cmp = pop();
-        stack.push_back(cmp == less || cmp == equivalent);
+        push(cmp == less || cmp == equivalent);
     }
 
     void ge() {
         auto cmp = pop();
-        stack.push_back(cmp == greater || cmp == equivalent);
+        push(cmp == greater || cmp == equivalent);
     }
 
     void sadd() {
         auto value2 = spop();
         auto value1 = spop();
-        push(new std::string(*value1 + *value2));
+        auto value = value1->value + value2->value;
+        push(frame->vm->newObject<String>(value));
     }
 
     void iadd() {
         auto value2 = ipop();
         auto value1 = ipop();
-        stack.push_back(value1 + value2);
+        push(value1 + value2);
     }
 
     void isub() {
         auto value2 = ipop();
         auto value1 = ipop();
-        stack.push_back(value1 - value2);
+        push(value1 - value2);
     }
 
     void imul() {
         auto value2 = ipop();
         auto value1 = ipop();
-        stack.push_back(value1 * value2);
+        push(value1 * value2);
     }
 
     void idiv() {
@@ -420,7 +427,7 @@ struct Runtime {
         if (value2 == 0)
             throw Exception("divided by zero");
         auto value1 = ipop();
-        stack.push_back(value1 / value2);
+        push(value1 / value2);
     }
 
     void irem() {
@@ -428,7 +435,7 @@ struct Runtime {
         if (value2 == 0)
             throw Exception("divided by zero");
         auto value1 = ipop();
-        stack.push_back(value1 % value2);
+        push(value1 % value2);
     }
 
     void fadd() {
@@ -462,41 +469,32 @@ struct Runtime {
     }
 
     void inc(size_t index) {
-        ++locals[index];
+        ++frame->stack[index];
     }
 
     void dec(size_t index) {
-        --locals[index];
+        --frame->stack[index];
     }
 
-    void iter(size_t type) {
-        switch (type) {
-            case 0: {
-                auto set = std::bit_cast<std::unordered_set<size_t> *>(pop());
-                push(new IterImpl{set->begin(), set->end()});
-                break;
-            }
-            case 1: {
-                auto list = std::bit_cast<std::vector<size_t> *>(pop());
-                push(new IterImpl{list->begin(), list->end()});
-                break;
-            }
-            case 2: {
-                auto dict = std::bit_cast<std::unordered_map<size_t, size_t> *>(pop());
-                push(new DictIterImpl{dict->begin(), dict->end()});
-                break;
-            }
-        }
+    void iter() {
+        auto object = opop();
+        frame->vm->temporaries.push_back(object);
+        push(dynamic_cast<Iterable*>(object)->iterator());
+        frame->vm->temporaries.pop_back();
     }
 
     void peek() {
-        auto iter = std::bit_cast<Iter*>(stack.back());
-        stack.push_back(iter->peek());
+        auto object = opop();
+        auto iter = dynamic_cast<Iterator*>(object);
+        push(object);
+        push(iter->peek());
     }
 
     void next() {
-        auto iter = std::bit_cast<Iter*>(stack.back());
-        stack.push_back(iter->next());
+        auto object = opop();
+        auto iter = dynamic_cast<Iterator*>(object);
+        push(object);
+        push(iter->next(), !isValueBased(iter->E));
     }
 };
 

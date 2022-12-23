@@ -1,8 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <vector>
 
 namespace Porkchop {
 
@@ -12,8 +10,6 @@ struct Expr;
 struct IdExpr;
 using ExprHandle = std::unique_ptr<Expr>;
 using IdExprHandle = std::unique_ptr<IdExpr>;
-struct Declarator;
-using DeclaratorHandle = std::unique_ptr<Declarator>;
 struct Token;
 struct Function;
 struct Assembler;
@@ -26,7 +22,7 @@ struct Compiler {
     TypeReference type;
     std::vector<std::unique_ptr<Function>> functions;
 
-    size_t locals;
+    std::vector<TypeReference> locals;
     size_t nextLabelIndex = 0;
 
     explicit Compiler(std::string original);
@@ -47,31 +43,5 @@ struct Compiler {
     fprintf(stderr, "Unreachable is reached: %s", msg);
     __builtin_unreachable();
 }
-
-struct Descriptor {
-    virtual ~Descriptor() = default;
-    [[nodiscard]] virtual std::string_view descriptor() const noexcept = 0;
-    [[nodiscard]] virtual std::vector<const Descriptor*> children() const { return {}; }
-    [[nodiscard]] std::string walkDescriptor() const {
-        int id = 0;
-        std::string buf;
-        walkDescriptor(buf, id);
-        return buf;
-    }
-
-private:
-    void walkDescriptor(std::string& buf, int& id) const {
-        std::string pid = std::to_string(id);
-        buf += pid;
-        buf += "[\"";
-        buf += descriptor();
-        buf += "\"]\n";
-        for (auto&& child : children()) {
-            ++id;
-            buf += pid + "-->" + std::to_string(id) + "\n";
-            child->walkDescriptor(buf, id);
-        }
-    }
-};
 
 }

@@ -10,13 +10,16 @@ namespace Porkchop {
 
 using Instructions = std::vector<std::pair<Opcode, std::variant<
         std::monostate,
-        std::size_t,
+        size_t,
         std::string,
-        TypeReference
+        TypeReference,
+        std::pair<TypeReference, size_t>
 >>>;
 
 struct Assembly {
     std::vector<std::variant<Instructions, ExternalFunctionR>> functions;
+    std::vector<std::string> table;
+    std::vector<TypeReference> prototypes;
 
     void externalFunctions() {
         functions.emplace_back(Externals::print);

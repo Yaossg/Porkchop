@@ -25,8 +25,12 @@ struct Interpretation : Assembler, Assembly {
     void indexed(Opcode opcode, size_t index) override {
         instructions.push_back(std::pair<Opcode, size_t>{opcode, index});
     }
-    void string(std::string const& s) override {
-        instructions.push_back(std::pair<Opcode, std::string>{Opcode::STRING, s});
+    void sconst(std::string const& s) override {
+        size_t index = std::find(table.begin(), table.end(), s) - table.begin();
+        if (index == table.size()) {
+            table.push_back(s);
+        }
+        instructions.push_back(std::pair<Opcode, size_t>{Opcode::SCONST, index});
     }
     void label(size_t index) override {
         labels[index] = instructions.size();
@@ -38,8 +42,17 @@ struct Interpretation : Assembler, Assembly {
     void typed(Opcode opcode, const TypeReference& type) override {
         instructions.push_back(std::pair<Opcode, TypeReference>{opcode, type});
     }
+    void cons(Opcode opcode, const TypeReference &type, size_t size) override {
+        instructions.push_back(std::pair<Opcode, std::pair<TypeReference, size_t>>{opcode, {type, size}});
+    }
 
-    void beginFunction() override {}
+    void func(const TypeReference &type) override {
+        prototypes.push_back(type);
+    }
+
+    void beginFunction() override {
+        instructions.clear();
+    }
 
     void processLabels() {
         for (auto& [opcode, args] : instructions) {
@@ -82,10 +95,11 @@ int main(int argc, const char* argv[]) try {
         c.parse();
         Porkchop::Interpretation interpretation;
         c.compile(&interpretation);
-        Porkchop::Externals::init(argc, argv);
-        Porkchop::Runtime::Func main_{0, {}};
-        auto ret = main_.call(&interpretation);
-        fprintf(stdout, "\nProgram finished with exit code %zu\n", ret);
+        Porkchop::VM vm;
+        Porkchop::Externals::init(&vm, argc, argv);
+        Porkchop::Func main_{0, interpretation.prototypes[0]};
+        auto ret = main_.call(&interpretation, &vm);
+        fprintf(stdout, "\nProgram finished with exit code %zu\n", ret.first);
         return 0;
 
     } catch (Porkchop::SegmentException& e) {

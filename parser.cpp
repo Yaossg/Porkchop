@@ -3,6 +3,7 @@
 namespace Porkchop {
 
 template<typename Derived, typename Base>
+    requires std::derived_from<Derived, Base>
 std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& base) noexcept {
     if (auto derived = dynamic_cast<Derived*>(base.get())) {
         std::ignore = base.release();
@@ -439,7 +440,7 @@ ExprHandle Parser::parseFn() {
         assignable(type0, F->R, range(token, clause->segment()));
         name = std::move(decl->name);
         auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F), std::move(clause));
-        fn->locals = child.context.localTypes.size();
+        fn->locals = std::move(child.context.localTypes);
         context.define(fn->name->token, fn.get());
         return fn;
     } else {
@@ -483,7 +484,7 @@ ExprHandle Parser::parseLambda() {
     if (F->R == nullptr) F->R = type0;
     assignable(type0, F->R, range(token, clause->segment()));
     auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F), std::move(clause));
-    lambda->locals = child.context.localTypes.size();
+    lambda->locals = std::move(child.context.localTypes);
     context.lambda(lambda.get());
     return lambda;
 }

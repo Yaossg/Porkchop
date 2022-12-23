@@ -88,7 +88,7 @@ TypeReference StringConstExpr::evalType() const {
 }
 
 void StringConstExpr::walkBytecode(Assembler* assembler) const {
-    assembler->string(parsed);
+    assembler->sconst(parsed);
 }
 
 IntConstExpr::IntConstExpr(Compiler &compiler, Token token, bool merged) : ConstExpr(compiler, token), merged(merged) {
@@ -141,23 +141,31 @@ TypeReference IdExpr::evalType() const {
 }
 
 void IdExpr::walkBytecode(Assembler* assembler) const {
-    if (lookup.function) {
-        assembler->indexed(Opcode::FUNC, lookup.index);
-    }  else if (compiler.of(token) == "_") {
-        assembler->const0();
-    } else {
-        assembler->indexed(Opcode::LOAD, lookup.index);
+    switch (lookup.scope) {
+        case LocalContext::LookupResult::Scope::NONE:
+            assembler->const0();
+            break;
+        case LocalContext::LookupResult::Scope::LOCAL:
+            assembler->indexed(Opcode::LOAD , lookup.index);
+            break;
+        case LocalContext::LookupResult::Scope::FUNCTION:
+            assembler->indexed(Opcode::FCONST, lookup.index);
+            break;
     }
 }
 
 void IdExpr::walkStoreBytecode(Assembler* assembler) const {
-    if (lookup.function) {
-        throw ParserException("function is not assignable", segment());
-    } else if (compiler.of(token) == "_") {
-        assembler->opcode(Opcode::POP);
-        assembler->const0();
-    } else {
-        assembler->indexed(Opcode::STORE, lookup.index);
+    switch (lookup.scope) {
+        case LocalContext::LookupResult::Scope::NONE:
+            assembler->opcode(Opcode::POP);
+            assembler->const0();
+            break;
+        case LocalContext::LookupResult::Scope::LOCAL:
+            assembler->indexed(Opcode::STORE, lookup.index);
+            break;
+        case LocalContext::LookupResult::Scope::FUNCTION:
+            throw ParserException("function is not assignable", segment());
+            break;
     }
 }
 
@@ -394,7 +402,7 @@ TypeReference CompareExpr::evalType() const {
         }
     } else if (auto func = dynamic_cast<FuncType*>(type.get())) {
         if (!equality)
-            throw TypeException("func only support equality operator", segment());
+            throw TypeException("functions only support equality operator", segment());
     } else {
         throw TypeException("relational operations for compound types are not implemented yet", segment());
     }
@@ -779,13 +787,13 @@ void DefaultExpr::walkBytecode(Assembler* assembler) const {
     if (isValueBased(T)) {
         assembler->const0();
     } else if (isString(T)) {
-        assembler->string("");
+        assembler->sconst("");
     } else if (auto list = dynamic_cast<ListType*>(T.get())) {
-        assembler->indexed(Opcode::LIST, 0);
+        assembler->cons(Opcode::LIST, typeCache, 0);
     } else if (auto set = dynamic_cast<SetType*>(T.get())) {
-        assembler->indexed(Opcode::SET, 0);
+        assembler->cons(Opcode::SET, typeCache, 0);
     } else if (auto dict = dynamic_cast<DictType*>(T.get())) {
-        assembler->indexed(Opcode::DICT, 0);
+        assembler->cons(Opcode::DICT, typeCache, 0);
     }
 }
 
@@ -801,7 +809,7 @@ void TupleExpr::walkBytecode(Assembler* assembler) const {
     for (auto&& e : elements) {
         e->walkBytecode(assembler);
     }
-    assembler->indexed(Opcode::TUPLE, elements.size());
+    assembler->typed(Opcode::TUPLE, typeCache);
 }
 
 void TupleExpr::walkStoreBytecode(Assembler* assembler) const {
@@ -841,7 +849,7 @@ void ListExpr::walkBytecode(Assembler* assembler) const {
     for (auto&& e : elements) {
         e->walkBytecode(assembler);
     }
-    assembler->indexed(Opcode::LIST, elements.size());
+    assembler->cons(Opcode::LIST, typeCache, elements.size());
 }
 
 TypeReference SetExpr::evalType() const {
@@ -858,7 +866,7 @@ void SetExpr::walkBytecode(Assembler* assembler) const {
     for (auto&& e : elements) {
         e->walkBytecode(assembler);
     }
-    assembler->indexed(Opcode::SET, elements.size());
+    assembler->cons(Opcode::SET, typeCache, elements.size());
 }
 
 TypeReference DictExpr::evalType() const {
@@ -880,7 +888,7 @@ void DictExpr::walkBytecode(Assembler* assembler) const {
         e1->walkBytecode(assembler);
         e2->walkBytecode(assembler);
     }
-    assembler->indexed(Opcode::DICT, elements.size());
+    assembler->cons(Opcode::DICT, typeCache, elements.size());
 }
 
 TypeReference ClauseExpr::evalType() const {
@@ -991,15 +999,15 @@ TypeReference FnExprBase::evalType() const {
 }
 
 void FnDeclExpr::walkBytecode(Assembler* assembler) const {
-    assembler->indexed(Opcode::FUNC, index);
+    assembler->indexed(Opcode::FCONST, index);
 }
 
 void FnDefExpr::walkBytecode(Assembler* assembler) const {
-    assembler->indexed(Opcode::FUNC, index);
+    assembler->indexed(Opcode::FCONST, index);
 }
 
 void LambdaExpr::walkBytecode(Assembler* assembler) const {
-    assembler->indexed(Opcode::FUNC, index);
+    assembler->indexed(Opcode::FCONST, index);
     for (auto&& e : captures) {
         e->walkBytecode(assembler);
     }
@@ -1075,7 +1083,7 @@ void ForExpr::walkBytecode(Assembler *assembler) const {
     size_t B = compiler.nextLabelIndex++;
     breakpoint = B;
     initializer->walkBytecode(assembler);
-    assembler->indexed(Opcode::ITER, iterableID(initializer->typeCache));
+    assembler->opcode(Opcode::ITER);
     assembler->label(A);
     assembler->opcode(Opcode::PEEK);
     assembler->labeled(Opcode::JMP0, B);

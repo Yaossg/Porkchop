@@ -16,11 +16,7 @@ struct NamedFunction : Function {
     FnDefExpr* def;
 
     void assemble(Assembler* assembler) const override {
-        assembler->beginFunction();
-        assembler->indexed(Opcode::LOCAL, def->locals);
-        def->clause->walkBytecode(assembler);
-        assembler->opcode(Opcode::RETURN);
-        assembler->endFunction();
+        assembler->newFunction(def->locals, def->clause.get());
     }
 
     [[nodiscard]] TypeReference prototype() const override {
@@ -32,11 +28,7 @@ struct LambdaFunction : Function {
     LambdaExpr* lambda;
 
     void assemble(Assembler* assembler) const override {
-        assembler->beginFunction();
-        assembler->indexed(Opcode::LOCAL, lambda->locals);
-        lambda->clause->walkBytecode(assembler);
-        assembler->opcode(Opcode::RETURN);
-        assembler->endFunction();
+        assembler->newFunction(lambda->locals, lambda->clause.get());
     }
 
     [[nodiscard]] TypeReference prototype() const override {

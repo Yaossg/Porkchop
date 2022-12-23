@@ -11,10 +11,6 @@ inline size_t as_size(T&& t) {
     return std::bit_cast<size_t>(t);
 }
 
-inline std::string* as_string(size_t arg) {
-    return std::bit_cast<std::string*>(arg);
-}
-
 inline double as_double(size_t arg) {
     return std::bit_cast<double>(arg);
 }

@@ -1,10 +1,14 @@
 #pragma once
 
 #include <unordered_map>
+#include <memory>
 
-#include "compiler.hpp"
+#include "descriptor.hpp"
 
 namespace Porkchop {
+
+struct Type;
+using TypeReference = std::shared_ptr<Type>;
 
 enum class ScalarTypeKind {
     ANY,
@@ -362,18 +366,6 @@ struct FuncType : Type {
         return std::make_shared<TupleType>(std::vector{dict->K, dict->V});
     } else {
         return nullptr;
-    }
-}
-
-[[nodiscard]] inline size_t iterableID(TypeReference const& type) noexcept {
-    if (dynamic_cast<SetType*>(type.get())) {
-        return 0;
-    } else if (dynamic_cast<ListType*>(type.get())) {
-        return 1;
-    } else if (dynamic_cast<DictType*>(type.get())) {
-        return 2;
-    } else {
-        return -1;
     }
 }
 

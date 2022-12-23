@@ -6,6 +6,9 @@
 
 namespace Porkchop {
 
+struct Declarator;
+using DeclaratorHandle = std::unique_ptr<Declarator>;
+
 struct Expr : Descriptor {
     enum class Level {
         ASSIGNMENT,
@@ -632,6 +635,7 @@ struct FnExprBase : Expr {
     Token token;
     std::shared_ptr<FuncType> prototype;
     size_t index;
+
     FnExprBase(Compiler& compiler, Token token, std::shared_ptr<FuncType> prototype): Expr(compiler), token(token), prototype(std::move(prototype)) {}
 
     [[nodiscard]] TypeReference evalType() const override;
@@ -648,7 +652,7 @@ struct NamedFnExpr : virtual FnExprBase {
 struct DefinedFnExpr : virtual FnExprBase {
     std::vector<IdExprHandle> parameters;
     ExprHandle clause;
-    size_t locals;
+    std::vector<TypeReference> locals;
 
     DefinedFnExpr(std::vector<IdExprHandle> parameters, ExprHandle clause):
             parameters(std::move(parameters)), clause(std::move(clause)) {}

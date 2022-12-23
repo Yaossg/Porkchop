@@ -2,11 +2,12 @@
 
 namespace Porkchop {
 
-size_t Runtime::Func::call(Assembly *assembly) const try {
+std::pair<size_t, bool> Func::call(Assembly *assembly, VM* vm) const try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
         auto& instructions = std::get<Instructions>(f);
-        Runtime runtime(assembly, captures);
+        Runtime runtime(assembly, vm->newFrame());
+        runtime.frame->init(captures, companion);
         for (size_t i = 0; i < instructions.size(); ++i) {
             auto&& [opcode, args] = instructions[i];
             switch (opcode) {
@@ -29,11 +30,11 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
                 case Opcode::CONST:
                     runtime.const_(std::get<size_t>(args));
                     break;
-                case Opcode::STRING:
-                    runtime.string(std::get<std::string>(args));
+                case Opcode::SCONST:
+                    runtime.sconst(std::get<size_t>(args));
                     break;
-                case Opcode::FUNC:
-                    runtime.func(std::get<size_t>(args));
+                case Opcode::FCONST:
+                    runtime.fconst(std::get<size_t>(args));
                     break;
                 case Opcode::LOAD:
                     runtime.load(std::get<size_t>(args));
@@ -66,7 +67,7 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
                     runtime.bind(std::get<size_t>(args));
                     break;
                 case Opcode::LOCAL:
-                    runtime.local(std::get<size_t>(args));
+                    runtime.local(std::get<TypeReference>(args));
                     break;
                 case Opcode::AS:
                     runtime.as(std::get<TypeReference>(args));
@@ -90,16 +91,16 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
                     runtime.f2i();
                     break;
                 case Opcode::TUPLE:
-                    runtime.tuple(std::get<size_t>(args));
+                    runtime.tuple(std::get<TypeReference>(args));
                     break;
                 case Opcode::LIST:
-                    runtime.list(std::get<size_t>(args));
+                    runtime.list(std::get<std::pair<TypeReference, size_t>>(args));
                     break;
                 case Opcode::SET:
-                    runtime.set(std::get<size_t>(args));
+                    runtime.set(std::get<std::pair<TypeReference, size_t>>(args));
                     break;
                 case Opcode::DICT:
-                    runtime.dict(std::get<size_t>(args));
+                    runtime.dict(std::get<std::pair<TypeReference, size_t>>(args));
                     break;
                 case Opcode::RETURN:
                     return runtime.return_();
@@ -203,7 +204,7 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
                     runtime.dec(std::get<size_t>(args));
                     break;
                 case Opcode::ITER:
-                    runtime.iter(std::get<size_t>(args));
+                    runtime.iter();
                     break;
                 case Opcode::PEEK:
                     runtime.peek();
@@ -215,7 +216,7 @@ size_t Runtime::Func::call(Assembly *assembly) const try {
         }
         __builtin_unreachable();
     } else {
-        return std::get<ExternalFunctionR>(f)(captures);
+        return {std::get<ExternalFunctionR>(f)(vm, captures), companionR};
     }
 } catch (Runtime::Exception& e) {
     e.append("at func " + std::to_string(func));

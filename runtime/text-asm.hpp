@@ -16,6 +16,7 @@ struct TextAssembly : Assembly {
 
     void parse() {
         lines = splitLines(original);
+        std::vector<std::string_view> global;
         for (auto it = lines.begin(); it != lines.end(); ++it) {
             if (*it == "(") {
                 std::vector<std::string_view> collect;
@@ -30,6 +31,22 @@ struct TextAssembly : Assembly {
                     externalFunctions();
                     initialized = true;
                 }
+            } else {
+                global.emplace_back(*it);
+            }
+        }
+        FunctionParser parser{global};
+        parser.processInstructions();
+        for (auto&& [opcode, args] : parser.instructions) {
+            switch (opcode) {
+                case Opcode::STRING:
+                    table.push_back(get<std::string>(args));
+                    break;
+                case Opcode::FUNC:
+                    prototypes.push_back(get<TypeReference>(args));
+                    break;
+                default:
+                    unreachable("only string and func are allowed in global scope");
             }
         }
     }
@@ -86,30 +103,39 @@ struct TextAssembly : Assembly {
                             instructions.emplace_back(opcode, s);
                             break;
                         }
-                        case Opcode::FUNC:
+                        case Opcode::SCONST:
+                        case Opcode::FCONST:
+                        case Opcode::BIND:
                         case Opcode::LOAD:
                         case Opcode::STORE:
                         case Opcode::TLOAD:
                         case Opcode::TSTORE:
-                        case Opcode::BIND:
-                        case Opcode::LOCAL:
-                        case Opcode::TUPLE:
-                        case Opcode::LIST:
-                        case Opcode::SET:
-                        case Opcode::DICT:
                         case Opcode::INC:
                         case Opcode::DEC:
-                        case Opcode::ITER:
                             // index or size
                             instructions.emplace_back(opcode, strtoull(args.data(), nullptr, 10));
                             break;
                         case Opcode::AS:
                         case Opcode::IS:
-                        case Opcode::ANY: {
+                        case Opcode::ANY:
+                        case Opcode::TUPLE:
+                        case Opcode::LOCAL:
+                        case Opcode::FUNC: {
                             // type
-                            std::string type(args);
-                            const char* str = type.c_str();
+                            std::string holder(args);
+                            const char *str = holder.c_str();
                             instructions.emplace_back(opcode, deserialize(str));
+                            break;
+                        }
+                        case Opcode::LIST:
+                        case Opcode::SET:
+                        case Opcode::DICT: {
+                            // type size
+                            std::string holder(args);
+                            const char *str = holder.c_str();
+                            auto type = deserialize(str);
+                            auto size = strtoull(str, nullptr, 10);
+                            instructions.emplace_back(opcode, std::pair{std::move(type), size});
                             break;
                         }
                     }

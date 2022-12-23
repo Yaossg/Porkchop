@@ -80,12 +80,12 @@ void LocalContext::defineExternal(std::string_view name, TypeReference const& pr
 
 LocalContext::LookupResult LocalContext::lookup(Token token, bool local) const {
     std::string_view name = compiler->of(token);
-    if (name == "_") return {ScalarTypes::NONE, false, 0};
+    if (name == "_") return {ScalarTypes::NONE, 0, LookupResult::Scope::NONE};
     if (local) {
         for (auto it = localIndices.rbegin(); it != localIndices.rend(); ++it) {
             if (auto lookup = it->find(name); lookup != it->end()) {
                 size_t index = lookup->second;
-                return {localTypes[index], false, index};
+                return {localTypes[index], index, LookupResult::Scope::LOCAL};
             }
         }
     }
@@ -95,13 +95,13 @@ LocalContext::LookupResult LocalContext::lookup(Token token, bool local) const {
             auto function = dynamic_cast<NamedFunction*>(compiler->functions[index].get());
             if (function->decl->prototype->R == nullptr)
                 throw TypeException("recursive function without specified return type", function->decl->segment());
-            return {function->decl->prototype, true, index};
+            return {function->decl->prototype, index, LookupResult::Scope::FUNCTION};
         }
     }
     for (auto it = definedIndices.rbegin(); it != definedIndices.rend(); ++it) {
         if (auto lookup = it->find(name); lookup != it->end()) {
             size_t index = lookup->second;
-            return {compiler->functions[index]->prototype(), true, index};
+            return {compiler->functions[index]->prototype(), index, LookupResult::Scope::FUNCTION};
         }
     }
     return parent ? parent->lookup(token, false) : throw TypeException("unable to resolve this identifier", token);

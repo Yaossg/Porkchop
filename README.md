@@ -193,8 +193,30 @@ graph
 文本汇编编译结果：
 
 ```
+string 1 2A
+string 1 3D
+string 1 20
+string 0 
+func $:v
+func $s:v
+func $s:v
+func $:s
+func $i:s
+func $f:s
+func $s:i
+func $s:f
+func $i:n
+func $:i
+func $:i
+func $:[s
+func $s:v
+func $s:v
+func $:v
+func $:z
+func $a:s
 (
-local 2
+local i
+local i
 const 1
 store 0
 pop
@@ -216,28 +238,28 @@ load 0
 icmp
 le
 jmp0 L3
-func 1
-func 4
+fconst 1
+fconst 4
 load 0
 bind 1
 call
-string 1 2A
+sconst 0
 sadd
-func 4
+fconst 4
 load 1
 bind 1
 call
 sadd
-string 1 3D
+sconst 1
 sadd
-func 4
+fconst 4
 load 0
 load 1
 imul
 bind 1
 call
 sadd
-string 1 20
+sconst 2
 sadd
 bind 1
 call
@@ -249,8 +271,8 @@ jmp L2
 L3: nop
 const 0
 pop
-func 2
-string 1 20
+fconst 2
+sconst 3
 bind 1
 call
 pop

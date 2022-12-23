@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "type.hpp"
+#include "compiler.hpp"
 
 namespace Porkchop {
 
@@ -33,8 +34,10 @@ struct LocalContext {
 
     struct LookupResult {
         TypeReference type;
-        bool function;
         size_t index;
+        enum class Scope {
+            NONE, LOCAL, FUNCTION
+        } scope;
     };
 
     [[nodiscard]] LookupResult lookup(Token token, bool local = true) const;
@@ -49,7 +52,8 @@ struct LocalContext {
         }
     };
 
-    template<typename E, typename... Args>
+    template<std::derived_from<Expr> E, typename... Args>
+        requires std::constructible_from<E, Compiler&, Args...>
     auto make(Args&&... args) {
         auto expr = std::make_unique<E>(*compiler, std::forward<Args>(args)...);
         expr->initialize();

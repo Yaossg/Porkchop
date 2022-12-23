@@ -38,15 +38,15 @@ void Compiler::parse() {
     parser.expect(TokenType::LINEBREAK, "a linebreak is expected");
     if (parser.remains())
         throw ParserException("unterminated tokens", parser.peek());
-    locals = parser.context.localTypes.size();
+    locals = std::move(parser.context.localTypes);
+    dynamic_cast<ExternalFunction*>(functions[0].get())->type = std::make_shared<FuncType>(std::vector<TypeReference>{}, tree->typeCache);
 }
 
 void Compiler::compile(Assembler* assembler) {
-    assembler->beginFunction();
-    assembler->indexed(Opcode::LOCAL, locals);
-    tree->walkBytecode(assembler);
-    assembler->opcode(Opcode::RETURN);
-    assembler->endFunction();
+    for (auto&& function : functions) {
+        assembler->func(function->prototype());
+    }
+    assembler->newFunction(locals, tree.get());
     for (auto&& function : functions) {
         function->assemble(assembler);
     }
