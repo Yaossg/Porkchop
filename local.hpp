@@ -1,8 +1,5 @@
 #pragma once
 
-#include <deque>
-#include <unordered_map>
-
 #include "type.hpp"
 #include "compiler.hpp"
 
@@ -13,11 +10,11 @@ struct FnDefExpr;
 struct LambdaExpr;
 
 struct LocalContext {
-    std::deque<std::unordered_map<std::string_view, size_t>> localIndices{{}};
+    std::vector<std::unordered_map<std::string_view, size_t>> localIndices{{}};
     std::vector<TypeReference> localTypes;
 
-    std::deque<std::unordered_map<std::string_view, size_t>> declaredIndices{{}};
-    std::deque<std::unordered_map<std::string_view, size_t>> definedIndices{{}};
+    std::vector<std::unordered_map<std::string_view, size_t>> declaredIndices{{}};
+    std::vector<std::unordered_map<std::string_view, size_t>> definedIndices{{}};
 
     Compiler* compiler;
     LocalContext* parent;

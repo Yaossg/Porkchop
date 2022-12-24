@@ -165,9 +165,8 @@ void IdExpr::walkStoreBytecode(Assembler* assembler) const {
         case LocalContext::LookupResult::Scope::LOCAL:
             assembler->indexed(Opcode::STORE, lookup.index);
             break;
-        case LocalContext::LookupResult::Scope::FUNCTION:
-            throw ParserException("function is not assignable", segment());
-            break;
+        default:
+            unreachable();
     }
 }
 
@@ -175,6 +174,12 @@ size_t IdExpr::evalConst() const {
     if (compiler.of(token) == "_")
         return 0;
     return Expr::evalConst();
+}
+
+void IdExpr::ensureAssignable() const {
+    if (lookup.scope == LocalContext::LookupResult::Scope::FUNCTION) {
+        throw ParserException("function is not assignable", segment());
+    }
 }
 
 TypeReference PrefixExpr::evalType() const {
@@ -232,12 +237,12 @@ void PrefixExpr::walkBytecode(Assembler* assembler) const {
     }
 }
 
-TypeReference IdPrefixExpr::evalType() const {
+TypeReference StatefulPrefixExpr::evalType() const {
     expected(rhs.get(), ScalarTypes::INT);
     return ScalarTypes::INT;
 }
 
-void IdPrefixExpr::walkBytecode(Assembler* assembler) const {
+void StatefulPrefixExpr::walkBytecode(Assembler* assembler) const {
     if (auto id = dynamic_cast<IdExpr*>(rhs.get())) {
         assembler->indexed(token.type == TokenType::OP_INC ? Opcode::INC : Opcode::DEC, id->lookup.index);
         id->walkBytecode(assembler);
@@ -249,12 +254,12 @@ void IdPrefixExpr::walkBytecode(Assembler* assembler) const {
     }
 }
 
-TypeReference IdPostfixExpr::evalType() const {
+TypeReference StatefulPostfixExpr::evalType() const {
     expected(lhs.get(), ScalarTypes::INT);
     return ScalarTypes::INT;
 }
 
-void IdPostfixExpr::walkBytecode(Assembler* assembler) const {
+void StatefulPostfixExpr::walkBytecode(Assembler* assembler) const {
     if (auto id = dynamic_cast<IdExpr*>(lhs.get())) {
         id->walkBytecode(assembler);
         assembler->indexed(token.type == TokenType::OP_INC ? Opcode::INC : Opcode::DEC, id->lookup.index);
@@ -400,7 +405,7 @@ TypeReference CompareExpr::evalType() const {
                 if (!equality)
                     throw TypeException("none only support equality operator", segment());
             case ScalarTypeKind::NEVER:
-                neverGonnaGiveYouUp(lhs.get(), "in relational operations");
+                neverGonnaGiveYouUp(lhs, "in relational operations");
         }
     } else if (auto func = dynamic_cast<FuncType*>(type.get())) {
         if (!equality)
@@ -466,12 +471,12 @@ void CompareExpr::walkBytecode(Assembler *assembler) const {
                 assembler->opcode(Opcode::SCMP);
                 break;
             default:
-                throw TypeException("relational operations for compound types are not implemented yet", segment());
+                unreachable();
         }
     } else if (auto func = dynamic_cast<FuncType*>(type.get())) {
         assembler->opcode(Opcode::UCMP);
     } else {
-        throw TypeException("relational operations for compound types are not implemented yet", segment());
+        unreachable();
     }
     switch (token.type) {
         case TokenType::OP_EQ:
@@ -522,7 +527,7 @@ void LogicalExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference AssignExpr::evalType() const {
-    lhs->checkLoadExpr();
+    lhs->ensureAssignable();
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_ASSIGN:
@@ -644,9 +649,7 @@ void AccessExpr::walkBytecode(Assembler* assembler) const {
 void AccessExpr::walkStoreBytecode(Assembler* assembler) const {
     lhs->walkBytecode(assembler);
     TypeReference type1 = lhs->typeCache;
-    if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
-        throw TypeException("tuple is immutable", segment());
-    } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
+    if (auto list = dynamic_cast<ListType*>(type1.get())) {
         rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::LSTORE);
     } else if (auto dict = dynamic_cast<DictType*>(type1.get())) {
@@ -654,6 +657,12 @@ void AccessExpr::walkStoreBytecode(Assembler* assembler) const {
         assembler->opcode(Opcode::DSTORE);
     } else {
         unreachable();
+    }
+}
+
+void AccessExpr::ensureAssignable() const {
+    if (auto tuple = dynamic_cast<TupleType*>(lhs->typeCache.get())) {
+        throw ParserException("tuple is immutable and its elements are not assignable", segment());
     }
 }
 
@@ -754,12 +763,12 @@ void AsExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference IsExpr::evalType() const {
-    neverGonnaGiveYouUp(lhs.get(), "");
+    neverGonnaGiveYouUp(lhs, "to check its type");
     return ScalarTypes::BOOL;
 }
 
 size_t IsExpr::evalConst() const {
-    if (isAny(lhs->typeCache)) throw ConstException("dynamic type cannot be checked at compile-time", lhs->segment());
+    if (isAny(lhs->typeCache)) throw ConstException("dynamic typing cannot be checked at compile-time", lhs->segment());
     return lhs->typeCache->equals(T);
 }
 
@@ -818,7 +827,7 @@ void TupleExpr::walkStoreBytecode(Assembler* assembler) const {
     for (size_t i = 0; i < elements.size(); ++i) {
         assembler->opcode(Opcode::DUP);
         assembler->indexed(Opcode::TLOAD, i);
-        if (auto load = dynamic_cast<LoadExpr*>(elements[i].get())) {
+        if (auto load = dynamic_cast<AssignableExpr*>(elements[i].get())) {
             load->walkStoreBytecode(assembler);
         } else {
             unreachable();
@@ -827,19 +836,19 @@ void TupleExpr::walkStoreBytecode(Assembler* assembler) const {
     }
 }
 
-void TupleExpr::checkLoadExpr() const {
+void TupleExpr::ensureAssignable() const {
     for (auto&& element : elements) {
-        if (auto load = dynamic_cast<LoadExpr*>(element.get())) {
-            load->checkLoadExpr();
+        if (auto load = dynamic_cast<AssignableExpr*>(element.get())) {
+            load->ensureAssignable();
         } else {
-            throw ParserException("lvalue expression is expected", element->segment());
+            throw ParserException("assignable expression is expected", element->segment());
         }
     }
 }
 
 TypeReference ListExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
-    neverGonnaGiveYouUp(elements.front().get(), "as list element");
+    neverGonnaGiveYouUp(elements.front(), "as a list element");
     for (size_t i = 1; i < elements.size(); ++i) {
         auto type = elements[i]->typeCache;
         if (!type0->equals(type)) throw TypeException(mismatch(type, "list's elements", i, type0), elements[i]->segment());
@@ -856,7 +865,7 @@ void ListExpr::walkBytecode(Assembler* assembler) const {
 
 TypeReference SetExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
-    neverGonnaGiveYouUp(elements.front().get(), "as set element");
+    neverGonnaGiveYouUp(elements.front(), "as a set element");
     for (size_t i = 1; i < elements.size(); ++i) {
         auto type = elements[i]->typeCache;
         if (!type0->equals(type)) throw TypeException(mismatch(type, "set's elements", i, type0), elements[i]->segment());
@@ -874,8 +883,8 @@ void SetExpr::walkBytecode(Assembler* assembler) const {
 TypeReference DictExpr::evalType() const {
     auto key0 = elements.front().first->typeCache;
     auto value0 = elements.front().second->typeCache;
-    neverGonnaGiveYouUp(elements.front().first.get(), "as dict key");
-    neverGonnaGiveYouUp(elements.front().second.get(), "as dict value");
+    neverGonnaGiveYouUp(elements.front().first, "as a dict key");
+    neverGonnaGiveYouUp(elements.front().second, "as a dict value");
     for (size_t i = 1; i < elements.size(); ++i) {
         auto key = elements[i].first->typeCache;
         auto value = elements[i].second->typeCache;
@@ -987,7 +996,7 @@ void WhileExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference ReturnExpr::evalType() const {
-    neverGonnaGiveYouUp(rhs.get(), "");
+    neverGonnaGiveYouUp(rhs, "to return");
     return ScalarTypes::NEVER;
 }
 
@@ -1074,7 +1083,6 @@ void LetExpr::walkBytecode(Assembler *assembler) const {
     initializer->walkBytecode(assembler);
     declarator->walkBytecode(assembler);
 }
-
 
 TypeReference ForExpr::evalType() const {
     return ScalarTypes::NONE;

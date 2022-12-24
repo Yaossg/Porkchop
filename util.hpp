@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <memory>
 
 namespace Porkchop {
 
@@ -68,5 +69,38 @@ inline std::vector<std::string_view> splitLines(std::string_view view) {
 [[noreturn]] inline void unreachable() {
     __builtin_unreachable();
 }
+
+inline const char* ordinalSuffix(size_t ordinal) {
+    switch (ordinal % 100) {
+        default:
+            switch (ordinal % 10) {
+                case 1:
+                    return "st";
+                case 2:
+                    return "nd";
+                case 3:
+                    return "rd";
+            }
+        case 11:
+        case 12:
+        case 13: ;
+    }
+    return "th";
+}
+
+inline std::string ordinal(size_t index) {
+    return "the " + std::to_string(index + 1) + ordinalSuffix(index + 1);
+}
+
+
+template<typename Derived, typename Base>
+inline std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& base) noexcept {
+    if (auto derived = dynamic_cast<Derived*>(base.get())) {
+        std::ignore = base.release();
+        return std::unique_ptr<Derived>(derived);
+    }
+    return nullptr;
+}
+
 
 }

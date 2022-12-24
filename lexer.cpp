@@ -93,35 +93,12 @@ struct LineTokenizer {
         auto token = make(type);
         context.tokens.push_back(token);
         switch (type) {
-            case TokenType::LPAREN:
-            case TokenType::LBRACKET:
             case TokenType::LBRACE:
-            case TokenType::AT_BRACKET:
                 context.braces.push_back(token);
-                break;
-            case TokenType::RPAREN:
-                if (context.braces.empty()) {
-                    throw TokenException("stray ')'", token);
-                } else if (context.braces.back().type != TokenType::LPAREN) {
-                    throw TokenException("mismatch braces, '(' is expected", range(context.braces.back(), token));
-                } else {
-                    context.braces.pop_back();
-                }
-                break;
-            case TokenType::RBRACKET:
-                if (context.braces.empty()) {
-                    throw TokenException("stray ']'", token);
-                } else if (auto type0 = context.braces.back().type; type0 != TokenType::LBRACKET && type0 != TokenType::AT_BRACKET) {
-                    throw TokenException("mismatch braces, '[' or '@[' is expected", range(context.braces.back(), token));
-                } else {
-                    context.braces.pop_back();
-                }
                 break;
             case TokenType::RBRACE:
                 if (context.braces.empty()) {
                     throw TokenException("stray '}'", token);
-                } else if (context.braces.back().type != TokenType::LBRACE) {
-                    throw TokenException("mismatch braces, '{' is expected", range(context.braces.back(), token));
                 } else {
                     context.braces.pop_back();
                 }
@@ -285,7 +262,6 @@ struct LineTokenizer {
             switch (ch) {
                 case QUOTER: return;
                 case '\\': getc();
-                default: unreachable();
             }
         }
         raise(message);

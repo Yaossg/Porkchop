@@ -119,19 +119,19 @@ struct FloatConstExpr : ConstExpr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct LoadExpr : Expr {
-    explicit LoadExpr(Compiler& compiler): Expr(compiler) {}
+struct AssignableExpr : Expr {
+    explicit AssignableExpr(Compiler& compiler): Expr(compiler) {}
 
     virtual void walkStoreBytecode(Assembler* assembler) const = 0;
 
-    virtual void checkLoadExpr() const {}
+    virtual void ensureAssignable() const = 0;
 };
 
-struct IdExpr : LoadExpr {
+struct IdExpr : AssignableExpr {
     Token token;
     LocalContext::LookupResult lookup;
 
-    IdExpr(Compiler& compiler, Token token): LoadExpr(compiler), token(token) {}
+    IdExpr(Compiler& compiler, Token token): AssignableExpr(compiler), token(token) {}
 
     [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
@@ -150,6 +150,8 @@ struct IdExpr : LoadExpr {
     void walkBytecode(Assembler* assembler) const override;
 
     void walkStoreBytecode(Assembler* assembler) const override;
+
+    void ensureAssignable() const override;
 };
 
 struct PrefixExpr : Expr {
@@ -172,11 +174,11 @@ struct PrefixExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct IdPrefixExpr : Expr {
+struct StatefulPrefixExpr : Expr {
     Token token;
-    std::unique_ptr<LoadExpr> rhs;
+    std::unique_ptr<AssignableExpr> rhs;
 
-    IdPrefixExpr(Compiler& compiler, Token token, std::unique_ptr<LoadExpr> rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
+    StatefulPrefixExpr(Compiler& compiler, Token token, std::unique_ptr<AssignableExpr> rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
     [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
@@ -190,11 +192,11 @@ struct IdPrefixExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct IdPostfixExpr : Expr {
+struct StatefulPostfixExpr : Expr {
     Token token;
-    std::unique_ptr<LoadExpr> lhs;
+    std::unique_ptr<AssignableExpr> lhs;
 
-    IdPostfixExpr(Compiler& compiler, Token token, std::unique_ptr<LoadExpr> lhs): Expr(compiler), token(token), lhs(std::move(lhs)) {}
+    StatefulPostfixExpr(Compiler& compiler, Token token, std::unique_ptr<AssignableExpr> lhs): Expr(compiler), token(token), lhs(std::move(lhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get()}; }
     [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
@@ -259,10 +261,10 @@ struct LogicalExpr : InfixExprBase {
 
 struct AssignExpr : Expr {
     Token token;
-    std::unique_ptr<LoadExpr> lhs;
+    std::unique_ptr<AssignableExpr> lhs;
     ExprHandle rhs;
 
-    AssignExpr(Compiler& compiler, Token token, std::unique_ptr<LoadExpr> lhs, ExprHandle rhs): Expr(compiler),
+    AssignExpr(Compiler& compiler, Token token, std::unique_ptr<AssignableExpr> lhs, ExprHandle rhs): Expr(compiler),
         token(token), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
@@ -277,12 +279,12 @@ struct AssignExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct AccessExpr : LoadExpr {
+struct AccessExpr : AssignableExpr {
     Token token1, token2;
     ExprHandle lhs;
     ExprHandle rhs;
 
-    AccessExpr(Compiler& compiler, Token token1, Token token2, ExprHandle lhs, ExprHandle rhs): LoadExpr(compiler),
+    AccessExpr(Compiler& compiler, Token token1, Token token2, ExprHandle lhs, ExprHandle rhs): AssignableExpr(compiler),
         token1(token1), token2(token2), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {lhs.get(), rhs.get()}; }
@@ -297,6 +299,8 @@ struct AccessExpr : LoadExpr {
     void walkBytecode(Assembler* assembler) const override;
 
     void walkStoreBytecode(Assembler* assembler) const override;
+
+    void ensureAssignable() const override;
 };
 
 struct InvokeExpr : Expr {
@@ -406,11 +410,11 @@ struct DefaultExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct TupleExpr : LoadExpr {
+struct TupleExpr : AssignableExpr {
     Token token1, token2;
     std::vector<ExprHandle> elements;
 
-    TupleExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> elements): LoadExpr(compiler),
+    TupleExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> elements): AssignableExpr(compiler),
         token1(token1), token2(token2), elements(std::move(elements)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -430,7 +434,7 @@ struct TupleExpr : LoadExpr {
 
     void walkStoreBytecode(Assembler* assembler) const override;
 
-    void checkLoadExpr() const override;
+    void ensureAssignable() const override;
 };
 
 struct ListExpr : Expr {

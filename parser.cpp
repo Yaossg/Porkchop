@@ -1,16 +1,7 @@
 #include "parser.hpp"
+#include "util.hpp"
 
 namespace Porkchop {
-
-template<typename Derived, typename Base>
-    requires std::derived_from<Derived, Base>
-std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& base) noexcept {
-    if (auto derived = dynamic_cast<Derived*>(base.get())) {
-        std::ignore = base.release();
-        return std::unique_ptr<Derived>(derived);
-    }
-    return nullptr;
-}
 
 bool isInLevel(TokenType type, Expr::Level level) {
     switch (type) {
@@ -64,10 +55,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         case TokenType::OP_ASSIGN_REM: {
                             next();
                             auto rhs = parseExpression(level);
-                            if (auto load = dynamic_pointer_cast<LoadExpr>(std::move(lhs))) {
+                            if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(lhs))) {
                                 return context.make<AssignExpr>(token, std::move(load), std::move(rhs));
                             } else {
-                                throw ParserException("lvalue expression is expected", token);
+                                throw ParserException("assignable expression is expected", token);
                             }
                         }
                     }
@@ -121,10 +112,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::OP_DEC: {
                     next();
                     auto rhs = parseExpression(level);
-                    if (auto load = dynamic_pointer_cast<LoadExpr>(std::move(rhs))) {
-                        return context.make<IdPrefixExpr>(token, std::move(load));
+                    if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(rhs))) {
+                        return context.make<StatefulPrefixExpr>(token, std::move(load));
                     } else {
-                        throw ParserException("lvalue expression is expected", token);
+                        throw ParserException("assignable expression is expected", token);
                     }
                 }
                 default: {
@@ -171,8 +162,8 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     case TokenType::OP_INC:
                     case TokenType::OP_DEC: {
                         auto token = next();
-                        if (auto load = dynamic_pointer_cast<LoadExpr>(std::move(lhs))) {
-                            lhs = context.make<IdPostfixExpr>(token, std::move(load));
+                        if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(lhs))) {
+                            lhs = context.make<StatefulPostfixExpr>(token, std::move(load));
                         } else {
                             throw ParserException("id-expression or access expression is expected", token);
                         }
@@ -560,7 +551,7 @@ TypeReference Parser::parseType() {
             throw ParserException("type is expected", token);
         case TokenType::LBRACKET: {
             auto E = parseType();
-            neverGonnaGiveYouUp(E, "as list element", rewind());
+            neverGonnaGiveYouUp(E, "as a list element", rewind());
             expect(TokenType::RBRACKET, "missing ']' to match '['");
             return std::make_shared<ListType>(E);
         }
@@ -569,11 +560,11 @@ TypeReference Parser::parseType() {
             auto V = optionalType();
             expect(TokenType::RBRACKET, "missing ']' to match '@['");
             if (V) {
-                neverGonnaGiveYouUp(K, "as dict key", rewind());
-                neverGonnaGiveYouUp(V, "as dict value", rewind());
+                neverGonnaGiveYouUp(K, "as a dict key", rewind());
+                neverGonnaGiveYouUp(V, "as a dict value", rewind());
                 return std::make_shared<DictType>(std::move(K), std::move(V));
             } else {
-                neverGonnaGiveYouUp(K, "as set element", rewind());
+                neverGonnaGiveYouUp(K, "as a set element", rewind());
                 return std::make_shared<SetType>(std::move(K));
             }
         }
@@ -582,7 +573,7 @@ TypeReference Parser::parseType() {
             while (true) {
                 if (peek().type == TokenType::RPAREN) break;
                 P.emplace_back(parseType());
-                neverGonnaGiveYouUp(P.back(), "as tuple element or parameter", rewind());
+                neverGonnaGiveYouUp(P.back(), "as a tuple element or a parameter", rewind());
                 if (peek().type == TokenType::RPAREN) break;
                 expectComma();
             }
@@ -606,7 +597,7 @@ TypeReference Parser::parseType() {
 
 IdExprHandle Parser::parseId(bool initialize) {
     auto token = next();
-    if (token.type != TokenType::IDENTIFIER) throw TokenException("id-expression is expected", token);
+    if (token.type != TokenType::IDENTIFIER) throw ParserException("id-expression is expected", token);
     auto id = std::make_unique<IdExpr>(*compiler, token);
     if (initialize) {
         id->initLookup(context);
@@ -619,15 +610,16 @@ std::unique_ptr<SimpleDeclarator> Parser::parseSimpleDeclarator() {
     auto id = parseId(false);
     auto type = optionalType();
     bool underscore = compiler->of(id->token) == "_";
+    auto segment = range(id->segment(), rewind());
     if (type == nullptr) {
         if (underscore) type = ScalarTypes::NONE;
     } else {
-        neverGonnaGiveYouUp(type, "invalid never declarator", id->token);
+        neverGonnaGiveYouUp(type, "as a declarator", segment);
         if (underscore && !isNone(type)) {
-            throw ParserException("the type of '_' must be none", id->token);
+            throw ParserException("the type of '_' must be none", segment);
         }
     }
-    return std::make_unique<SimpleDeclarator>(range(id->segment(), rewind()), std::move(id), std::move(type));
+    return std::make_unique<SimpleDeclarator>(segment, std::move(id), std::move(type));
 }
 
 DeclaratorHandle Parser::parseDeclarator() {

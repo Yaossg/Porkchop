@@ -1,6 +1,5 @@
 #pragma once
 
-#include <deque>
 #include <bit>
 #include <unordered_set>
 #include <cmath>
@@ -211,7 +210,7 @@ struct Runtime {
 
     void any(TypeReference const& type) {
         if (isValueBased(type)) {
-            push(frame->vm->newObject<AnyScalar>(pop(), dynamic_cast<ScalarType *>(type.get())->S));
+            push(frame->vm->newObject<AnyScalar>(pop(), dynamic_pointer_cast<ScalarType>(type)->S));
         }
     }
 

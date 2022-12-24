@@ -1,6 +1,7 @@
 #include "diagnostics.hpp"
 #include "tree.hpp"
 #include "unicode/unicode.hpp"
+#include "util.hpp"
 
 namespace Porkchop {
 
@@ -65,10 +66,6 @@ std::string SegmentException::message(const Compiler &compiler) const {
     return result;
 }
 
-void neverGonnaGiveYouUp(const TypeReference &type, const char *msg, Segment segment) {
-    if (isNever(type)) throw TypeException(std::string("'never' is not allowed ") + msg, segment);
-}
-
 std::string mismatch(const TypeReference &type, const char *msg, const TypeReference &expected) {
     std::string result;
     result += "types mismatch on ";
@@ -125,7 +122,11 @@ std::string unassignable(const TypeReference &type, const TypeReference &expecte
     return result;
 }
 
-void neverGonnaGiveYouUp(Expr const* expr, const char* msg) {
+void neverGonnaGiveYouUp(const TypeReference &type, const char *msg, Segment segment) {
+    if (isNever(type)) throw TypeException(std::string("'never' is never allowed ") + msg, segment);
+}
+
+void neverGonnaGiveYouUp(ExprHandle const& expr, const char* msg) {
     neverGonnaGiveYouUp(expr->typeCache, msg, expr->segment());
 }
 
@@ -144,13 +145,14 @@ void expected(Expr const* expr, TypeReference const& expected) {
         throw TypeException(unexpected(expr->typeCache, expected), expr->segment());
 }
 
+void assignable(TypeReference const& type, TypeReference const& expected, Segment segment) {
+    if (!expected->assignableFrom(type))
+        throw TypeException(unassignable(type, expected), segment);
+}
+
 void assignable(Expr const* expr, TypeReference const& expected) {
     if (!expected->assignableFrom(expr->typeCache))
         throw TypeException(unassignable(expr->typeCache, expected), expr->segment());
 }
 
-void assignable(TypeReference const& type, TypeReference const& expected, Segment segment) {
-    if (!expected->assignableFrom(type))
-        throw TypeException(unassignable(type, expected), segment);
-}
 }

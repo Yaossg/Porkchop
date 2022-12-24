@@ -3,6 +3,7 @@
 #include <variant>
 
 #include "../opcode.hpp"
+#include "../type.hpp"
 #include "external.hpp"
 
 
