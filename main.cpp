@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include "function.hpp"
+#include "text-assembler.hpp"
 
 #include "util.hpp"
 

@@ -51,7 +51,7 @@ struct Expr : Descriptor {
 struct ConstExpr : Expr {
     Token token;
 
-    explicit ConstExpr(Compiler& compiler, Token token): Expr(compiler), token(token) {}
+    ConstExpr(Compiler& compiler, Token token): Expr(compiler), token(token) {}
 
     [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
@@ -63,7 +63,7 @@ struct ConstExpr : Expr {
 struct BoolConstExpr : ConstExpr {
     bool parsed;
 
-    explicit BoolConstExpr(Compiler& compiler, Token token);
+    BoolConstExpr(Compiler& compiler, Token token);
 
     [[nodiscard]] TypeReference evalType() const override;
 
@@ -75,7 +75,7 @@ struct BoolConstExpr : ConstExpr {
 struct CharConstExpr : ConstExpr {
     char32_t parsed;
 
-    explicit CharConstExpr(Compiler& compiler, Token token);
+    CharConstExpr(Compiler& compiler, Token token);
 
     [[nodiscard]] TypeReference evalType() const override;
 
@@ -87,7 +87,7 @@ struct CharConstExpr : ConstExpr {
 struct StringConstExpr : ConstExpr {
     std::string parsed;
 
-    explicit StringConstExpr(Compiler& compiler, Token token);
+    StringConstExpr(Compiler& compiler, Token token);
 
     [[nodiscard]] TypeReference evalType() const override;
 
@@ -98,7 +98,7 @@ struct IntConstExpr : ConstExpr {
     int64_t parsed;
     bool merged;
 
-    explicit IntConstExpr(Compiler& compiler, Token token, bool merged = false);
+    IntConstExpr(Compiler& compiler, Token token, bool merged = false);
 
     [[nodiscard]] TypeReference evalType() const override;
 
@@ -110,7 +110,7 @@ struct IntConstExpr : ConstExpr {
 struct FloatConstExpr : ConstExpr {
     double parsed;
 
-    explicit FloatConstExpr(Compiler& compiler, Token token);
+    FloatConstExpr(Compiler& compiler, Token token);
 
     [[nodiscard]] TypeReference evalType() const override;
 
@@ -131,7 +131,7 @@ struct IdExpr : LoadExpr {
     Token token;
     LocalContext::LookupResult lookup;
 
-    explicit IdExpr(Compiler& compiler, Token token): LoadExpr(compiler), token(token) {}
+    IdExpr(Compiler& compiler, Token token): LoadExpr(compiler), token(token) {}
 
     [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
 
@@ -509,7 +509,7 @@ struct ClauseExpr : Expr {
     Token token1, token2;
     std::vector<ExprHandle> lines;
 
-    explicit ClauseExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> lines = {}): Expr(compiler),
+    ClauseExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> lines = {}): Expr(compiler),
         token1(token1), token2(token2), lines(std::move(lines)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
@@ -562,7 +562,7 @@ struct BreakExpr : Expr {
     Token token;
     std::shared_ptr<LoopHook> hook;
 
-    explicit BreakExpr(Compiler& compiler, Token token): Expr(compiler), token(token) {}
+    BreakExpr(Compiler& compiler, Token token): Expr(compiler), token(token) {}
 
     [[nodiscard]] std::string_view descriptor() const noexcept override { return "break"; }
 

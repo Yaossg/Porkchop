@@ -70,7 +70,7 @@ struct LineTokenizer {
     void ungetc(char ch) {
         if (ch) [[likely]] {
             if (p == q) [[unlikely]] {
-                unreachable("ungetc() could only rewind within a single token");
+                unreachable();
             } else [[likely]] {
                 --q;
             }
@@ -149,11 +149,11 @@ struct LineTokenizer {
                 }
                 [[unlikely]] case '\n':
                 [[unlikely]] case '\r':
-                    unreachable("a newline within a line");
+                    unreachable();
                 [[unlikely]] case '\v':
                 [[unlikely]] case '\f':
                 [[unlikely]] case '\t':
-                    raise("whitespaces other than space are not allowed");
+                    raise("whitespaces other than spaces are not allowed");
                 case ' ':
                     break;
                 case *"'":
@@ -273,6 +273,7 @@ struct LineTokenizer {
                 [[likely]] case TokenType::DECIMAL_INTEGER:
                 case TokenType::HEXADECIMAL_INTEGER:
                     type = TokenType::FLOATING_POINT;
+                    break;
             }
         }
         add(type);
@@ -284,6 +285,7 @@ struct LineTokenizer {
             switch (ch) {
                 case QUOTER: return;
                 case '\\': getc();
+                default: unreachable();
             }
         }
         raise(message);
@@ -310,9 +312,9 @@ int64_t parseInt(Compiler &compiler, Token token) try {
         case TokenType::OCTAL_INTEGER: base = 8; break;
         case TokenType::DECIMAL_INTEGER: base = 10; break;
         case TokenType::HEXADECIMAL_INTEGER: base = 16; break;
+        default: unreachable();
     }
-    std::string literal; // default-constructed
-    literal = compiler.of(token);
+    std::string literal(compiler.of(token));
     std::erase(literal, '_');
     if (base != 10) {
         literal.erase(literal.front() == '+' || literal.front() == '-', 2);
@@ -323,8 +325,7 @@ int64_t parseInt(Compiler &compiler, Token token) try {
 }
 
 double parseFloat(Compiler &compiler, Token token) try {
-    std::string literal; // default-constructed
-    literal = compiler.of(token);
+    std::string literal(compiler.of(token));
     std::erase(literal, '_');
     return std::stod(literal);
 } catch (std::out_of_range& e) {

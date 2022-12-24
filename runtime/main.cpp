@@ -1,5 +1,5 @@
 #include "runtime.hpp"
-#include "text-asm.hpp"
+#include "text-assembly.hpp"
 
 int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();

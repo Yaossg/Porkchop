@@ -40,10 +40,4 @@ struct Compiler {
     [[nodiscard]] std::string descriptor() const;
 };
 
-
-[[noreturn]] inline void unreachable(const char* msg) {
-    fprintf(stderr, "Unreachable is reached: %s", msg);
-    __builtin_unreachable();
-}
-
 }

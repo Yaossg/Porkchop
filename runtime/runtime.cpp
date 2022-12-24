@@ -51,9 +51,6 @@ std::pair<size_t, bool> Func::call(Assembly *assembly, VM* vm) const try {
                 case Opcode::DLOAD:
                     runtime.dload();
                     break;
-                case Opcode::TSTORE:
-                    runtime.tstore(std::get<size_t>(args));
-                    break;
                 case Opcode::LSTORE:
                     runtime.lstore();
                     break;

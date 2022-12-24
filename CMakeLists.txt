@@ -17,7 +17,7 @@ add_executable(Porkchop
         unicode/unicode.hpp unicode/unicode.cpp
         unicode/unicode-id.cpp unicode/unicode-width.cpp
         function.hpp
-        opcode.hpp assembler.hpp
+        opcode.hpp assembler.hpp text-assembler.hpp
         util.hpp
         descriptor.hpp
 )
@@ -27,7 +27,7 @@ add_executable(PorkchopRuntime
         runtime/assembly.hpp
         runtime/external.hpp runtime/external.cpp
         runtime/runtime.hpp runtime/runtime.cpp
-        runtime/text-asm.hpp
+        runtime/text-assembly.hpp
         runtime/vm.hpp
         opcode.hpp
         util.hpp

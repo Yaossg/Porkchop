@@ -105,6 +105,8 @@ IntConstExpr::IntConstExpr(Compiler &compiler, Token token, bool merged) : Const
         case TokenType::HEXADECIMAL_INTEGER:
             parsed = parseInt(compiler, token);
             break;
+        default:
+            unreachable();
     }
 }
 
@@ -188,7 +190,7 @@ TypeReference PrefixExpr::evalType() const {
             expected(rhs.get(), isIntegral, "integral type");
             break;
         default:
-            unreachable("invalid token is classified as prefix operator");
+            unreachable();
     }
     return rhs->typeCache;
 }
@@ -206,7 +208,7 @@ size_t PrefixExpr::evalConst() const {
         case TokenType::OP_INV:
             return isInt(type) ? ~value : (unsigned char)~value;
         default:
-            unreachable("invalid token is classified as prefix operator");
+            unreachable();
     }
 }
 
@@ -226,7 +228,7 @@ void PrefixExpr::walkBytecode(Assembler* assembler) const {
             if (isByte(rhs->typeCache)) assembler->opcode(Opcode::I2B);
             break;
         default:
-            unreachable("invalid token is classified as prefix operator");
+            unreachable();
     }
 }
 
@@ -294,7 +296,7 @@ TypeReference InfixExpr::evalType() const {
             expected(lhs.get(), isArithmetic, "arithmetic");
             return type1;
         default:
-            unreachable("invalid token is classified as infix operator");
+            unreachable();
     }
 }
 
@@ -337,7 +339,7 @@ size_t InfixExpr::evalConst() const {
                 return as_size(std::fmod(as_double(lhs->evalConst()), as_double(rhs->evalConst())));
             }
         default:
-            unreachable("invalid token is classified as infix operator");
+            unreachable();
     }
 }
 
@@ -382,7 +384,7 @@ void InfixExpr::walkBytecode(Assembler* assembler) const {
             assembler->opcode(i ? Opcode::IREM : Opcode::FREM);
             break;
         default:
-            unreachable("invalid token is classified as infix operator");
+            unreachable();
     }
 }
 
@@ -435,7 +437,7 @@ size_t CompareExpr::evalConst() const {
         case TokenType::OP_GE:
             return cmp >= 0;
         default:
-            unreachable("invalid token is classified as relational operator");
+            unreachable();
     }
 }
 
@@ -491,7 +493,7 @@ void CompareExpr::walkBytecode(Assembler *assembler) const {
             assembler->opcode(Opcode::GE);
             break;
         default:
-            unreachable("invalid token is classified as relational operator");
+            unreachable();
     }
 }
 
@@ -549,7 +551,7 @@ TypeReference AssignExpr::evalType() const {
             expected(rhs.get(), type1);
             return type1;
         default:
-            unreachable("invalid token is classified as assignment operator");
+            unreachable();
     }
 }
 
@@ -597,7 +599,7 @@ void AssignExpr::walkBytecode(Assembler* assembler) const {
                 assembler->opcode(i ? Opcode::IREM : Opcode::FREM);
                 break;
             default:
-                unreachable("invalid token is classified as compound assignment operator");
+                unreachable();
         }
         lhs->walkStoreBytecode(assembler);
     }
@@ -635,7 +637,7 @@ void AccessExpr::walkBytecode(Assembler* assembler) const {
         rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::DLOAD);
     } else {
-        unreachable("invalid expression is classified as access operator");
+        unreachable();
     }
 }
 
@@ -643,7 +645,7 @@ void AccessExpr::walkStoreBytecode(Assembler* assembler) const {
     lhs->walkBytecode(assembler);
     TypeReference type1 = lhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
-        assembler->indexed(Opcode::TSTORE, rhs->evalConst());
+        throw TypeException("tuple is immutable", segment());
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
         rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::LSTORE);
@@ -651,7 +653,7 @@ void AccessExpr::walkStoreBytecode(Assembler* assembler) const {
         rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::DSTORE);
     } else {
-        unreachable("invalid expression is classified as access operator");
+        unreachable();
     }
 }
 
@@ -819,7 +821,7 @@ void TupleExpr::walkStoreBytecode(Assembler* assembler) const {
         if (auto load = dynamic_cast<LoadExpr*>(elements[i].get())) {
             load->walkStoreBytecode(assembler);
         } else {
-            unreachable("load expr should have been checked");
+            unreachable();
         }
         assembler->opcode(Opcode::POP);
     }

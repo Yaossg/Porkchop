@@ -20,7 +20,7 @@ inline bool isUnicodeIdentifierPart(char32_t ch) {
 constexpr char32_t ASCII_UPPER_BOUND = 0x7F;
 constexpr char32_t UNICODE_UPPER_BOUND = 0x10FFFF;
 
-char32_t hex(const char* first, const char* last, unsigned bound, Segment segment);
+char32_t parseHex(const char* first, const char* last, unsigned bound, Segment segment);
 
 [[nodiscard]] inline constexpr int countl_one(char8_t ch) {
     return std::countl_one((unsigned char) ch);

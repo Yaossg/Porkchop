@@ -83,11 +83,7 @@ struct Runtime {
     }
 
     void const_(size_t value) {
-        frame->push(value);
-    }
-
-    void push(size_t value) {
-        frame->push(value);
+        frame->const_(value);
     }
 
     void push(std::pair<size_t, bool> value) {
@@ -107,7 +103,7 @@ struct Runtime {
     }
 
     void push(double value) {
-        frame->push(as_size(value));
+        frame->push(value);
     }
 
     void push(Object* object) {
@@ -134,12 +130,6 @@ struct Runtime {
     void tload(size_t index) {
         auto tuple = dynamic_cast<Tuple*>(opop());
         push(tuple->load(index));
-    }
-
-    void tstore(size_t index) {
-        auto tuple = dynamic_cast<Tuple*>(opop());
-        auto value = top();
-        tuple->store(index, value);
     }
 
     void lload() {
@@ -209,7 +199,7 @@ struct Runtime {
             throw Exception("cannot cast " + type0->toString() + " to " + type->toString());
         }
         if (isValueBased(type)) {
-            push(dynamic_cast<AnyScalar*>(object)->value);
+            const_(dynamic_cast<AnyScalar*>(object)->value);
         } else {
             push(object);
         }
@@ -331,7 +321,7 @@ struct Runtime {
         auto value1 = pop();
         if (value2 < 0)
             throw Exception("shift a negative");
-        push(value1 >> value2);
+        push(int64_t(value1 >> value2));
     }
 
     static constexpr size_t less = 0;
@@ -341,13 +331,13 @@ struct Runtime {
 
     void compare_three_way(std::partial_ordering o) {
         if (o == std::partial_ordering::less) {
-            push(less);
+            const_(less);
         } else if (o == std::partial_ordering::equivalent) {
-            push(equivalent);
+            const_(equivalent);
         } else if (o == std::partial_ordering::greater) {
-            push(greater);
+            const_(greater);
         } else if (o == std::partial_ordering::unordered) {
-            push(unordered);
+            const_(unordered);
         }
     }
 

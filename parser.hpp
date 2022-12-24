@@ -65,6 +65,7 @@ struct Parser {
         next();
         return parseType();
     }
+
     void pushLoop() {
         hooks.emplace_back(std::make_shared<LoopHook>());
     }

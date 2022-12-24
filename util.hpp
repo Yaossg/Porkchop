@@ -65,4 +65,8 @@ inline std::vector<std::string_view> splitLines(std::string_view view) {
     return lines;
 }
 
+[[noreturn]] inline void unreachable() {
+    __builtin_unreachable();
+}
+
 }

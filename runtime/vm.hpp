@@ -61,8 +61,23 @@ struct VM {
             companion.push_back(value.second);
         }
 
-        void push(size_t value) {
+        void const_(size_t value) {
             stack.push_back(value);
+            companion.push_back(false);
+        }
+
+        void push(bool value) {
+            stack.push_back(value);
+            companion.push_back(false);
+        }
+
+        void push(int64_t value) {
+            stack.push_back(value);
+            companion.push_back(false);
+        }
+
+        void push(double value) {
+            stack.push_back(as_size(value));
             companion.push_back(false);
         }
 
@@ -194,7 +209,6 @@ struct String : Object {
 
 struct Tuple : Object {
     virtual std::pair<size_t, bool> load(size_t index) = 0;
-    virtual void store(size_t index, size_t element) = 0;
 };
 
 struct Pair : Tuple {
@@ -211,10 +225,6 @@ struct Pair : Tuple {
 
     std::pair<size_t, bool> load(size_t index) override {
         return index == 0 ? std::pair{first, t} : std::pair{second, u};
-    }
-
-    void store(size_t index, size_t element) override {
-        (index == 0 ? first : second) = element;
     }
 
     TypeReference getType() override { return std::make_shared<TupleType>(std::vector{T, U}); }
@@ -236,10 +246,6 @@ struct More : Tuple {
 
     std::pair<size_t, bool> load(size_t index) override {
         return {elements[index], !isValueBased(prototype->E[index])};
-    }
-
-    void store(size_t index, size_t element) override {
-        elements[index] = element;
     }
 
     TypeReference getType() override { return prototype; }

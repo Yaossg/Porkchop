@@ -43,10 +43,10 @@ struct TextAssembly : Assembly {
                     table.push_back(get<std::string>(args));
                     break;
                 case Opcode::FUNC:
-                    prototypes.push_back(get<TypeReference>(args));
+                    prototypes.push_back(std::dynamic_pointer_cast<FuncType>(get<TypeReference>(args)));
                     break;
                 default:
-                    unreachable("only string and func are allowed in global scope");
+                    unreachable();
             }
         }
     }
@@ -109,7 +109,6 @@ struct TextAssembly : Assembly {
                         case Opcode::LOAD:
                         case Opcode::STORE:
                         case Opcode::TLOAD:
-                        case Opcode::TSTORE:
                         case Opcode::INC:
                         case Opcode::DEC:
                             // index or size

@@ -4,7 +4,7 @@
 
 namespace Porkchop {
 
-char32_t hex(const char *first, const char *last, unsigned int bound, Segment segment) {
+char32_t parseHex(const char *first, const char *last, unsigned int bound, Segment segment) {
     unsigned value = 0;
     auto [ptr, ec] = std::from_chars(first, last, value, 16);
     if (ptr != last) {
@@ -26,7 +26,8 @@ char32_t hex(const char *first, const char *last, unsigned int bound, Segment se
         case std::errc::result_out_of_range:
             throw ConstException("the hex value is out of valid range", segment);
         default:
-            unreachable("hex escape sequence");
+            [[noreturn]] void unreachable();
+            unreachable();
     }
 }
 
@@ -73,14 +74,14 @@ char32_t UnicodeParser::parseHexASCII() {
     const char *first = q;
     getc(); getc();
     const char *last = q;
-    return hex(first, last, ASCII_UPPER_BOUND, make());
+    return parseHex(first, last, ASCII_UPPER_BOUND, make());
 }
 
 char32_t UnicodeParser::parseHexUnicode() {
     const char *first = q;
     getc(); getc(); getc(); getc(); getc(); getc();
     const char *last = q;
-    return hex(first, last, UNICODE_UPPER_BOUND, make());
+    return parseHex(first, last, UNICODE_UPPER_BOUND, make());
 }
 
 char32_t UnicodeParser::decodeUnicode() {
