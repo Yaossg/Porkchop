@@ -34,19 +34,20 @@ void Compiler::parse() {
     if (tokens.empty()) return;
     Parser parser(this, tokens);
     predefined(parser.context);
-    std::tie(tree, type) = parser.parseFnBody();
+    auto F = std::make_shared<FuncType>(std::vector<TypeReference>{}, nullptr);
+    tree = parser.parseFnBody(F);
     parser.expect(TokenType::LINEBREAK, "a linebreak is expected");
     if (parser.remains())
         throw ParserException("unterminated tokens", parser.peek());
     locals = std::move(parser.context.localTypes);
-    dynamic_cast<ExternalFunction*>(functions[0].get())->type = std::make_shared<FuncType>(std::vector<TypeReference>{}, tree->typeCache);
+    dynamic_cast<ExternalFunction*>(functions[0].get())->type = F;
 }
 
 void Compiler::compile(Assembler* assembler) {
     for (auto&& function : functions) {
         assembler->func(function->prototype());
     }
-    assembler->newFunction(locals, tree.get());
+    assembler->newFunction(locals, tree);
     for (auto&& function : functions) {
         function->assemble(assembler);
     }

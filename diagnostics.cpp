@@ -66,93 +66,21 @@ std::string SegmentException::message(const Compiler &compiler) const {
     return result;
 }
 
-std::string mismatch(const TypeReference &type, const char *msg, const TypeReference &expected) {
-    std::string result;
-    result += "types mismatch on ";
-    result += msg;
-    result += ", the one is '";
-    result += expected->toString();
-    result += "', but the other is '";
-    result += type->toString();
-    result += "'";
-    return result;
-}
-
-std::string mismatch(const TypeReference &type, const char *msg, size_t index, const TypeReference &expected) {
-    std::string result;
-    result += "types mismatch on ";
-    result += msg;
-    result += ", the first one is '";
-    result += expected->toString();
-    result += "', but ";
-    result += ordinal(index);
-    result += " one is '";
-    result += type->toString();
-    result += "'";
-    return result;
-}
-
-std::string unexpected(const TypeReference &type, const char *expected) {
-    std::string result;
-    result += "expected ";
-    result += expected;
-    result += " but got '";
-    result += type->toString();
-    result += "'";
-    return result;
-}
-
-std::string unexpected(const TypeReference &type, const TypeReference &expected) {
-    std::string result;
-    result += "expected '";
-    result += expected->toString();
-    result += "' but got '";
-    result += type->toString();
-    result += "'";
-    return result;
-}
-
-std::string unassignable(const TypeReference &type, const TypeReference &expected) {
-    std::string result;
-    result += "'";
-    result += type->toString();
-    result += "' is not assignable to '";
-    result += expected->toString();
-    result += "'";
-    return result;
-}
-
 void neverGonnaGiveYouUp(const TypeReference &type, const char *msg, Segment segment) {
-    if (isNever(type)) throw TypeException(std::string("'never' is never allowed ") + msg, segment);
+    if (isNever(type)) {
+        throw TypeException(std::string("'never' is never allowed ") + msg, segment);
+    }
 }
 
-void neverGonnaGiveYouUp(ExprHandle const& expr, const char* msg) {
-    neverGonnaGiveYouUp(expr->typeCache, msg, expr->segment());
-}
-
-void match(Expr const* expr1, Expr const* expr2) {
-    if (!expr1->typeCache->equals(expr2->typeCache))
-        throw TypeException(mismatch(expr2->typeCache, "both operands", expr1->typeCache), range(expr1->segment(), expr2->segment()));
-}
-
-void expected(Expr const* expr, bool pred(TypeReference const&), const char* msg) {
-    if (!pred(expr->typeCache))
-        throw TypeException(unexpected(expr->typeCache, msg), expr->segment());
-}
-
-void expected(Expr const* expr, TypeReference const& expected) {
-    if (!expr->typeCache->equals(expected))
-        throw TypeException(unexpected(expr->typeCache, expected), expr->segment());
+[[noreturn]] void mismatch(TypeReference const& type1, TypeReference const& type2, const char *msg, Segment segment) {
+    throw TypeException(join("type mismatch on ", msg, ", the one is '", type1->toString(),
+                             "', but the other is '", type2->toString(), "'"), segment);
 }
 
 void assignable(TypeReference const& type, TypeReference const& expected, Segment segment) {
-    if (!expected->assignableFrom(type))
-        throw TypeException(unassignable(type, expected), segment);
-}
-
-void assignable(Expr const* expr, TypeReference const& expected) {
-    if (!expected->assignableFrom(expr->typeCache))
-        throw TypeException(unassignable(expr->typeCache, expected), expr->segment());
+    if (!expected->assignableFrom(type)) {
+        throw TypeException(join("'", type->toString(), "' is not assignable to '", expected->toString(), "'"), segment);
+    }
 }
 
 }

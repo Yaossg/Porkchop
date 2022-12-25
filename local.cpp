@@ -47,7 +47,7 @@ void LocalContext::define(Token token, FnDefExpr* def) {
     if (auto it = declaredIndices.back().find(name); it != declaredIndices.back().end()) {
         size_t index = it->second;
         auto function = dynamic_cast<NamedFunction*>(compiler->functions[index].get());
-        expected(function->decl, def->prototype);
+        function->decl->expect(def->prototype);
         function->def = def;
         declaredIndices.back().erase(it);
         definedIndices.back().insert_or_assign(name, index);

@@ -7,12 +7,6 @@
 
 namespace Porkchop {
 
-int64_t parseInt(Compiler& compiler, Token token);
-double parseFloat(Compiler& compiler, Token token);
-char32_t parseChar(Compiler& compiler, Token token);
-std::string parseString(Compiler& compiler, Token token);
-
-
 template<typename Fn>
 size_t visitBitwise(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
     auto value1 = expr1->evalConst();
@@ -47,6 +41,41 @@ size_t Expr::evalConst() const {
     throw ConstException("cannot evaluate at compile-time", segment());
 }
 
+void Expr::expect(const TypeReference& expected) const {
+    if (!typeCache->equals(expected)) {
+        throw TypeException(join("expected '", expected->toString(), "' but got '", typeCache->toString(), "'"), segment());
+    }
+}
+
+void Expr::expect(bool pred(const TypeReference&), const char* expected) const {
+    if (!pred(typeCache)) {
+        expect(expected);
+    }
+}
+
+void Expr::expect(const char *expected) const {
+    throw TypeException(join("expected ", expected, " but got '", typeCache->toString(), "'"), segment());
+}
+
+void Expr::mismatch(const TypeReference &expected, const char *msg, size_t index) const {
+    throw TypeException(join("type mismatch on ", msg, ", the 1st one is '", expected->toString(),
+                             "', but ", ordinal(index), " one is '", typeCache->toString(), "'"), segment());
+}
+
+void Expr::assignable(const TypeReference &expected) const {
+    Porkchop::assignable(typeCache, expected, segment());
+}
+
+void Expr::neverGonnaGiveYouUp(const char* msg) const {
+    Porkchop::neverGonnaGiveYouUp(typeCache, msg, segment());
+}
+
+void match(Expr const* expr1, Expr const* expr2) {
+    if (!expr1->typeCache->equals(expr2->typeCache)) {
+        mismatch(expr1->typeCache, expr2->typeCache, "both operands", range(expr1->segment(), expr2->segment()));
+    }
+}
+
 BoolConstExpr::BoolConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
     parsed = token.type == TokenType::KW_TRUE;
 }
@@ -64,6 +93,7 @@ void BoolConstExpr::walkBytecode(Assembler* assembler) const {
 }
 
 CharConstExpr::CharConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
+    char32_t parseChar(Compiler& compiler, Token token);
     parsed = parseChar(compiler, token);
 }
 
@@ -80,6 +110,7 @@ size_t CharConstExpr::evalConst() const {
 }
 
 StringConstExpr::StringConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
+    std::string parseString(Compiler& compiler, Token token);
     parsed = parseString(compiler, token);
 }
 
@@ -103,6 +134,7 @@ IntConstExpr::IntConstExpr(Compiler &compiler, Token token, bool merged) : Const
         case TokenType::OCTAL_INTEGER:
         case TokenType::DECIMAL_INTEGER:
         case TokenType::HEXADECIMAL_INTEGER:
+            int64_t parseInt(Compiler& compiler, Token token);
             parsed = parseInt(compiler, token);
             break;
         default:
@@ -123,6 +155,7 @@ void IntConstExpr::walkBytecode(Assembler* assembler) const {
 }
 
 FloatConstExpr::FloatConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
+    double parseFloat(Compiler& compiler, Token token);
     parsed = parseFloat(compiler, token);
 }
 
@@ -186,13 +219,13 @@ TypeReference PrefixExpr::evalType() const {
     switch (token.type) {
         case TokenType::OP_ADD:
         case TokenType::OP_SUB:
-            expected(rhs.get(), isArithmetic, "arithmetic type");
+            rhs->expect(isArithmetic, "arithmetic type");
             break;
         case TokenType::OP_NOT:
-            expected(rhs.get(), ScalarTypes::BOOL);
+            rhs->expect(ScalarTypes::BOOL);
             break;
         case TokenType::OP_INV:
-            expected(rhs.get(), isIntegral, "integral type");
+            rhs->expect(isIntegral, "integral type");
             break;
         default:
             unreachable();
@@ -238,7 +271,8 @@ void PrefixExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference StatefulPrefixExpr::evalType() const {
-    expected(rhs.get(), ScalarTypes::INT);
+    rhs->ensureAssignable();
+    rhs->expect(ScalarTypes::INT);
     return ScalarTypes::INT;
 }
 
@@ -255,7 +289,8 @@ void StatefulPrefixExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference StatefulPostfixExpr::evalType() const {
-    expected(lhs.get(), ScalarTypes::INT);
+    lhs->ensureAssignable();
+    lhs->expect(ScalarTypes::INT);
     return ScalarTypes::INT;
 }
 
@@ -279,26 +314,26 @@ TypeReference InfixExpr::evalType() const {
         case TokenType::OP_OR:
         case TokenType::OP_XOR:
         case TokenType::OP_AND:
-            expected(lhs.get(), isIntegral, "integral type");
+            lhs->expect(isIntegral, "integral type");
             match(lhs.get(), rhs.get());
             return type1;
         case TokenType::OP_SHL:
         case TokenType::OP_SHR:
         case TokenType::OP_USHR:
-            expected(lhs.get(), isIntegral, "integral type");
-            expected(rhs.get(), ScalarTypes::INT);
+            lhs->expect(isIntegral, "integral type");
+            rhs->expect(ScalarTypes::INT);
             return type1;
         case TokenType::OP_ADD:
             match(lhs.get(), rhs.get());
             if (!isString(lhs->typeCache))
-                expected(lhs.get(), isArithmetic, "arithmetic or string");
+                lhs->expect(isArithmetic, "arithmetic or string");
             return type1;
         case TokenType::OP_SUB:
         case TokenType::OP_MUL:
         case TokenType::OP_DIV:
         case TokenType::OP_REM:
             match(lhs.get(), rhs.get());
-            expected(lhs.get(), isArithmetic, "arithmetic");
+            lhs->expect(isArithmetic, "arithmetic");
             return type1;
         default:
             unreachable();
@@ -405,7 +440,7 @@ TypeReference CompareExpr::evalType() const {
                 if (!equality)
                     throw TypeException("none only support equality operator", segment());
             case ScalarTypeKind::NEVER:
-                neverGonnaGiveYouUp(lhs, "in relational operations");
+                lhs->neverGonnaGiveYouUp("in relational operations");
         }
     } else if (auto func = dynamic_cast<FuncType*>(type.get())) {
         if (!equality)
@@ -503,8 +538,8 @@ void CompareExpr::walkBytecode(Assembler *assembler) const {
 }
 
 TypeReference LogicalExpr::evalType() const {
-    expected(lhs.get(), ScalarTypes::BOOL);
-    expected(rhs.get(), ScalarTypes::BOOL);
+    lhs->expect(ScalarTypes::BOOL);
+    rhs->expect(ScalarTypes::BOOL);
     return ScalarTypes::BOOL;
 }
 
@@ -531,19 +566,19 @@ TypeReference AssignExpr::evalType() const {
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_ASSIGN:
-            assignable(rhs.get(), lhs->typeCache);
+            rhs->assignable(lhs->typeCache);
             return type1;
         case TokenType::OP_ASSIGN_AND:
         case TokenType::OP_ASSIGN_XOR:
         case TokenType::OP_ASSIGN_OR:
-            expected(lhs.get(), isIntegral, "integral type");
-            expected(rhs.get(), type1);
+            lhs->expect(isIntegral, "integral type");
+            rhs->expect(type1);
             return type1;
         case TokenType::OP_ASSIGN_SHL:
         case TokenType::OP_ASSIGN_SHR:
         case TokenType::OP_ASSIGN_USHR:
-            expected(lhs.get(), isIntegral, "integral type");
-            expected(rhs.get(), ScalarTypes::INT);
+            lhs->expect(isIntegral, "integral type");
+            rhs->expect(ScalarTypes::INT);
             return type1;
         case TokenType::OP_ASSIGN_ADD:
             if (isString(lhs->typeCache) && isString(rhs->typeCache))
@@ -552,8 +587,8 @@ TypeReference AssignExpr::evalType() const {
         case TokenType::OP_ASSIGN_MUL:
         case TokenType::OP_ASSIGN_DIV:
         case TokenType::OP_ASSIGN_REM:
-            expected(lhs.get(), isArithmetic, "arithmetic type");
-            expected(rhs.get(), type1);
+            lhs->expect(isArithmetic, "arithmetic type");
+            rhs->expect(type1);
             return type1;
         default:
             unreachable();
@@ -613,7 +648,7 @@ void AssignExpr::walkBytecode(Assembler* assembler) const {
 TypeReference AccessExpr::evalType() const {
     TypeReference type1 = lhs->typeCache, type2 = rhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
-        expected(rhs.get(), ScalarTypes::INT);
+        rhs->expect(ScalarTypes::INT);
         int64_t index = rhs->evalConst();
         if (0 <= index && index < tuple->E.size()) {
             return tuple->E[index];
@@ -621,13 +656,13 @@ TypeReference AccessExpr::evalType() const {
             throw TypeException("index out of bound", segment());
         }
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
-        expected(rhs.get(), ScalarTypes::INT);
+        rhs->expect(ScalarTypes::INT);
         return list->E;
     } else if (auto dict = dynamic_cast<DictType*>(type1.get())) {
-        assignable(rhs.get(), dict->K);
+        rhs->expect(dict->K);
         return dict->V;
     }
-    throw TypeException(unexpected(type1, "iterable type"), lhs->segment());
+    lhs->expect("indexable type");
 }
 
 void AccessExpr::walkBytecode(Assembler* assembler) const {
@@ -669,16 +704,15 @@ void AccessExpr::ensureAssignable() const {
 TypeReference InvokeExpr::evalType() const {
     if (auto func = dynamic_cast<FuncType*>(lhs->typeCache.get())) {
         if (rhs.size() != func->P.size()) {
-            throw TypeException("expected " + std::to_string(func->P.size()) + " parameters but got " + std::to_string(rhs.size()), range(token1, token2));
+            throw TypeException(join("expected ", std::to_string(func->P.size()), " parameters but got ", std::to_string(rhs.size())),
+                                range(token1, token2));
         }
         for (size_t i = 0; i < rhs.size(); ++i) {
-            if (auto type = rhs[i]->typeCache; !func->P[i]->assignableFrom(type)) {
-                throw TypeException(unassignable(type, func->P[i]) + " at " + ordinal(i) + " parameter", rhs[i]->segment());
-            }
+            rhs[i]->assignable(func->P[i]);
         }
         return func->R;
     }
-    throw TypeException(unexpected(lhs->typeCache, "invocable type"), lhs->segment());
+    lhs->expect("invocable type");
 }
 
 void InvokeExpr::walkBytecode(Assembler* assembler) const {
@@ -693,12 +727,13 @@ void InvokeExpr::walkBytecode(Assembler* assembler) const {
 
 TypeReference DotExpr::evalType() const {
     if (auto func = dynamic_cast<FuncType*>(rhs->typeCache.get())) {
-        if (func->P.empty()) throw TypeException(unexpected(rhs->typeCache, "fn with at least one parameter"), rhs->segment());
-        if (func->P[0]->assignableFrom(lhs->typeCache))
-            return std::make_shared<FuncType>(std::vector<TypeReference>{std::next(func->P.begin()), func->P.end()}, func->R);
-        throw TypeException(unassignable(lhs->typeCache, func->P[0]), rhs->segment());
+        if (func->P.empty()) {
+            rhs->expect("function with at least one parameter");
+        }
+        lhs->assignable(func->P[0]);
+        return std::make_shared<FuncType>(std::vector<TypeReference>{std::next(func->P.begin()), func->P.end()},func->R);
     }
-    throw TypeException(unexpected(rhs->typeCache, "invocable type"), rhs->segment());
+    rhs->expect("invocable type");
 }
 
 void DotExpr::walkBytecode(Assembler* assembler) const {
@@ -713,7 +748,7 @@ TypeReference AsExpr::evalType() const {
         || isSimilar(isArithmetic, type, T)
         || isSimilar(isIntegral, type, T)
         || isSimilar(isCharLike, type, T)) return T;
-    throw TypeException("cannot cast the expression from " + type->toString() + " to " + T->toString(), segment());
+    throw TypeException(join("cannot cast the expression from '", type->toString(), "' to '", T->toString(), "'"), segment());
 }
 
 size_t AsExpr::evalConst() const {
@@ -763,7 +798,8 @@ void AsExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference IsExpr::evalType() const {
-    neverGonnaGiveYouUp(lhs, "to check its type");
+    lhs->neverGonnaGiveYouUp("to check its type");
+    Porkchop::neverGonnaGiveYouUp(T, "here for it has no instance at all", segment());
     return ScalarTypes::BOOL;
 }
 
@@ -782,7 +818,7 @@ void IsExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference DefaultExpr::evalType() const {
-    neverGonnaGiveYouUp(T, "for it has no instance at all", segment());
+    Porkchop::neverGonnaGiveYouUp(T, "here for it has no instance at all", segment());
     if (isAny(T)) throw TypeException("any has no default instance", segment());
     if (auto tuple = dynamic_cast<TupleType*>(T.get())) throw TypeException("tuple has no default instance", segment());
     if (auto func = dynamic_cast<FuncType*>(T.get())) throw TypeException("func has no default instance", segment());
@@ -848,10 +884,12 @@ void TupleExpr::ensureAssignable() const {
 
 TypeReference ListExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
-    neverGonnaGiveYouUp(elements.front(), "as a list element");
+    elements.front()->neverGonnaGiveYouUp("as a list element");
     for (size_t i = 1; i < elements.size(); ++i) {
         auto type = elements[i]->typeCache;
-        if (!type0->equals(type)) throw TypeException(mismatch(type, "list's elements", i, type0), elements[i]->segment());
+        if (!type0->equals(type)) {
+            elements[i]->mismatch(type0, "the elements of list", i);
+        }
     }
     return std::make_shared<ListType>(type0);
 }
@@ -865,10 +903,12 @@ void ListExpr::walkBytecode(Assembler* assembler) const {
 
 TypeReference SetExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
-    neverGonnaGiveYouUp(elements.front(), "as a set element");
+    elements.front()->neverGonnaGiveYouUp("as a set element");
     for (size_t i = 1; i < elements.size(); ++i) {
         auto type = elements[i]->typeCache;
-        if (!type0->equals(type)) throw TypeException(mismatch(type, "set's elements", i, type0), elements[i]->segment());
+        if (!type0->equals(type)) {
+            elements[i]->mismatch(type0, "the elements of set", i);
+        }
     }
     return std::make_shared<SetType>(type0);
 }
@@ -883,13 +923,17 @@ void SetExpr::walkBytecode(Assembler* assembler) const {
 TypeReference DictExpr::evalType() const {
     auto key0 = elements.front().first->typeCache;
     auto value0 = elements.front().second->typeCache;
-    neverGonnaGiveYouUp(elements.front().first, "as a dict key");
-    neverGonnaGiveYouUp(elements.front().second, "as a dict value");
+    elements.front().first->neverGonnaGiveYouUp("as a dict key");
+    elements.front().second->neverGonnaGiveYouUp("as a dict value");
     for (size_t i = 1; i < elements.size(); ++i) {
         auto key = elements[i].first->typeCache;
         auto value = elements[i].second->typeCache;
-        if (!key0->equals(key)) throw TypeException(mismatch(key, "dict's keys", i, key0), elements[i].first->segment());
-        if (!value0->equals(value)) throw TypeException(mismatch(value, "dict's values", i, value0), elements[i].second->segment());
+        if (!key0->equals(key)) {
+            elements[i].first->mismatch(key0, "the keys of dict", i);
+        }
+        if (!value0->equals(value)) {
+            elements[i].second->mismatch(key0, "the keys of dict", i);
+        }
     }
     return std::make_shared<DictType>(std::move(key0), std::move(value0));
 }
@@ -930,7 +974,7 @@ void ClauseExpr::walkBytecode(Assembler* assembler) const {
 
 TypeReference IfElseExpr::evalType() const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
-    expected(cond.get(), ScalarTypes::BOOL);
+    cond->expect(ScalarTypes::BOOL);
     try {
         if (cond->evalConst())
             return lhs->typeCache;
@@ -938,7 +982,7 @@ TypeReference IfElseExpr::evalType() const {
             return rhs->typeCache;
     } catch (ConstException&) {}
     if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) return either;
-    throw TypeException(mismatch(rhs->typeCache, "both clause", lhs->typeCache), segment());
+    Porkchop::mismatch(lhs->typeCache, rhs->typeCache, "both clause", segment());
 }
 
 size_t IfElseExpr::evalConst() const {
@@ -972,7 +1016,7 @@ void BreakExpr::walkBytecode(Assembler* assembler) const {
 
 TypeReference WhileExpr::evalType() const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
-    expected(cond.get(), ScalarTypes::BOOL);
+    cond->expect(ScalarTypes::BOOL);
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     try {
         if (cond->evalConst() && hook->breaks.empty())
@@ -996,7 +1040,7 @@ void WhileExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference ReturnExpr::evalType() const {
-    neverGonnaGiveYouUp(rhs, "to return");
+    rhs->neverGonnaGiveYouUp("to return");
     return ScalarTypes::NEVER;
 }
 
@@ -1047,7 +1091,7 @@ void SimpleDeclarator::walkBytecode(Assembler *assembler) const {
 void TupleDeclarator::infer(TypeReference type) {
     if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
         if (elements.size() != tuple->E.size()) {
-            throw TypeException("expected " + std::to_string(elements.size()) + " elements but got " + std::to_string(tuple->E.size()), segment);
+            throw TypeException(join("expected ", std::to_string(elements.size()), " elements but got ", std::to_string(tuple->E.size())), segment);
         }
         std::vector<TypeReference> types;
         for (size_t i = 0; i < elements.size(); ++i) {
@@ -1056,7 +1100,7 @@ void TupleDeclarator::infer(TypeReference type) {
         }
         typeCache = std::make_shared<TupleType>(std::move(types));
     } else {
-        throw TypeException(unexpected(type, "tuple type"), segment);
+        throw TypeException(join("expected a tuple type but got '", type->toString(), "'"), segment);
     }
 }
 

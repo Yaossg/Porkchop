@@ -46,6 +46,18 @@ struct Expr : Descriptor {
     [[nodiscard]] virtual size_t evalConst() const;
 
     virtual void walkBytecode(Assembler* assembler) const = 0;
+
+    void expect(TypeReference const& expected) const;
+
+    void expect(bool pred(TypeReference const&), const char* expected) const;
+
+    [[noreturn]] void expect(const char* expected) const;
+
+    void assignable(TypeReference const& expected) const;
+
+    [[noreturn]] void mismatch(TypeReference const& expected, const char *msg, size_t index) const;
+
+    void neverGonnaGiveYouUp(const char* msg) const;
 };
 
 struct ConstExpr : Expr {

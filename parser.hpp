@@ -22,7 +22,7 @@ struct Parser {
         if (p != q) [[likely]]
             return *p++;
         else [[unlikely]]
-            throw ParserException("unexpected termination of tokens", *--p);
+            throw ParserException("unexpected termination of tokens", rewind());
     }
     [[nodiscard]] Token peek() const noexcept {
         return *p;
@@ -40,7 +40,7 @@ struct Parser {
     IdExprHandle parseId(bool initialize);
     ExprHandle parseIf(), parseWhile(), parseFor(), parseFn(), parseLambda(), parseLet();
     TypeReference parseType();
-    std::pair<ExprHandle, TypeReference> parseFnBody();
+    ExprHandle parseFnBody(std::shared_ptr<FuncType> const& func);
 
     std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters();
 

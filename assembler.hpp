@@ -31,7 +31,7 @@ struct Assembler {
     virtual void beginFunction() = 0;
     virtual void endFunction() = 0;
 
-    void newFunction(std::vector<TypeReference> const& localTypes, Expr* clause) {
+    void newFunction(std::vector<TypeReference> const& localTypes, ExprHandle const& clause) {
         beginFunction();
         for (auto&& type : localTypes) {
             local(type);

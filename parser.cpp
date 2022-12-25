@@ -368,7 +368,7 @@ ExprHandle Parser::parseFor() {
         auto clause = parseClause();
         return context.make<ForExpr>(token, std::move(declarator), std::move(initializer), std::move(clause), popLoop());
     } else {
-        throw TypeException(unexpected(initializer->typeCache, "iterable type"), initializer->segment());
+        initializer->expect("iterable type");
     }
 }
 
@@ -388,7 +388,7 @@ std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parsePa
     return parameters;
 }
 
-std::pair<ExprHandle, TypeReference> Parser::parseFnBody() {
+ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F) {
     auto clause = parseExpression();
     TypeReference type0;
     if (returns.empty()) {
@@ -397,13 +397,20 @@ std::pair<ExprHandle, TypeReference> Parser::parseFnBody() {
         type0 = returns[0]->rhs->typeCache;
         for (size_t i = 1; i < returns.size(); ++i) {
             auto type = returns[i]->rhs->typeCache;
-            if (!type0->equals(type)) throw TypeException(mismatch(type, "returns", i, type0), returns[i]->segment());
+            if (!type0->equals(type)) {
+                returns[i]->mismatch(type0, "returns", i);
+            }
         }
         if (auto type = clause->typeCache; !isNever(type) && !type0->equals(type)) {
-            throw TypeException(mismatch(type, "returns and expression result", type0), clause->segment());
+            mismatch(type0, type, "returns and expression body", clause->segment());
         }
     }
-    return {std::move(clause), std::move(type0)};
+    if (F->R == nullptr) {
+        F->R = type0;
+    } else {
+        assignable(type0, F->R, clause->segment());
+    }
+    return clause;
 }
 
 ExprHandle Parser::parseFn() {
@@ -425,10 +432,8 @@ ExprHandle Parser::parseFn() {
         for (size_t i = 0; i < parameters.size(); ++i) {
             child.context.local(parameters[i]->token, F->P[i]);
         }
-        auto [clause, type0] = child.parseFnBody();
+        auto clause = child.parseFnBody(F);
         p = child.p;
-        if (F->R == nullptr) F->R = type0;
-        assignable(type0, F->R, range(token, clause->segment()));
         name = std::move(decl->name);
         auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F), std::move(clause));
         fn->locals = std::move(child.context.localTypes);
@@ -470,10 +475,8 @@ ExprHandle Parser::parseLambda() {
     for (size_t i = 0; i < parameters.size(); ++i) {
         child.context.local(parameters[i]->token, F->P[i]);
     }
-    auto [clause, type0] = child.parseFnBody();
+    auto clause = child.parseFnBody(F);
     p = child.p;
-    if (F->R == nullptr) F->R = type0;
-    assignable(type0, F->R, range(token, clause->segment()));
     auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F), std::move(clause));
     lambda->locals = std::move(child.context.localTypes);
     context.lambda(lambda.get());
@@ -510,7 +513,7 @@ TypeReference Parser::parseType() {
                     expectComma();
                     auto expr = parseExpression();
                     expect(TokenType::RPAREN, "missing ')' to match '('");
-                    expected(expr.get(), ScalarTypes::INT);
+                    expr->expect(ScalarTypes::INT);
                     auto index = expr->evalConst();
                     if (0 <= index && index < tuple->E.size()) {
                         return tuple->E[index];

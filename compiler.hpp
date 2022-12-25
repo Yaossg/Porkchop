@@ -21,7 +21,6 @@ struct Compiler {
     std::vector<std::string_view> lines;
     std::vector<Token> tokens;
     ExprHandle tree;
-    TypeReference type;
     std::vector<std::unique_ptr<Function>> functions;
 
     std::vector<TypeReference> locals;

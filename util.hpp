@@ -70,6 +70,13 @@ inline std::vector<std::string_view> splitLines(std::string_view view) {
     __builtin_unreachable();
 }
 
+template<typename... Args>
+inline std::string join(Args&&... args) {
+    std::string result;
+    ((result += args), ...);
+    return result;
+}
+
 inline const char* ordinalSuffix(size_t ordinal) {
     switch (ordinal % 100) {
         default:
@@ -89,9 +96,8 @@ inline const char* ordinalSuffix(size_t ordinal) {
 }
 
 inline std::string ordinal(size_t index) {
-    return "the " + std::to_string(index + 1) + ordinalSuffix(index + 1);
+    return join("the ", std::to_string(index + 1), ordinalSuffix(index + 1));
 }
-
 
 template<typename Derived, typename Base>
 inline std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& base) noexcept {
@@ -101,6 +107,5 @@ inline std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& bas
     }
     return nullptr;
 }
-
 
 }
