@@ -31,7 +31,6 @@ void predefined(LocalContext& context) {
 }
 
 void Compiler::parse() {
-    if (tokens.empty()) return;
     Parser parser(this, tokens);
     predefined(parser.context);
     auto F = std::make_shared<FuncType>(std::vector<TypeReference>{}, nullptr);

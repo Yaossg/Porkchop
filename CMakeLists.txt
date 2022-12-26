@@ -20,6 +20,7 @@ add_executable(Porkchop
         opcode.hpp assembler.hpp text-assembler.hpp
         util.hpp
         descriptor.hpp
+        common.hpp
 )
 
 add_executable(PorkchopRuntime
@@ -33,6 +34,7 @@ add_executable(PorkchopRuntime
         util.hpp
         type.hpp
         descriptor.hpp
+        runtime/common.hpp
 )
 
 add_executable(PorkchopInterpreter
@@ -55,6 +57,7 @@ add_executable(PorkchopInterpreter
         runtime/runtime.hpp runtime/runtime.cpp
         runtime/vm.hpp
 
-        runtime/interpreter.cpp
+        runtime/interpreter.cpp runtime/interpretation.hpp
+        runtime/common.hpp common.hpp
 )
 

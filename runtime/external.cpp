@@ -61,7 +61,7 @@ size_t s2f(VM* vm, const std::vector<size_t> &args) {
 size_t exit(VM* vm, const std::vector<size_t> &args) {
     size_t ret = args[0];
     fprintf(stdout, "\nProgram finished with exit code %zu\n", ret);
-    std::exit(ret);
+    std::exit(0);
 }
 
 size_t millis(VM* vm, const std::vector<size_t> &args) {
@@ -77,14 +77,16 @@ size_t getargs(VM* vm, const std::vector<size_t> &args) {
 }
 
 size_t output(VM* vm, const std::vector<size_t> &args) {
-    if (disableIO || !(out = fopen(as_string(args[0]).c_str(), "w")))
-        throw std::runtime_error("failed to reopen output stream");
+    if (disableIO || !(out = fopen(as_string(args[0]).c_str(), "w"))) {
+        throw Runtime::Exception("failed to reopen output stream");
+    }
     return 0;
 }
 
 size_t input(VM* vm, const std::vector<size_t> &args) {
-    if (disableIO || !(in = fopen(as_string(args[0]).c_str(), "r")))
-        throw std::runtime_error("failed to reopen input stream");
+    if (disableIO || !(in = fopen(as_string(args[0]).c_str(), "r"))) {
+        throw Runtime::Exception("failed to reopen input stream");
+    }
     return 0;
 }
 

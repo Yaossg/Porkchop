@@ -2,7 +2,7 @@
 
 namespace Porkchop {
 
-std::pair<size_t, bool> Func::call(Assembly *assembly, VM* vm) const try {
+size_t Func::call(Assembly *assembly, VM* vm) const try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
         auto& instructions = std::get<Instructions>(f);
@@ -213,7 +213,7 @@ std::pair<size_t, bool> Func::call(Assembly *assembly, VM* vm) const try {
         }
         __builtin_unreachable();
     } else {
-        return {std::get<ExternalFunctionR>(f)(vm, captures), !isValueBased(prototype->R)};
+        return std::get<ExternalFunctionR>(f)(vm, captures);
     }
 } catch (Runtime::Exception& e) {
     e.append("at func " + std::to_string(func));

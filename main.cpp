@@ -1,4 +1,4 @@
-#include "parser.hpp"
+#include "common.hpp"
 #include "function.hpp"
 #include "text-assembler.hpp"
 
@@ -9,7 +9,7 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
     if (argc < 2) {
         fprintf(stderr, "Fatal: Too few arguments, input file expected\n");
         fprintf(stderr, "Usage: Porkchop <input> [options...]\n");
-        exit(10);
+        std::exit(10);
     }
     args["this"] = argv[0];
     args["input"] = argv[1];
@@ -23,12 +23,12 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
             args["type"] = "text-asm";
         } else {
             fprintf(stderr, "Fatal: Unknown flag: %s\n", argv[i]);
-            exit(11);
+            std::exit(11);
         }
     }
     if (!args.contains("type")) {
         fprintf(stderr, "Fatal: Output type is not specified");
-        exit(12);
+        std::exit(12);
     }
     if (!args.contains("output")) {
         std::string suffix;
@@ -56,7 +56,7 @@ struct OutputFile {
             FILE* o = fopen(filename.c_str(), "w");
             if (o == nullptr) {
                 fprintf(stderr, "Failed to open output file: %s\n", filename.c_str());
-                exit(21);
+                std::exit(21);
             }
             file = o;
         }
@@ -82,39 +82,23 @@ struct OutputFile {
 int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     auto args = parseArgs(argc, argv);
-    Porkchop::Compiler c(Porkchop::readAll(args["input"]));
-    try {
-        c.tokenize();
-        if (c.tokens.empty()) {
-            fprintf(stderr, "Compilation Error: Empty input with nothing to compile");
-            return -2;
-        }
-        c.parse();
-
-        OutputFile of(args["output"]);
-        auto const& output_type = args["type"];
-        if (output_type == "mermaid") {
-            auto descriptor = c.descriptor();
-            of.puts(descriptor.c_str());
-        } else if (output_type == "text-asm") {
-            auto assembler = std::make_unique<Porkchop::TextAssembler>();
-            c.compile(assembler.get());
-            of.write(assembler.get());
-        }
-        fprintf(stdout, "Compilation is done successfully\n");
-        return EXIT_SUCCESS;
-    } catch (Porkchop::SegmentException& e) {
-        fprintf(stderr, "%s\n", e.message(c).c_str());
-        return -1;
+    Porkchop::Compiler compiler(Porkchop::readAll(args["input"]));
+    Porkchop::parse(compiler);
+    OutputFile of(args["output"]);
+    auto const& output_type = args["type"];
+    if (output_type == "mermaid") {
+        auto descriptor = compiler.descriptor();
+        of.puts(descriptor.c_str());
+    } else if (output_type == "text-asm") {
+        auto assembler = std::make_unique<Porkchop::TextAssembler>();
+        compiler.compile(assembler.get());
+        of.write(assembler.get());
     }
+    fprintf(stdout, "Compilation is done successfully\n");
 } catch (std::bad_alloc& e) {
-    fprintf(stderr, "Compilation Failed: Compiler run out of memory: %s\n", e.what());
-    return -50;
+    fprintf(stderr, "Out of memory\n");
+    std::exit(-10);
 } catch (std::exception& e) {
-    fprintf(stderr, "Compiler Internal Error: Unclassified std::exception occurred: %s\n", e.what());
-    return -1000;
-} catch (...) {
-    fprintf(stderr, "Compiler Internal Error: Unknown naked exception occurred\n");
-    return -1001;
+    fprintf(stderr, "Internal Runtime Error: %s\n", e.what());
+    std::exit(-100);
 }
-

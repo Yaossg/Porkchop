@@ -75,8 +75,8 @@ struct Runtime {
         return r1;
     }
 
-    std::pair<size_t, bool> return_() {
-        std::pair<size_t, bool> ret = {frame->stack.back(), frame->companion.back()};
+    size_t return_() {
+        size_t ret = frame->stack.back();
         frame->vm->frames.pop_back();
         return ret;
     }
@@ -86,11 +86,11 @@ struct Runtime {
     }
 
     void push(std::pair<size_t, bool> value) {
-        frame->push(value);
+        frame->push(value.first, value.second);
     }
 
     void push(size_t value, bool type) {
-        frame->push({value, type});
+        frame->push(value, type);
     }
 
     void push(bool value) {
@@ -162,9 +162,9 @@ struct Runtime {
     }
 
     void call() {
-        auto object = opop();
-        frame->vm->temporaries.push_back(object);
-        frame->push(dynamic_cast<Func *>(object)->call(assembly, frame->vm));
+        auto func = dynamic_cast<Func *>(opop());
+        frame->vm->temporaries.push_back(func);
+        push(func->call(assembly, frame->vm), !isValueBased(func->prototype->R));
         frame->vm->temporaries.pop_back();
     }
 

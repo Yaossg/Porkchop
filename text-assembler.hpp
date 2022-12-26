@@ -1,3 +1,5 @@
+#pragma once
+
 #include "assembler.hpp"
 
 namespace Porkchop {

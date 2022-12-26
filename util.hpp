@@ -24,7 +24,7 @@ inline std::string readAll(std::string const& filename) {
     FILE* input_file = fopen(filename.c_str(), "r");
     if (input_file == nullptr) {
         fprintf(stderr, "Failed to open input file: %s\n", filename.c_str());
-        exit(20);
+        std::exit(20);
     }
     std::string content;
     do {

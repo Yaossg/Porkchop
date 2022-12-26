@@ -56,9 +56,9 @@ struct VM {
             companion.pop_back();
         }
 
-        void push(std::pair<size_t, bool> value) {
-            stack.push_back(value.first);
-            companion.push_back(value.second);
+        void push(size_t value, bool type) {
+            stack.push_back(value);
+            companion.push_back(type);
         }
 
         void const_(size_t value) {
@@ -183,7 +183,7 @@ struct Func : Object {
 
     TypeReference getType() override { return prototype; }
 
-    std::pair<size_t, bool> call(Assembly *assembly, VM *vm) const;
+    size_t call(Assembly *assembly, VM *vm) const;
 };
 
 struct AnyScalar : Object {
