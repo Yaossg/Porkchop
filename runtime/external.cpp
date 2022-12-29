@@ -10,98 +10,98 @@ static bool disableIO = false;
 
 static List* _args;
 
-std::string& as_string(size_t value) {
-    return std::bit_cast<String*>(value)->value;
+std::string& as_string($union value) {
+    return dynamic_cast<String*>(value.$object)->value;
 }
 
 void init(VM* vm, int argc, const char *argv[]) {
-    _args = vm->newObject<List>(std::vector<size_t>{}, std::make_shared<ListType>(ScalarTypes::STRING));
+    _args = vm->newObject<ObjectList>(std::vector<$union>{}, std::make_shared<ListType>(ScalarTypes::STRING));
     for (size_t i = 2; i < argc; ++i) {
-        _args->elements.push_back(as_size(vm->newObject<String>(argv[i])));
+        _args->append(vm->newObject<String>(argv[i]));
     }
     if (getenv("PORKCHOP_IO_DISABLE")) {
         disableIO = true;
     }
 }
 
-size_t print(VM* vm, const std::vector<size_t> &args) {
+$union print(VM* vm, const std::vector<$union> &args) {
     fputs(as_string(args[0]).c_str(), out);
-    return 0;
+    return nullptr;
 }
 
-size_t println(VM* vm, const std::vector<size_t> &args) {
+$union println(VM* vm, const std::vector<$union> &args) {
     print(vm, args);
     fputc('\n', out);
     fflush(out);
-    return 0;
+    return nullptr;
 }
 
-size_t readLine(VM* vm, const std::vector<size_t> &args) {
+$union readLine(VM* vm, const std::vector<$union> &args) {
     char line[1024];
     fgets(line, sizeof line, in);
-    return as_size(vm->newObject<String>(line));
+    return vm->newObject<String>(line);
 }
 
-size_t i2s(VM* vm, const std::vector<size_t> &args) {
-    return as_size(vm->newObject<String>(std::to_string((int64_t) args[0])));
+$union i2s(VM* vm, const std::vector<$union> &args) {
+    return vm->newObject<String>(std::to_string(args[0].$int));
 }
 
-size_t f2s(VM* vm, const std::vector<size_t> &args) {
-    return as_size(vm->newObject<String>(std::to_string(as_double(args[0]))));
+$union f2s(VM* vm, const std::vector<$union> &args) {
+    return vm->newObject<String>(std::to_string(args[0].$int));
 }
 
-size_t s2i(VM* vm, const std::vector<size_t> &args) {
+$union s2i(VM* vm, const std::vector<$union> &args) {
     return std::stoll(as_string(args[0]));
 }
 
-size_t s2f(VM* vm, const std::vector<size_t> &args) {
-    return as_size(std::stod(as_string(args[0])));
+$union s2f(VM* vm, const std::vector<$union> &args) {
+    return std::stod(as_string(args[0]));
 }
 
-size_t exit(VM* vm, const std::vector<size_t> &args) {
-    size_t ret = args[0];
-    fprintf(stdout, "\nProgram finished with exit code %zu\n", ret);
+$union exit(VM* vm, const std::vector<$union> &args) {
+    auto ret = args[0];
+    fprintf(stdout, "\nProgram finished with exit code %uz\n", ret);
     std::exit(0);
 }
 
-size_t millis(VM* vm, const std::vector<size_t> &args) {
+$union millis(VM* vm, const std::vector<$union> &args) {
     return std::chrono::system_clock::now().time_since_epoch().count() / 1'000'000LL;
 }
 
-size_t nanos(VM* vm, const std::vector<size_t> &args) {
+$union nanos(VM* vm, const std::vector<$union> &args) {
     return std::chrono::system_clock::now().time_since_epoch().count();
 }
 
-size_t getargs(VM* vm, const std::vector<size_t> &args) {
-    return as_size(_args);
+$union getargs(VM* vm, const std::vector<$union> &args) {
+    return _args;
 }
 
-size_t output(VM* vm, const std::vector<size_t> &args) {
+$union output(VM* vm, const std::vector<$union> &args) {
     if (disableIO || !(out = fopen(as_string(args[0]).c_str(), "w"))) {
         throw Runtime::Exception("failed to reopen output stream");
     }
-    return 0;
+    return nullptr;
 }
 
-size_t input(VM* vm, const std::vector<size_t> &args) {
+$union input(VM* vm, const std::vector<$union> &args) {
     if (disableIO || !(in = fopen(as_string(args[0]).c_str(), "r"))) {
         throw Runtime::Exception("failed to reopen input stream");
     }
-    return 0;
+    return nullptr;
 }
 
-size_t flush(VM* vm, const std::vector<size_t> &args) {
+$union flush(VM* vm, const std::vector<$union> &args) {
     fflush(out);
-    return 0;
+    return nullptr;
 }
 
-size_t eof(VM* vm, const std::vector<size_t> &args) {
-    return feof(in);
+$union eof(VM* vm, const std::vector<$union> &args) {
+    return (bool)feof(in);
 }
 
-size_t typename_(VM* vm, const std::vector<size_t> &args) {
+$union typename_(VM* vm, const std::vector<$union> &args) {
     auto name = std::bit_cast<Object*>(args[0])->getType()->toString();
-    return as_size(vm->newObject<String>(name));
+    return vm->newObject<String>(name);
 }
 
 }

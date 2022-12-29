@@ -10,27 +10,27 @@ namespace Porkchop {
 
 struct VM;
 
-using ExternalFunctionR = std::function<std::size_t(VM*, std::vector<size_t> const &)>;
+using ExternalFunctionR = std::function<$union(VM*, std::vector<$union> const &)>;
 
 namespace Externals {
 
 void init(VM* vm, int argc, const char* argv[]);
-size_t print(VM* vm, std::vector<size_t> const &args);
-size_t println(VM* vm, std::vector<size_t> const &args);
-size_t readLine(VM* vm, std::vector<size_t> const &args);
-size_t i2s(VM* vm, std::vector<size_t> const &args);
-size_t f2s(VM* vm, std::vector<size_t> const &args);
-size_t s2i(VM* vm, std::vector<size_t> const &args);
-size_t s2f(VM* vm, std::vector<size_t> const &args);
-size_t exit(VM* vm, std::vector<size_t> const &args);
-size_t millis(VM* vm, std::vector<size_t> const &args);
-size_t nanos(VM* vm, std::vector<size_t> const &args);
-size_t getargs(VM* vm, std::vector<size_t> const &args);
-size_t output(VM* vm, std::vector<size_t> const &args);
-size_t input(VM* vm, std::vector<size_t> const &args);
-size_t flush(VM* vm, std::vector<size_t> const &args);
-size_t eof(VM* vm, std::vector<size_t> const &args);
-size_t typename_(VM* vm, std::vector<size_t> const &args);
+$union print(VM* vm, std::vector<$union> const &args);
+$union println(VM* vm, std::vector<$union> const &args);
+$union readLine(VM* vm, std::vector<$union> const &args);
+$union i2s(VM* vm, std::vector<$union> const &args);
+$union f2s(VM* vm, std::vector<$union> const &args);
+$union s2i(VM* vm, std::vector<$union> const &args);
+$union s2f(VM* vm, std::vector<$union> const &args);
+$union exit(VM* vm, std::vector<$union> const &args);
+$union millis(VM* vm, std::vector<$union> const &args);
+$union nanos(VM* vm, std::vector<$union> const &args);
+$union getargs(VM* vm, std::vector<$union> const &args);
+$union output(VM* vm, std::vector<$union> const &args);
+$union input(VM* vm, std::vector<$union> const &args);
+$union flush(VM* vm, std::vector<$union> const &args);
+$union eof(VM* vm, std::vector<$union> const &args);
+$union typename_(VM* vm, std::vector<$union> const &args);
 
 }
 

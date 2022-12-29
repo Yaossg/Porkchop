@@ -410,4 +410,26 @@ inline TypeReference deserialize(const char*& str) {
     throw std::runtime_error(msg);
 }
 
+struct Object;
+
+union $union {
+    size_t $size;
+    nullptr_t $none;
+    bool $bool;
+    unsigned char $byte;
+    char32_t $char;
+    int64_t $int;
+    double $float;
+    Object* $object;
+    $union(): $union(nullptr) {}
+    $union(size_t $size): $size($size) {}
+    $union(nullptr_t $none): $none($none) {}
+    $union(bool $bool): $bool($bool) {}
+    $union(unsigned char $byte): $byte($byte) {}
+    $union(char32_t $char): $char($char) {}
+    $union(int64_t $int): $int($int) {}
+    $union(double $float): $float($float) {}
+    $union(Object* $object): $object($object) {}
+};
+
 }

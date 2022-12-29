@@ -43,7 +43,7 @@ struct Expr : Descriptor {
 
     [[nodiscard]] virtual TypeReference evalType() const = 0;
 
-    [[nodiscard]] virtual size_t evalConst() const;
+    [[nodiscard]] virtual $union evalConst() const;
 
     virtual void walkBytecode(Assembler* assembler) const = 0;
 
@@ -79,7 +79,7 @@ struct BoolConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -91,7 +91,7 @@ struct CharConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -114,7 +114,7 @@ struct IntConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -126,7 +126,7 @@ struct FloatConstExpr : ConstExpr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -157,7 +157,7 @@ struct IdExpr : AssignableExpr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 
@@ -181,7 +181,7 @@ struct PrefixExpr : Expr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -244,7 +244,7 @@ struct InfixExpr : InfixExprBase {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -255,7 +255,7 @@ struct CompareExpr : InfixExprBase {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -266,7 +266,7 @@ struct LogicalExpr : InfixExprBase {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -374,7 +374,7 @@ struct AsExpr : Expr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -396,7 +396,7 @@ struct IsExpr : Expr {
         return range(lhs->segment(), token2);
     }
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -417,7 +417,7 @@ struct DefaultExpr : Expr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -541,7 +541,7 @@ struct ClauseExpr : Expr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };
@@ -564,7 +564,7 @@ struct IfElseExpr : Expr {
 
     [[nodiscard]] TypeReference evalType() const override;
 
-    [[nodiscard]] size_t evalConst() const override;
+    [[nodiscard]] $union evalConst() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 

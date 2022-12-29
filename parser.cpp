@@ -514,7 +514,7 @@ TypeReference Parser::parseType() {
                     auto expr = parseExpression();
                     expect(TokenType::RPAREN, "missing ')' to match '('");
                     expr->expect(ScalarTypes::INT);
-                    auto index = expr->evalConst();
+                    auto index = expr->evalConst().$int;
                     if (0 <= index && index < tuple->E.size()) {
                         return tuple->E[index];
                     } else {

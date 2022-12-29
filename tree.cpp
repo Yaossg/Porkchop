@@ -7,37 +7,7 @@
 
 namespace Porkchop {
 
-template<typename Fn>
-size_t visitBitwise(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
-    auto value1 = expr1->evalConst();
-    auto value2 = expr2->evalConst();
-    return isInt(expr1->typeCache) ? fn(int64_t(value1), int64_t(value2)) : (size_t) fn((unsigned char) value1, (unsigned char) value2);
-}
-
-template<bool u, typename Fn>
-size_t visitShift(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
-    auto value1 = expr1->evalConst();
-    auto value2 = expr2->evalConst();
-    if (int64_t(value2) < 0) throw ConstException("attempt to shift a negative constant", expr2->segment());
-    if (isInt(expr1->typeCache)) {
-        if constexpr (u) {
-            return fn(size_t(value1), int64_t(value2));
-        } else {
-            return fn(int64_t(value1), int64_t(value2));
-        }
-    } else {
-        return (size_t) fn((unsigned char) value1, int64_t(value2));
-    }
-}
-
-template<typename Fn>
-size_t visitArithmetic(Fn&& fn, Expr* expr1, Expr* expr2, Compiler& compiler) {
-    auto value1 = expr1->evalConst();
-    auto value2 = expr2->evalConst();
-    return isInt(expr1->typeCache) ? fn(int64_t(value1), int64_t(value2)) : as_size(fn(as_double(value1), as_double(value2)));
-}
-
-size_t Expr::evalConst() const {
+$union Expr::evalConst() const {
     throw ConstException("cannot evaluate at compile-time", segment());
 }
 
@@ -84,7 +54,7 @@ TypeReference BoolConstExpr::evalType() const {
     return ScalarTypes::BOOL;
 }
 
-size_t BoolConstExpr::evalConst() const {
+$union BoolConstExpr::evalConst() const {
     return parsed;
 }
 
@@ -105,7 +75,7 @@ void CharConstExpr::walkBytecode(Assembler* assembler) const {
     assembler->const_((int64_t)parsed);
 }
 
-size_t CharConstExpr::evalConst() const {
+$union CharConstExpr::evalConst() const {
     return parsed;
 }
 
@@ -146,7 +116,7 @@ TypeReference IntConstExpr::evalType() const {
     return ScalarTypes::INT;
 }
 
-size_t IntConstExpr::evalConst() const {
+$union IntConstExpr::evalConst() const {
     return parsed;
 }
 
@@ -167,8 +137,8 @@ void FloatConstExpr::walkBytecode(Assembler* assembler) const {
     assembler->const_(parsed);
 }
 
-size_t FloatConstExpr::evalConst() const {
-    return as_size(parsed);
+$union FloatConstExpr::evalConst() const {
+    return parsed;
 }
 
 TypeReference IdExpr::evalType() const {
@@ -203,9 +173,9 @@ void IdExpr::walkStoreBytecode(Assembler* assembler) const {
     }
 }
 
-size_t IdExpr::evalConst() const {
+$union IdExpr::evalConst() const {
     if (compiler.of(token) == "_")
-        return 0;
+        return nullptr;
     return Expr::evalConst();
 }
 
@@ -233,18 +203,26 @@ TypeReference PrefixExpr::evalType() const {
     return rhs->typeCache;
 }
 
-size_t PrefixExpr::evalConst() const {
+$union PrefixExpr::evalConst() const {
     auto type = rhs->typeCache;
     auto value = rhs->evalConst();
     switch (token.type) {
         case TokenType::OP_ADD:
             return value;
         case TokenType::OP_SUB:
-            return isInt(type) ? -value : as_size(-as_double(value));
+            if (isInt(type)) {
+                return -value.$int;
+            } else {
+                return -value.$float;
+            }
         case TokenType::OP_NOT:
-            return !value;
+            return !value.$bool;
         case TokenType::OP_INV:
-            return isInt(type) ? ~value : (unsigned char)~value;
+            if (isInt(type)) {
+                return ~value.$int;
+            } else {
+                return (unsigned char)~value.$byte;
+            }
         default:
             unreachable();
     }
@@ -340,43 +318,65 @@ TypeReference InfixExpr::evalType() const {
     }
 }
 
-int64_t divisor(Expr* expr, Compiler& compiler) {
-    auto value = expr->evalConst();
-    if (value == 0) throw ConstException("attempt to divide zero", expr->segment());
-    return int64_t(value);
-}
-
-size_t InfixExpr::evalConst() const {
+$union InfixExpr::evalConst() const {
     switch (token.type) {
         case TokenType::OP_OR:
-            return visitBitwise([](auto u, auto v){return u | v;}, lhs.get(), rhs.get(), compiler);
+            return lhs->evalConst().$size | rhs->evalConst().$size;
         case TokenType::OP_XOR:
-            return visitBitwise([](auto u, auto v){return u ^ v;}, lhs.get(), rhs.get(), compiler);
+            return lhs->evalConst().$size ^ rhs->evalConst().$size;
         case TokenType::OP_AND:
-            return visitBitwise([](auto u, auto v){return u & v;}, lhs.get(), rhs.get(), compiler);
+            return lhs->evalConst().$size & rhs->evalConst().$size;
         case TokenType::OP_SHL:
-            return visitShift<false>([](auto u, int64_t v){return u << v;}, lhs.get(), rhs.get(), compiler);
+            if (isInt(lhs->typeCache)) {
+                return lhs->evalConst().$int << rhs->evalConst().$int;
+            } else {
+                return (unsigned char)(lhs->evalConst().$byte << rhs->evalConst().$int);
+            }
         case TokenType::OP_SHR:
-            return visitShift<false>([](auto u, int64_t v){return u >> v;}, lhs.get(), rhs.get(), compiler);
+            if (isInt(lhs->typeCache)) {
+                return lhs->evalConst().$int >> rhs->evalConst().$int;
+            } else {
+                return (unsigned char)(lhs->evalConst().$byte >> rhs->evalConst().$int);
+            }
         case TokenType::OP_USHR:
-            return visitShift<true>([](auto u, int64_t v){return u >> v;}, lhs.get(), rhs.get(), compiler);
+            if (isInt(lhs->typeCache)) {
+                return lhs->evalConst().$size >> rhs->evalConst().$int;
+            } else {
+                return (unsigned char)(lhs->evalConst().$byte >> rhs->evalConst().$int);
+            }
         case TokenType::OP_ADD:
-            return visitArithmetic([](auto u, auto v){return u + v;}, lhs.get(), rhs.get(), compiler);
+            if (isInt(lhs->typeCache)) {
+                return lhs->evalConst().$int + rhs->evalConst().$int;
+            } else {
+                return lhs->evalConst().$float + rhs->evalConst().$float;
+            }
         case TokenType::OP_SUB:
-            return visitArithmetic([](auto u, auto v){return u - v;}, lhs.get(), rhs.get(), compiler);
+            if (isInt(lhs->typeCache)) {
+                return lhs->evalConst().$int - rhs->evalConst().$int;
+            } else {
+                return lhs->evalConst().$float - rhs->evalConst().$float;
+            }
         case TokenType::OP_MUL:
-            return visitArithmetic([](auto u, auto v){return u * v;}, lhs.get(), rhs.get(), compiler);
+            if (isInt(lhs->typeCache)) {
+                return lhs->evalConst().$int * rhs->evalConst().$int;
+            } else {
+                return lhs->evalConst().$float * rhs->evalConst().$float;
+            }
         case TokenType::OP_DIV:
             if (isInt(lhs->typeCache)) {
-                return int64_t(lhs->evalConst()) / divisor(rhs.get(), compiler);
+                int64_t divisor = rhs->evalConst().$int;
+                if (divisor == 0) throw ConstException("divided by zero", segment());
+                return lhs->evalConst().$int / divisor;
             } else {
-                return as_size(as_double(lhs->evalConst()) / as_double(rhs->evalConst()));
+                return lhs->evalConst().$float / rhs->evalConst().$float;
             }
         case TokenType::OP_REM:
             if (isInt(lhs->typeCache)) {
-                return int64_t(lhs->evalConst()) % divisor(rhs.get(), compiler);
+                int64_t divisor = rhs->evalConst().$int;
+                if (divisor == 0) throw ConstException("divided by zero", segment());
+                return lhs->evalConst().$int % divisor;
             } else {
-                return as_size(std::fmod(as_double(lhs->evalConst()), as_double(rhs->evalConst())));
+                return std::fmod(lhs->evalConst().$float, rhs->evalConst().$float);
             }
         default:
             unreachable();
@@ -451,17 +451,17 @@ TypeReference CompareExpr::evalType() const {
     return ScalarTypes::BOOL;
 }
 
-size_t CompareExpr::evalConst() const {
+$union CompareExpr::evalConst() const {
     auto type = lhs->typeCache;
     if (!isValueBased(type)) throw ConstException("constant comparison between unsupported types", segment());
     if (isNone(type)) return token.type == TokenType::OP_EQ;
     auto value1 = lhs->evalConst();
     auto value2 = rhs->evalConst();
-    std::partial_ordering cmp = value1 <=> value2;
+    std::partial_ordering cmp = value1.$size <=> value2.$size;
     if (isInt(type)) {
-        cmp = int64_t(value1) <=> int64_t(value2);
+        cmp = value1.$int <=> value2.$int;
     } else if (isFloat(type)) {
-        cmp = as_double(value1) <=> as_double(value2);
+        cmp = value1.$float <=> value2.$float;
     }
     switch (token.type) {
         case TokenType::OP_EQ:
@@ -543,11 +543,11 @@ TypeReference LogicalExpr::evalType() const {
     return ScalarTypes::BOOL;
 }
 
-size_t LogicalExpr::evalConst() const {
+$union LogicalExpr::evalConst() const {
     if (token.type == TokenType::OP_LAND) {
-        return lhs->evalConst() && rhs->evalConst();
+        return lhs->evalConst().$bool && rhs->evalConst().$bool;
     } else {
-        return lhs->evalConst() || rhs->evalConst();
+        return lhs->evalConst().$bool || rhs->evalConst().$bool;
     }
 }
 
@@ -649,7 +649,7 @@ TypeReference AccessExpr::evalType() const {
     TypeReference type1 = lhs->typeCache, type2 = rhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         rhs->expect(ScalarTypes::INT);
-        int64_t index = rhs->evalConst();
+        int64_t index = rhs->evalConst().$int;
         if (0 <= index && index < tuple->E.size()) {
             return tuple->E[index];
         } else {
@@ -669,7 +669,7 @@ void AccessExpr::walkBytecode(Assembler* assembler) const {
     lhs->walkBytecode(assembler);
     TypeReference type1 = lhs->typeCache;
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
-        assembler->indexed(Opcode::TLOAD, rhs->evalConst());
+        assembler->indexed(Opcode::TLOAD, rhs->evalConst().$int);
     } else if (auto list = dynamic_cast<ListType*>(type1.get())) {
         rhs->walkBytecode(assembler);
         assembler->opcode(Opcode::LLOAD);
@@ -751,22 +751,22 @@ TypeReference AsExpr::evalType() const {
     throw TypeException(join("cannot cast the expression from '", type->toString(), "' to '", T->toString(), "'"), segment());
 }
 
-size_t AsExpr::evalConst() const {
+$union AsExpr::evalConst() const {
     if (!isValueBased(T)) throw ConstException("unsupported type for constant evaluation", segment());
     auto value = lhs->evalConst();
     if (isInt(lhs->typeCache)) {
         if (isByte(T)) {
-            return (unsigned char)value;
+            return value.$byte;
         } else if (isChar(T)) {
-            if (isInvalidChar(value))
+            if (isInvalidChar(value.$int))
                 throw ConstException("int is invalid to cast to char", segment());
-            return (char32_t)value;
+            return value.$char;
         } else if (isFloat(T)) {
-            return as_size((double)value);
+            return (double)value.$int;
         }
     } else if (isInt(T)) {
         if (isFloat(lhs->typeCache)) {
-            return (int64_t)as_double(value);
+            return (int64_t)value.$float;
         }
     }
     return value;
@@ -803,7 +803,7 @@ TypeReference IsExpr::evalType() const {
     return ScalarTypes::BOOL;
 }
 
-size_t IsExpr::evalConst() const {
+$union IsExpr::evalConst() const {
     if (isAny(lhs->typeCache)) throw ConstException("dynamic typing cannot be checked at compile-time", lhs->segment());
     return lhs->typeCache->equals(T);
 }
@@ -813,7 +813,7 @@ void IsExpr::walkBytecode(Assembler* assembler) const {
         lhs->walkBytecode(assembler);
         assembler->typed(Opcode::IS, T);
     } else {
-        assembler->const_((int64_t)evalConst());
+        assembler->const_(evalConst().$int);
     }
 }
 
@@ -825,9 +825,9 @@ TypeReference DefaultExpr::evalType() const {
     return T;
 }
 
-size_t DefaultExpr::evalConst() const {
+$union DefaultExpr::evalConst() const {
     if (!isValueBased(T)) throw ConstException("unsupported type for constant evaluation", segment());
-    return 0;
+    return nullptr;
 }
 
 void DefaultExpr::walkBytecode(Assembler* assembler) const {
@@ -951,9 +951,9 @@ TypeReference ClauseExpr::evalType() const {
     return lines.empty() ? ScalarTypes::NONE : lines.back()->typeCache;
 }
 
-size_t ClauseExpr::evalConst() const {
-    if (lines.empty()) return 0;
-    size_t value;
+$union ClauseExpr::evalConst() const {
+    if (lines.empty()) return nullptr;
+    $union value = nullptr;
     for (auto&& expr : lines) {
         value = expr->evalConst();
     }
@@ -976,7 +976,7 @@ TypeReference IfElseExpr::evalType() const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     cond->expect(ScalarTypes::BOOL);
     try {
-        if (cond->evalConst())
+        if (cond->evalConst().$bool)
             return lhs->typeCache;
         else
             return rhs->typeCache;
@@ -985,8 +985,8 @@ TypeReference IfElseExpr::evalType() const {
     Porkchop::mismatch(lhs->typeCache, rhs->typeCache, "both clause", segment());
 }
 
-size_t IfElseExpr::evalConst() const {
-    return cond->evalConst() ? lhs->evalConst() : rhs->evalConst();
+$union IfElseExpr::evalConst() const {
+    return cond->evalConst().$bool ? lhs->evalConst() : rhs->evalConst();
 }
 
 void IfElseExpr::walkBytecode(Assembler* assembler) const {
@@ -1019,7 +1019,7 @@ TypeReference WhileExpr::evalType() const {
     cond->expect(ScalarTypes::BOOL);
     if (isNever(clause->typeCache)) return ScalarTypes::NEVER;
     try {
-        if (cond->evalConst() && hook->breaks.empty())
+        if (cond->evalConst().$bool && hook->breaks.empty())
             return ScalarTypes::NEVER;
     } catch (ConstException&) {}
     return ScalarTypes::NONE;

@@ -6,43 +6,62 @@
 #include <unordered_map>
 
 #include "../type.hpp"
+#include "../util.hpp"
+
 
 namespace Porkchop {
+
+struct VM;
+struct Assembly;
 
 struct Object {
     friend struct VM;
 
     void mark() {
-        if (marked) return;
+        if (this == nullptr || marked) return;
         marked = true;
         walkMark();
     }
 
+    virtual ~Object() = default;
+
     virtual TypeReference getType() = 0;
 
-    virtual ~Object() = default;
+    virtual std::string toString() {
+        return join("(", getType()->toString(), ")@", std::to_string(hashCode()));
+    }
+
+    virtual bool equals(Object* other) {
+        return this == other;
+    }
+
+    virtual size_t hashCode() {
+        return std::hash<void*>()(this);
+    }
 
 protected:
     bool marked = false;
     Object* nextObject = nullptr;
     VM* vm = nullptr;
-    virtual void walkMark() = 0;
+    virtual void walkMark() {}
 };
 
 struct VM {
     struct Frame {
         VM* vm;
-        std::vector<size_t> stack;
+        std::vector<$union> stack;
         std::vector<bool> companion;
 
         explicit Frame(VM* vm): vm(vm) {}
 
-        void init(std::vector<size_t> const& captures, std::vector<TypeReference> const& P) {
+        void init(std::vector<$union> const& captures) {
             stack = captures;
-            companion.clear();
-            companion.reserve(P.size());
-            for (auto&& p : P) {
-                companion.push_back(!isValueBased(p));
+        }
+
+        void local(TypeReference const& type) {
+            companion.push_back(!isValueBased(type));
+            if (companion.size() > stack.size()) {
+                stack.emplace_back(nullptr);
             }
         }
 
@@ -56,33 +75,33 @@ struct VM {
             companion.pop_back();
         }
 
-        void push(size_t value, bool type) {
-            stack.push_back(value);
+        void push($union value, bool type) {
+            stack.emplace_back(value);
             companion.push_back(type);
         }
 
-        void const_(size_t value) {
-            stack.push_back(value);
+        void const_($union value) {
+            stack.emplace_back(value);
             companion.push_back(false);
         }
 
         void push(bool value) {
-            stack.push_back(value);
+            stack.emplace_back(value);
             companion.push_back(false);
         }
 
         void push(int64_t value) {
-            stack.push_back(value);
+            stack.emplace_back(value);
             companion.push_back(false);
         }
 
         void push(double value) {
-            stack.push_back(as_size(value));
+            stack.emplace_back(value);
             companion.push_back(false);
         }
 
         void push(Object* object) {
-            stack.push_back(as_size(object));
+            stack.emplace_back(object);
             companion.push_back(true);
         }
 
@@ -115,8 +134,8 @@ struct VM {
     void markAll() {
         for (auto&& frame : frames) {
             for (size_t i = 0; i < frame->stack.size(); ++i) {
-                if (frame->companion[i])
-                    std::bit_cast<Object*>(frame->stack[i])->mark();
+                if (frame->companion[i] && frame->stack[i].$object)
+                    frame->stack[i].$object->mark();
             }
         }
         for (auto&& temporary : temporaries) {
@@ -156,21 +175,22 @@ private:
     int maxObjects = 1024;
 };
 
-
 struct Func : Object {
     size_t func;
     std::shared_ptr<FuncType> prototype;
-    std::vector<size_t> captures;
+    std::vector<$union> captures;
 
     Func(size_t func, std::shared_ptr<FuncType> prototype): func(func), prototype(std::move(prototype)) {}
-    Func(const Func&) = default;
 
-    Func* copy() {
-        return vm->newObject<Func>(*this);
-    }
-
-    void bind(size_t capture) {
-        captures.push_back(capture);
+    Func* bind(std::vector<$union> const& params) {
+        auto P = prototype->P;
+        P.erase(P.begin(), P.begin() + params.size());
+        auto copy = vm->newObject<Func>(func, std::make_shared<FuncType>(std::move(P), prototype->R));
+        copy->captures = captures;
+        for (auto param : params) {
+            copy->captures.push_back(param);
+        }
+        return copy;
     }
 
     void walkMark() override {
@@ -183,18 +203,63 @@ struct Func : Object {
 
     TypeReference getType() override { return prototype; }
 
-    size_t call(Assembly *assembly, VM *vm) const;
+    $union call(Assembly *assembly, VM *vm) const;
 };
 
+enum class IdentityKind {
+    SELF, FLOAT, OBJECT
+};
+
+struct Hasher {
+    IdentityKind kind;
+    size_t operator()($union u) const {
+        switch (kind) {
+            case IdentityKind::SELF:
+                return u.$size;
+            case IdentityKind::FLOAT:
+                return std::hash<double>()(u.$float);
+            case IdentityKind::OBJECT:
+                return u.$object->hashCode();
+        }
+        unreachable();
+    }
+};
+
+struct Equator {
+    IdentityKind kind;
+    bool operator()($union u, $union v) const {
+        switch (kind) {
+            case IdentityKind::SELF:
+                return u.$size == v.$size;
+            case IdentityKind::FLOAT:
+                return u.$float == v.$float;
+            case IdentityKind::OBJECT:
+                return u.$object->equals(v.$object);
+        }
+        unreachable();
+    }
+};
+
+inline IdentityKind getIdentityKind(TypeReference const& type) {
+    if (isFloat(type)) return IdentityKind::FLOAT;
+    if (isValueBased(type)) return IdentityKind::SELF;
+    return IdentityKind::OBJECT;
+}
+
+
 struct AnyScalar : Object {
-    size_t value;
+    $union value;
     ScalarTypeKind type;
 
-    AnyScalar(size_t value, ScalarTypeKind type): value(value), type(type) {}
-
-    void walkMark() override {}
+    AnyScalar($union value, ScalarTypeKind type): value(value), type(type) {}
 
     TypeReference getType() override { return std::make_shared<ScalarType>(type); }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
 };
 
 struct String : Object {
@@ -202,39 +267,51 @@ struct String : Object {
 
     explicit String(std::string value): value(std::move(value)) {}
 
-    void walkMark() override {}
-
     TypeReference getType() override { return ScalarTypes::STRING; }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
 };
 
 struct Tuple : Object {
-    virtual std::pair<size_t, bool> load(size_t index) = 0;
+    virtual std::pair<$union, bool> load(size_t index) = 0;
 };
 
 struct Pair : Tuple {
-    size_t first, second;
+    $union first, second;
     TypeReference T, U;
-    bool t, u;
-    Pair(size_t first, size_t second, TypeReference T, TypeReference U)
-        : first(first), second(second), T(std::move(T)), U(std::move(U)), t(isValueBased(this->T)), u(isValueBased(this->U)) {}
+    IdentityKind t, u;
+    Pair($union first, $union second, TypeReference T, TypeReference U)
+        : first(first), second(second),
+        T(std::move(T)), U(std::move(U)),
+        t(getIdentityKind(this->T)), u(getIdentityKind(this->U)) {}
 
     void walkMark() override {
-        if (t) std::bit_cast<Object*>(first)->mark();
-        if (u) std::bit_cast<Object*>(second)->mark();
+        if (t == IdentityKind::OBJECT) first.$object->mark();
+        if (u == IdentityKind::OBJECT) second.$object->mark();
     }
 
-    std::pair<size_t, bool> load(size_t index) override {
-        return index == 0 ? std::pair{first, t} : std::pair{second, u};
+    std::pair<$union, bool> load(size_t index) override {
+        return index == 0 ? std::pair{first, t == IdentityKind::OBJECT} : std::pair{second, u == IdentityKind::OBJECT};
     }
 
     TypeReference getType() override { return std::make_shared<TupleType>(std::vector{T, U}); }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
 };
 
 struct More : Tuple {
-    std::vector<size_t> elements;
+    std::vector<$union> elements;
     std::shared_ptr<TupleType> prototype;
 
-    More(std::vector<size_t> elements, std::shared_ptr<TupleType> prototype)
+    More(std::vector<$union> elements, std::shared_ptr<TupleType> prototype)
             : elements(std::move(elements)), prototype(std::move(prototype)) {}
 
     void walkMark() override {
@@ -244,49 +321,75 @@ struct More : Tuple {
         }
     }
 
-    std::pair<size_t, bool> load(size_t index) override {
+    std::pair<$union, bool> load(size_t index) override {
         return {elements[index], !isValueBased(prototype->E[index])};
     }
 
     TypeReference getType() override { return prototype; }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
 };
 
 struct Iterator : Object {
     TypeReference E;
 
     virtual bool peek() = 0;
-    virtual size_t next() = 0;
+    virtual $union next() = 0;
 
     TypeReference getType() override { __builtin_unreachable(); }
 };
-
 
 struct Iterable : Object {
     virtual Iterator* iterator() = 0;
 };
 
 struct List : Iterable {
-    std::vector<size_t> elements;
+    virtual $union load(size_t index) = 0;
+    virtual void store(size_t index, $union element) = 0;
+    virtual void append($union element) = 0;
+    virtual size_t size() = 0;
+};
+
+struct ObjectList : List {
+    std::vector<$union> elements;
     std::shared_ptr<ListType> prototype;
 
-    List(std::vector<size_t> elements, std::shared_ptr<ListType> prototype)
+    ObjectList(std::vector<$union> elements, std::shared_ptr<ListType> prototype)
         : elements(std::move(elements)), prototype(std::move(prototype)) {}
 
     void walkMark() override {
-        if (isValueBased(prototype->E)) return;
         for (auto&& element : elements) {
-            std::bit_cast<Object*>(element)->mark();
+            element.$object->mark();
         }
     }
 
     TypeReference getType() override { return prototype; }
 
+    $union load(size_t index) override {
+        return elements[index];
+    }
 
-    struct ListIterator : Iterator {
-        List* list;
-        std::vector<size_t>::iterator first, last;
+    void store(size_t index, $union element) override {
+        elements[index] = element;
+    }
 
-        explicit ListIterator(List* list): list(list), first(list->elements.begin()), last(list->elements.end()) {
+    void append($union element) override {
+        elements.push_back(element);
+    }
+
+    size_t size() override {
+        return elements.size();
+    }
+
+    struct ObjectListIterator : Iterator {
+        ObjectList* list;
+        std::vector<$union>::iterator first, last;
+
+        explicit ObjectListIterator(ObjectList* list): list(list), first(list->elements.begin()), last(list->elements.end()) {
             E = list->prototype->E;
         }
 
@@ -298,22 +401,248 @@ struct List : Iterable {
             return first != last;
         }
 
-        size_t next() override {
+        $union next() override {
             return *first++;
         }
-
     };
 
     Iterator * iterator() override {
-        return vm->newObject<ListIterator>(this);
+        return vm->newObject<ObjectListIterator>(this);
     }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
+};
+
+struct NoneList : List {
+    size_t count;
+
+    explicit NoneList(size_t count): count(count) {}
+
+    TypeReference getType() override { return std::make_shared<ListType>(ScalarTypes::NONE); }
+
+    void store(size_t index, $union element) override {}
+
+    $union load(size_t index) override {
+        return nullptr;
+    }
+
+    void append($union element) override {
+        ++count;
+    }
+
+    size_t size() override {
+        return count;
+    }
+
+    struct NoneListIterator : Iterator {
+        NoneList* list;
+        size_t countdown;
+
+        explicit NoneListIterator(NoneList* list): list(list), countdown(list->count) {
+            E = ScalarTypes::NONE;
+        }
+
+        void walkMark() override {
+            list->mark();
+        }
+
+        bool peek() override {
+            return countdown;
+        }
+
+        $union next() override {
+            --countdown;
+            return nullptr;
+        }
+    };
+
+    Iterator * iterator() override {
+        return vm->newObject<NoneListIterator>(this);
+    }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
+};
+
+struct BoolList : List {
+    std::vector<bool> elements;
+
+    explicit BoolList(std::vector<bool> elements): elements(std::move(elements)) {}
+
+    TypeReference getType() override { return std::make_shared<ListType>(ScalarTypes::BOOL); }
+
+    void store(size_t index, $union element) override {
+        elements[index] = element.$bool;
+    }
+
+    $union load(size_t index) override {
+        return (bool) elements[index];
+    }
+
+    void append($union element) override {
+        elements.push_back(element.$bool);
+    }
+
+    size_t size() override {
+        return elements.size();
+    }
+
+    struct BoolListIterator : Iterator {
+        BoolList* list;
+        std::vector<bool>::iterator first, last;
+
+        explicit BoolListIterator(BoolList* list): list(list), first(list->elements.begin()), last(list->elements.end()) {
+            E = ScalarTypes::BOOL;
+        }
+
+        void walkMark() override {
+            list->mark();
+        }
+
+        bool peek() override {
+            return first != last;
+        }
+
+        $union next() override {
+            return (bool) *first++;
+        }
+    };
+
+    Iterator * iterator() override {
+        return vm->newObject<BoolListIterator>(this);
+    }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
+};
+
+struct ByteList : List {
+    std::vector<unsigned char> elements;
+
+    explicit ByteList(std::vector<unsigned char> elements): elements(std::move(elements)) {}
+
+    TypeReference getType() override { return std::make_shared<ListType>(ScalarTypes::BYTE); }
+
+    void store(size_t index, $union element) override {
+        elements[index] = element.$byte;
+    }
+
+    $union load(size_t index) override {
+        return elements[index];
+    }
+
+    void append($union element) override {
+        elements.push_back(element.$byte);
+    }
+
+    size_t size() override {
+        return elements.size();
+    }
+
+    struct ByteListIterator : Iterator {
+        ByteList* list;
+        std::vector<unsigned char>::iterator first, last;
+
+        explicit ByteListIterator(ByteList* list): list(list), first(list->elements.begin()), last(list->elements.end()) {
+            E = ScalarTypes::BYTE;
+        }
+
+        void walkMark() override {
+            list->mark();
+        }
+
+        bool peek() override {
+            return first != last;
+        }
+
+        $union next() override {
+            return (bool) *first++;
+        }
+    };
+
+    Iterator * iterator() override {
+        return vm->newObject<ByteListIterator>(this);
+    }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
+};
+
+struct ScalarList : List {
+    std::vector<$union> elements;
+    ScalarTypeKind type;
+
+    explicit ScalarList(std::vector<$union> elements, ScalarTypeKind type): elements(std::move(elements)), type(type) {}
+
+    TypeReference getType() override { return std::make_shared<ListType>(std::make_shared<ScalarType>(type)); }
+
+    void store(size_t index, $union element) override {
+        elements[index] = element.$byte;
+    }
+
+    $union load(size_t index) override {
+        return elements[index];
+    }
+
+    void append($union element) override {
+        elements.push_back(element);
+    }
+
+    size_t size() override {
+        return elements.size();
+    }
+
+    struct ScalarListIterator : Iterator {
+        ScalarList* list;
+        std::vector<$union>::iterator first, last;
+
+        explicit ScalarListIterator(ScalarList* list): list(list), first(list->elements.begin()), last(list->elements.end()) {
+            E = ScalarTypes::BYTE;
+        }
+
+        void walkMark() override {
+            list->mark();
+        }
+
+        bool peek() override {
+            return first != last;
+        }
+
+        $union next() override {
+            return *first++;
+        }
+    };
+
+    Iterator * iterator() override {
+        return vm->newObject<ScalarListIterator>(this);
+    }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
 };
 
 struct Set : Iterable {
-    std::unordered_set<size_t> elements;
+    using underlying = std::unordered_set<$union, Hasher, Equator>;
+    underlying elements;
     std::shared_ptr<SetType> prototype;
 
-    Set(std::unordered_set<size_t> elements, std::shared_ptr<SetType> prototype)
+    Set(underlying elements, std::shared_ptr<SetType> prototype)
         : elements(std::move(elements)), prototype(std::move(prototype)) {}
 
     void walkMark() override {
@@ -328,7 +657,7 @@ struct Set : Iterable {
 
     struct SetIterator : Iterator {
         Set* set;
-        std::unordered_set<size_t>::iterator first, last;
+        underlying::iterator first, last;
 
         explicit SetIterator(Set* set): set(set), first(set->elements.begin()), last(set->elements.end()) {
             E = set->prototype->E;
@@ -342,7 +671,7 @@ struct Set : Iterable {
             return first != last;
         }
 
-        size_t next() override {
+        $union next() override {
             return *first++;
         }
 
@@ -351,13 +680,20 @@ struct Set : Iterable {
     Iterator * iterator() override {
         return vm->newObject<SetIterator>(this);
     }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
 };
 
 struct Dict : Iterable {
-    std::unordered_map<size_t, size_t> elements;
+    using underlying = std::unordered_map<$union, $union, Hasher, Equator>;
+    underlying elements;
     std::shared_ptr<DictType> prototype;
 
-    Dict(std::unordered_map<size_t, size_t> elements, std::shared_ptr<DictType> prototype)
+    Dict(underlying elements, std::shared_ptr<DictType> prototype)
         : elements(std::move(elements)), prototype(std::move(prototype)) {}
 
     void walkMark() override {
@@ -379,7 +715,7 @@ struct Dict : Iterable {
 
     struct DictIterator : Iterator {
         Dict* dict;
-        std::unordered_map<size_t, size_t>::iterator first, last;
+        underlying::iterator first, last;
 
         explicit DictIterator(Dict* dict): dict(dict), first(dict->elements.begin()), last(dict->elements.end()) {
             E = std::make_shared<TupleType>(std::vector{dict->prototype->K, dict->prototype->V});
@@ -393,7 +729,7 @@ struct Dict : Iterable {
             return first != last;
         }
 
-        size_t next() override {
+        $union next() override {
             auto [key, value] = *first++;
             return as_size(vm->newObject<Pair>(key, value, dict->prototype->K, dict->prototype->V));
         }
@@ -403,6 +739,12 @@ struct Dict : Iterable {
     Iterator * iterator() override {
         return vm->newObject<DictIterator>(this);
     }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
 
 };
 

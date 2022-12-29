@@ -27,14 +27,15 @@ add_executable(PorkchopRuntime
         runtime/main.cpp
         runtime/assembly.hpp
         runtime/external.hpp runtime/external.cpp
-        runtime/runtime.hpp runtime/runtime.cpp
+        runtime/runtime.hpp
         runtime/text-assembly.hpp
-        runtime/vm.hpp
+        runtime/vm.hpp runtime/vm.cpp
         opcode.hpp
         util.hpp
         type.hpp
         descriptor.hpp
         runtime/common.hpp
+        unicode/unicode.hpp unicode/unicode.cpp
 )
 
 add_executable(PorkchopInterpreter
@@ -54,10 +55,11 @@ add_executable(PorkchopInterpreter
 
         runtime/assembly.hpp
         runtime/external.hpp runtime/external.cpp
-        runtime/runtime.hpp runtime/runtime.cpp
-        runtime/vm.hpp
+        runtime/runtime.hpp
+        runtime/vm.hpp runtime/vm.cpp
 
         runtime/interpreter.cpp runtime/interpretation.hpp
         runtime/common.hpp common.hpp
+        unicode/unicode.hpp unicode/unicode.cpp
 )
 

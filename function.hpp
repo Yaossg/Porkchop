@@ -32,7 +32,14 @@ struct LambdaFunction : Function {
     }
 
     [[nodiscard]] TypeReference prototype() const override {
-        return lambda->prototype;
+        std::vector<TypeReference> P;
+        for (auto&& capture : lambda->captures) {
+            P.push_back(capture->typeCache);
+        }
+        for (auto&& param : lambda->prototype->P) {
+            P.push_back(param);
+        }
+        return std::make_shared<FuncType>(std::move(P), lambda->prototype->R);
     }
 };
 

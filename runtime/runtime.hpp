@@ -32,64 +32,63 @@ struct Runtime {
             : assembly(assembly), frame(std::move(frame)) {}
 
     void local(TypeReference const& type) {
-        frame->stack.push_back(0);
-        frame->companion.push_back(!isValueBased(type));
+        frame->local(type);
     }
 
     void dup() {
         frame->dup();
     }
 
-    size_t top() {
+    $union top() {
         return frame->stack.back();
     }
 
-    size_t pop() {
+    $union pop() {
         auto back = frame->stack.back();
         frame->pop();
         return back;
     }
 
     int64_t ipop() {
-        return int64_t(pop());
+        return pop().$int;
     }
 
     double fpop() {
-        return as_double(pop());
+        return pop().$float;
     }
 
     Object* opop() {
-        return std::bit_cast<Object*>(pop());
+        return pop().$object;
     }
 
     String* spop() {
-        return std::bit_cast<String*>(pop());
+        return dynamic_cast<String*>(opop());
     }
 
-    std::vector<size_t> npop(size_t n) {
+    std::vector<$union> npop(size_t n) {
         auto b1 = std::prev(frame->stack.end(), n), e1 = frame->stack.end();
         auto b2 = std::prev(frame->companion.end(), n), e2 = frame->companion.end();
-        std::vector<size_t> r1{b1, e1};
+        std::vector<$union> r1{b1, e1};
         frame->stack.erase(b1, e1);
         frame->companion.erase(b2, e2);
         return r1;
     }
 
-    size_t return_() {
-        size_t ret = frame->stack.back();
+    $union return_() {
+        $union ret = frame->stack.back();
         frame->vm->frames.pop_back();
         return ret;
     }
 
-    void const_(size_t value) {
+    void const_($union value) {
         frame->const_(value);
     }
 
-    void push(std::pair<size_t, bool> value) {
+    void push(std::pair<$union, bool> value) {
         frame->push(value.first, value.second);
     }
 
-    void push(size_t value, bool type) {
+    void push($union value, bool type) {
         frame->push(value, type);
     }
 
@@ -134,18 +133,18 @@ struct Runtime {
     void lload() {
         auto index = ipop();
         auto list = dynamic_cast<List*>(opop());
-        if (index < 0 || index >= list->elements.size())
+        if (index < 0 || index >= list->size())
             throw Exception("index out of bound");
-        push(list->elements[index], !isValueBased(list->prototype->E));
+        push(list->load(index), dynamic_cast<ObjectList*>(list));
     }
 
     void lstore() {
         auto index = ipop();
         auto list = dynamic_cast<List*>(opop());
-        if (index < 0 || index >= list->elements.size())
+        if (index < 0 || index >= list->size())
             throw Exception("index out of bound");
         auto value = top();
-        list->elements[index] = value;
+        list->store(index, value);
     }
 
     void dload() {
@@ -180,10 +179,7 @@ struct Runtime {
                 }
             }
             frame->vm->temporaries.push_back(unbound);
-            auto bound = unbound->copy();
-            for (auto&& capture : captures) {
-                bound->bind(capture);
-            }
+            auto bound = unbound->bind(captures);
             push(bound);
             frame->vm->temporaries.pop_back();
             for (size_t i = 0; i < temporaries; ++i)
@@ -210,7 +206,7 @@ struct Runtime {
 
     void any(TypeReference const& type) {
         if (isValueBased(type)) {
-            push(frame->vm->newObject<AnyScalar>(pop(), dynamic_pointer_cast<ScalarType>(type)->S));
+            push(frame->vm->newObject<AnyScalar>(pop(), dynamic_cast<ScalarType*>(type.get())->S));
         }
     }
 
@@ -248,21 +244,53 @@ struct Runtime {
 
     void list(std::pair<TypeReference, size_t> const& cons) {
         auto elements = npop(cons.second);
-        push(frame->vm->newObject<List>(std::move(elements), std::dynamic_pointer_cast<ListType>(cons.first)));
+        if (isValueBased(cons.first)) {
+            switch (auto type = dynamic_pointer_cast<ScalarType>(cons.first)->S) {
+                case ScalarTypeKind::NONE:
+                    push(frame->vm->newObject<NoneList>(elements.size()));
+                    break;
+                case ScalarTypeKind::BOOL: {
+                    std::vector<bool> elements0(elements.size());
+                    for (size_t i = 0; i < elements.size(); ++i) {
+                        elements0[i] = elements[i].$bool;
+                    }
+                    push(frame->vm->newObject<BoolList>(std::move(elements0)));
+                    break;
+                }
+                case ScalarTypeKind::BYTE: {
+                    std::vector<unsigned char> elements0(elements.size());
+                    for (size_t i = 0; i < elements.size(); ++i) {
+                        elements0[i] = elements[i].$byte;
+                    }
+                    push(frame->vm->newObject<ByteList>(std::move(elements0)));
+                    break;
+                }
+                default:
+                    push(frame->vm->newObject<ScalarList>(elements, type));
+                    break;
+            }
+        } else {
+            push(frame->vm->newObject<ObjectList>(std::move(elements), std::dynamic_pointer_cast<ListType>(cons.first)));
+        }
     }
 
     void set(std::pair<TypeReference, size_t> const& cons) {
         auto elements = npop(cons.second);
-        push(frame->vm->newObject<Set>(std::unordered_set(elements.begin(), elements.end()), std::dynamic_pointer_cast<SetType>(cons.first)));
+        auto type = std::dynamic_pointer_cast<SetType>(cons.first);
+        auto kind = getIdentityKind(type->E);
+        Set::underlying set(elements.begin(), elements.end(), 0, Hasher{kind}, Equator{kind});
+        push(frame->vm->newObject<Set>(std::move(set), std::move(type)));
     }
 
     void dict(std::pair<TypeReference, size_t> const& cons) {
         auto elements = npop(cons.second * 2);
-        std::unordered_map<size_t, size_t> map;
+        auto type = std::dynamic_pointer_cast<DictType>(cons.first);
+        auto kind = getIdentityKind(type->K);
+        Dict::underlying map{0, Hasher{kind}, Equator{kind}};
         for (size_t i = 0; i < cons.second; ++i) {
             map.insert_or_assign(elements[2 * i], elements[2 * i + 1]);
         }
-        push(frame->vm->newObject<Dict>(map, std::dynamic_pointer_cast<DictType>(cons.first)));
+        push(frame->vm->newObject<Dict>(std::move(map), std::move(type)));
     }
 
     void ineg() {
@@ -317,7 +345,7 @@ struct Runtime {
 
     void ushr() {
         auto value2 = ipop();
-        auto value1 = pop();
+        auto value1 = pop().$size;
         if (value2 < 0)
             throw Exception("shift a negative");
         push(int64_t(value1 >> value2));
@@ -341,8 +369,8 @@ struct Runtime {
     }
 
     void ucmp() {
-        auto value2 = pop();
-        auto value1 = pop();
+        auto value2 = pop().$size;
+        auto value1 = pop().$size;
         compare_three_way(value1 <=> value2);
     }
 
@@ -365,32 +393,32 @@ struct Runtime {
     }
 
     void eq() {
-        auto cmp = pop();
+        auto cmp = pop().$size;
         push(cmp == equivalent);
     }
 
     void ne() {
-        auto cmp = pop();
+        auto cmp = pop().$size;
         push(cmp != equivalent);
     }
 
     void lt() {
-        auto cmp = pop();
+        auto cmp = pop().$size;
         push(cmp == less);
     }
 
     void gt() {
-        auto cmp = pop();
+        auto cmp = pop().$size;
         push(cmp == greater);
     }
 
     void le() {
-        auto cmp = pop();
+        auto cmp = pop().$size;
         push(cmp == less || cmp == equivalent);
     }
 
     void ge() {
-        auto cmp = pop();
+        auto cmp = pop().$size;
         push(cmp == greater || cmp == equivalent);
     }
 
@@ -466,11 +494,11 @@ struct Runtime {
     }
 
     void inc(size_t index) {
-        ++frame->stack[index];
+        ++frame->stack[index].$int;
     }
 
     void dec(size_t index) {
-        --frame->stack[index];
+        --frame->stack[index].$int;
     }
 
     void iter() {
