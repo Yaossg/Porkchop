@@ -600,6 +600,15 @@ void LogicalExpr::walkBytecode(Assembler* assembler) const {
 TypeReference AssignExpr::evalType() const {
     lhs->ensureAssignable();
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
+    if (auto element = elementof(type1);
+            element && (token.type == TokenType::OP_ASSIGN_ADD || token.type == TokenType::OP_ASSIGN_SUB)) {
+        bool remove = token.type == TokenType::OP_ASSIGN_SUB;
+        if (auto dict = dynamic_cast<DictType*>(type1.get()); dict && remove) {
+            element = dict->K;
+        }
+        rhs->expect(element);
+        return type1;
+    }
     switch (token.type) {
         case TokenType::OP_ASSIGN:
             rhs->assignable(lhs->typeCache);
@@ -635,6 +644,11 @@ void AssignExpr::walkBytecode(Assembler* assembler) const {
     if (token.type == TokenType::OP_ASSIGN) {
         rhs->walkBytecode(assembler);
         lhs->walkStoreBytecode(assembler);
+    } else if (auto element = elementof(lhs->typeCache);
+        element && (token.type == TokenType::OP_ASSIGN_ADD || token.type == TokenType::OP_ASSIGN_SUB)) {
+        lhs->walkBytecode(assembler);
+        rhs->walkBytecode(assembler);
+        assembler->opcode(token.type == TokenType::OP_ASSIGN_SUB ? Opcode::REMOVE : Opcode::ADD);
     } else {
         bool i = isInt(lhs->typeCache);
         lhs->walkBytecode(assembler);

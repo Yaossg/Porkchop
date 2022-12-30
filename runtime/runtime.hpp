@@ -565,6 +565,20 @@ struct Runtime {
         auto object = opop();
         push(object->toString());
     }
+
+    void add() {
+        auto value = pop();
+        auto collection = dynamic_cast<Collection*>(opop());
+        collection->add(value);
+        push(collection);
+    }
+
+    void remove() {
+        auto value = pop();
+        auto collection = dynamic_cast<Collection*>(opop());
+        collection->remove(value);
+        push(collection);
+    }
 };
 
 }

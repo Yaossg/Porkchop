@@ -356,10 +356,14 @@ struct Iterable : Object {
     virtual Iterator* iterator() = 0;
 };
 
-struct List : Iterable {
+struct Collection : Iterable {
+    virtual void add($union element) = 0;
+    virtual void remove($union element) = 0;
+};
+
+struct List : Collection {
     virtual $union load(size_t index) = 0;
     virtual void store(size_t index, $union element) = 0;
-    virtual void append($union element) = 0;
     virtual size_t size() = 0;
 };
 
@@ -386,8 +390,13 @@ struct ObjectList : List {
         elements[index] = element;
     }
 
-    void append($union element) override {
+    void add($union element) override {
         elements.push_back(element);
+    }
+
+    void remove($union element) override {
+        elements.erase(std::find_if(elements.begin(), elements.end(),
+                                    [element]($union element0){ return element0.$object->equals(element.$object); }));
     }
 
     size_t size() override {
@@ -439,8 +448,12 @@ struct NoneList : List {
         return nullptr;
     }
 
-    void append($union element) override {
+    void add($union element) override {
         ++count;
+    }
+
+    void remove($union element) override {
+        --count;
     }
 
     size_t size() override {
@@ -495,8 +508,12 @@ struct BoolList : List {
         return (bool) elements[index];
     }
 
-    void append($union element) override {
+    void add($union element) override {
         elements.push_back(element.$bool);
+    }
+
+    void remove($union element) override {
+        elements.erase(std::find(elements.begin(), elements.end(), element.$bool));
     }
 
     size_t size() override {
@@ -550,8 +567,12 @@ struct ByteList : List {
         return elements[index];
     }
 
-    void append($union element) override {
+    void add($union element) override {
         elements.push_back(element.$byte);
+    }
+
+    void remove($union element) override {
+        elements.erase(std::find(elements.begin(), elements.end(), element.$byte));
     }
 
     size_t size() override {
@@ -606,8 +627,14 @@ struct ScalarList : List {
         return elements[index];
     }
 
-    void append($union element) override {
+    void add($union element) override {
         elements.push_back(element);
+    }
+
+    void remove($union element) override {
+        Equator equator{type == ScalarTypeKind::FLOAT ? IdentityKind::FLOAT : IdentityKind::SELF};
+        elements.erase(std::find_if(elements.begin(), elements.end(),
+                                    [element, equator]($union element0){ return equator(element0, element); }));
     }
 
     size_t size() override {
@@ -646,7 +673,7 @@ struct ScalarList : List {
     size_t hashCode() override;
 };
 
-struct Set : Iterable {
+struct Set : Collection {
     using underlying = std::unordered_set<$union, Hasher, Equator>;
     underlying elements;
     std::shared_ptr<SetType> prototype;
@@ -663,6 +690,13 @@ struct Set : Iterable {
 
     TypeReference getType() override { return prototype; }
 
+    void add($union element) override {
+        elements.insert(element);
+    }
+
+    void remove($union element) override {
+        elements.erase(element);
+    }
 
     struct SetIterator : Iterator {
         Set* set;
@@ -697,7 +731,7 @@ struct Set : Iterable {
     size_t hashCode() override;
 };
 
-struct Dict : Iterable {
+struct Dict : Collection {
     using underlying = std::unordered_map<$union, $union, Hasher, Equator>;
     underlying elements;
     std::shared_ptr<DictType> prototype;
@@ -721,6 +755,14 @@ struct Dict : Iterable {
 
     TypeReference getType() override { return prototype; }
 
+    void add($union element) override {
+        auto pair = dynamic_cast<Pair*>(element.$object);
+        elements.insert_or_assign(pair->first, pair->second);
+    }
+
+    void remove($union element) override {
+        elements.erase(element);
+    }
 
     struct DictIterator : Iterator {
         Dict* dict;
