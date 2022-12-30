@@ -302,9 +302,12 @@ TypeReference InfixExpr::evalType() const {
             rhs->expect(ScalarTypes::INT);
             return type1;
         case TokenType::OP_ADD:
+            if (isString(type1) || isString(type2)) {
+                lhs->neverGonnaGiveYouUp("toString");
+                return ScalarTypes::STRING;
+            }
             match(lhs.get(), rhs.get());
-            if (!isString(lhs->typeCache))
-                lhs->expect(isArithmetic, "arithmetic or string");
+            lhs->expect(isArithmetic, "arithmetic");
             return type1;
         case TokenType::OP_SUB:
         case TokenType::OP_MUL:
@@ -383,11 +386,49 @@ $union InfixExpr::evalConst() const {
     }
 }
 
+void toStringBytecode(Assembler* assembler, TypeReference const& type) {
+    if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
+        switch (scalar->S) {
+            case ScalarTypeKind::NONE:
+                assembler->opcode(Opcode::POP);
+                assembler->sconst("()");
+                break;
+            case ScalarTypeKind::BOOL:
+                assembler->opcode(Opcode::Z2S);
+                break;
+            case ScalarTypeKind::BYTE:
+                assembler->opcode(Opcode::B2S);
+                break;
+            case ScalarTypeKind::INT:
+                assembler->opcode(Opcode::I2S);
+                break;
+            case ScalarTypeKind::FLOAT:
+                assembler->opcode(Opcode::F2S);
+                break;
+            case ScalarTypeKind::CHAR:
+                assembler->opcode(Opcode::C2S);
+                break;
+            case ScalarTypeKind::ANY:
+                assembler->opcode(Opcode::O2S);
+                break;
+        }
+    } else {
+        assembler->opcode(Opcode::O2S);
+    }
+}
+
 void InfixExpr::walkBytecode(Assembler* assembler) const {
+    if (token.type == TokenType::OP_ADD && isString(typeCache)) {
+        lhs->walkBytecode(assembler);
+        toStringBytecode(assembler, lhs->typeCache);
+        rhs->walkBytecode(assembler);
+        toStringBytecode(assembler, rhs->typeCache);
+        assembler->opcode(Opcode::SADD);
+        return;
+    }
     lhs->walkBytecode(assembler);
     rhs->walkBytecode(assembler);
     bool i = isInt(lhs->typeCache);
-    bool s = isString(lhs->typeCache);
     switch (token.type) {
         case TokenType::OP_OR:
             assembler->opcode(Opcode::OR);
@@ -409,7 +450,7 @@ void InfixExpr::walkBytecode(Assembler* assembler) const {
             assembler->opcode(Opcode::USHR);
             break;
         case TokenType::OP_ADD:
-            assembler->opcode(s ? Opcode::SADD : i ? Opcode::IADD : Opcode::FADD);
+            assembler->opcode(i ? Opcode::IADD : Opcode::FADD);
             break;
         case TokenType::OP_SUB:
             assembler->opcode(i ? Opcode::ISUB : Opcode::FSUB);
@@ -435,18 +476,15 @@ TypeReference CompareExpr::evalType() const {
     if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
         switch (scalar->S) {
             case ScalarTypeKind::ANY:
-                throw TypeException("relational operations for any are not implemented yet", segment());
             case ScalarTypeKind::NONE:
-                if (!equality)
-                    throw TypeException("none only support equality operator", segment());
+                if (!equality) {
+                    throw TypeException("none and any only support equality operators", segment());
+                }
             case ScalarTypeKind::NEVER:
                 lhs->neverGonnaGiveYouUp("in relational operations");
         }
-    } else if (auto func = dynamic_cast<FuncType*>(type.get())) {
-        if (!equality)
-            throw TypeException("functions only support equality operator", segment());
-    } else {
-        throw TypeException("relational operations for compound types are not implemented yet", segment());
+    } else if (!equality) {
+        throw TypeException("compound types only support equality operators", segment());
     }
     return ScalarTypes::BOOL;
 }
@@ -508,10 +546,8 @@ void CompareExpr::walkBytecode(Assembler *assembler) const {
             default:
                 unreachable();
         }
-    } else if (auto func = dynamic_cast<FuncType*>(type.get())) {
-        assembler->opcode(Opcode::UCMP);
     } else {
-        unreachable();
+        assembler->opcode(Opcode::OCMP);
     }
     switch (token.type) {
         case TokenType::OP_EQ:
@@ -581,7 +617,7 @@ TypeReference AssignExpr::evalType() const {
             rhs->expect(ScalarTypes::INT);
             return type1;
         case TokenType::OP_ASSIGN_ADD:
-            if (isString(lhs->typeCache) && isString(rhs->typeCache))
+            if (isString(lhs->typeCache))
                 return ScalarTypes::STRING;
         case TokenType::OP_ASSIGN_SUB:
         case TokenType::OP_ASSIGN_MUL:
@@ -601,7 +637,6 @@ void AssignExpr::walkBytecode(Assembler* assembler) const {
         lhs->walkStoreBytecode(assembler);
     } else {
         bool i = isInt(lhs->typeCache);
-        bool s = isString(lhs->typeCache);
         lhs->walkBytecode(assembler);
         rhs->walkBytecode(assembler);
         switch (token.type) {
@@ -624,7 +659,12 @@ void AssignExpr::walkBytecode(Assembler* assembler) const {
                 assembler->opcode(Opcode::USHR);
                 break;
             case TokenType::OP_ASSIGN_ADD:
-                assembler->opcode(s ? Opcode::SADD : i ? Opcode::IADD : Opcode::FADD);
+                if (isString(lhs->typeCache)) {
+                    toStringBytecode(assembler, rhs->typeCache);
+                    assembler->opcode(Opcode::SADD);
+                } else {
+                    assembler->opcode(i ? Opcode::IADD : Opcode::FADD);
+                }
                 break;
             case TokenType::OP_ASSIGN_SUB:
                 assembler->opcode(i ? Opcode::ISUB: Opcode::FSUB);
@@ -976,10 +1016,7 @@ TypeReference IfElseExpr::evalType() const {
     if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     cond->expect(ScalarTypes::BOOL);
     try {
-        if (cond->evalConst().$bool)
-            return lhs->typeCache;
-        else
-            return rhs->typeCache;
+        return (cond->evalConst().$bool ? lhs : rhs)->typeCache;
     } catch (ConstException&) {}
     if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) return either;
     Porkchop::mismatch(lhs->typeCache, rhs->typeCache, "both clause", segment());

@@ -196,7 +196,7 @@ struct Func : Object {
     void walkMark() override {
         for (size_t i = 0; i < captures.size(); ++i) {
             if (!isValueBased(prototype->P[i])) {
-                std::bit_cast<Object *>(captures[i])->mark();
+                captures[i].$object->mark();
             }
         }
     }
@@ -246,6 +246,14 @@ inline IdentityKind getIdentityKind(TypeReference const& type) {
     return IdentityKind::OBJECT;
 }
 
+struct Stringifier {
+    ScalarTypeKind kind;
+    std::string operator()($union value) const;
+};
+
+inline Stringifier stringifier(TypeReference const& type) {
+    return {isValueBased(type) ? dynamic_cast<ScalarType *>(type.get())->S : ScalarTypeKind::ANY};
+}
 
 struct AnyScalar : Object {
     $union value;
@@ -316,8 +324,9 @@ struct More : Tuple {
 
     void walkMark() override {
         for (size_t i = 0; i < elements.size(); ++i) {
-            if (!isValueBased(prototype->E[i]))
-                std::bit_cast<Object*>(elements[i])->mark();
+            if (!isValueBased(prototype->E[i])) {
+                elements[i].$object->mark();
+            }
         }
     }
 
@@ -648,7 +657,7 @@ struct Set : Iterable {
     void walkMark() override {
         if (isValueBased(prototype->E)) return;
         for (auto&& element : elements) {
-            std::bit_cast<Object*>(element)->mark();
+            element.$object->mark();
         }
     }
 
@@ -702,10 +711,10 @@ struct Dict : Iterable {
         if (k && v) return;
         for (auto&& [key, value] : elements) {
              if (!k) {
-                 std::bit_cast<Object*>(key)->mark();
+                 key.$object->mark();
              }
              if (!v) {
-                 std::bit_cast<Object*>(value)->mark();
+                 value.$object->mark();
              }
         }
     }
@@ -731,7 +740,7 @@ struct Dict : Iterable {
 
         $union next() override {
             auto [key, value] = *first++;
-            return as_size(vm->newObject<Pair>(key, value, dict->prototype->K, dict->prototype->V));
+            return vm->newObject<Pair>(key, value, dict->prototype->K, dict->prototype->V);
         }
 
     };

@@ -26,10 +26,8 @@ struct Assembly {
         functions.emplace_back(Externals::print);
         functions.emplace_back(Externals::println);
         functions.emplace_back(Externals::readLine);
-        functions.emplace_back(Externals::i2s);
-        functions.emplace_back(Externals::f2s);
-        functions.emplace_back(Externals::s2i);
-        functions.emplace_back(Externals::s2f);
+        functions.emplace_back(Externals::parseInt);
+        functions.emplace_back(Externals::parseFloat);
         functions.emplace_back(Externals::exit);
         functions.emplace_back(Externals::millis);
         functions.emplace_back(Externals::nanos);

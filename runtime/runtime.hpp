@@ -108,8 +108,12 @@ struct Runtime {
         frame->push(object);
     }
 
+    void push(std::string const& value) {
+        push(frame->vm->newObject<String>(value));
+    }
+
     void sconst(size_t index) {
-        push(frame->vm->newObject<String>(assembly->table[index]));
+        push(assembly->table[index]);
     }
 
     void fconst(size_t index) {
@@ -174,7 +178,7 @@ struct Runtime {
             size_t temporaries = 0;
             for (size_t i = 0; i < captures.size(); ++i) {
                 if (!isValueBased(unbound->prototype->P[i])) {
-                    frame->vm->temporaries.push_back(std::bit_cast<Object *>(captures[i]));
+                    frame->vm->temporaries.push_back(captures[i].$object);
                     ++temporaries;
                 }
             }
@@ -244,8 +248,9 @@ struct Runtime {
 
     void list(std::pair<TypeReference, size_t> const& cons) {
         auto elements = npop(cons.second);
-        if (isValueBased(cons.first)) {
-            switch (auto type = dynamic_pointer_cast<ScalarType>(cons.first)->S) {
+        auto list = dynamic_pointer_cast<ListType>(cons.first);
+        if (isValueBased(list->E)) {
+            switch (auto type = dynamic_cast<ScalarType*>(list->E.get())->S) {
                 case ScalarTypeKind::NONE:
                     push(frame->vm->newObject<NoneList>(elements.size()));
                     break;
@@ -266,11 +271,11 @@ struct Runtime {
                     break;
                 }
                 default:
-                    push(frame->vm->newObject<ScalarList>(elements, type));
+                    push(frame->vm->newObject<ScalarList>(std::move(elements), type));
                     break;
             }
         } else {
-            push(frame->vm->newObject<ObjectList>(std::move(elements), std::dynamic_pointer_cast<ListType>(cons.first)));
+            push(frame->vm->newObject<ObjectList>(std::move(elements), list));
         }
     }
 
@@ -392,6 +397,12 @@ struct Runtime {
         compare_three_way(value1->value <=> value2->value);
     }
 
+    void ocmp() {
+        auto value2 = opop();
+        auto value1 = opop();
+        compare_three_way(value1->equals(value2) ? std::partial_ordering::equivalent : std::partial_ordering::unordered);
+    }
+
     void eq() {
         auto cmp = pop().$size;
         push(cmp == equivalent);
@@ -425,8 +436,7 @@ struct Runtime {
     void sadd() {
         auto value2 = spop();
         auto value1 = spop();
-        auto value = value1->value + value2->value;
-        push(frame->vm->newObject<String>(value));
+        push(value1->value + value2->value);
     }
 
     void iadd() {
@@ -520,6 +530,40 @@ struct Runtime {
         auto iter = dynamic_cast<Iterator*>(object);
         push(object);
         push(iter->next(), !isValueBased(iter->E));
+    }
+
+    void i2s() {
+        auto value = pop();
+        Stringifier sf{ScalarTypeKind::INT};
+        push(sf(value));
+    }
+
+    void f2s() {
+        auto value = pop();
+        Stringifier sf{ScalarTypeKind::FLOAT};
+        push(sf(value));
+    }
+
+    void b2s() {
+        auto value = pop();
+        Stringifier sf{ScalarTypeKind::BYTE};
+        push(sf(value));
+    }
+
+    void z2s() {
+        auto value = pop();
+        push(value.$bool ? "true" : "false");
+    }
+
+    void c2s() {
+        auto value = pop();
+        Stringifier sf{ScalarTypeKind::CHAR};
+        push(sf(value));
+    }
+
+    void o2s() {
+        auto object = opop();
+        push(object->toString());
     }
 };
 

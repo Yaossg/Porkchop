@@ -18,7 +18,7 @@ inline void execute(Assembly& assembly, int argc, const char* argv[]) {
     Porkchop::Externals::init(&vm, argc, argv);
     Porkchop::Func main_{0, assembly.prototypes[0]};
     auto ret = main_.call(&assembly, &vm);
-    fprintf(stdout, "\nProgram finished with exit code %zu\n", ret);
+    std::exit(ret.$int);
 }
 
 inline void catching(void proc(int, const char*[]), int argc, const char* argv[]) try {

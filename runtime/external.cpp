@@ -42,26 +42,17 @@ $union readLine(VM* vm, const std::vector<$union> &args) {
     return vm->newObject<String>(line);
 }
 
-$union i2s(VM* vm, const std::vector<$union> &args) {
-    return vm->newObject<String>(std::to_string(args[0].$int));
-}
-
-$union f2s(VM* vm, const std::vector<$union> &args) {
-    return vm->newObject<String>(std::to_string(args[0].$int));
-}
-
-$union s2i(VM* vm, const std::vector<$union> &args) {
+$union parseInt(VM* vm, const std::vector<$union> &args) {
     return std::stoll(as_string(args[0]));
 }
 
-$union s2f(VM* vm, const std::vector<$union> &args) {
+$union parseFloat(VM* vm, const std::vector<$union> &args) {
     return std::stod(as_string(args[0]));
 }
 
 $union exit(VM* vm, const std::vector<$union> &args) {
     auto ret = args[0];
-    fprintf(stdout, "\nProgram finished with exit code %uz\n", ret);
-    std::exit(0);
+    std::exit(ret.$int);
 }
 
 $union millis(VM* vm, const std::vector<$union> &args) {
@@ -100,7 +91,7 @@ $union eof(VM* vm, const std::vector<$union> &args) {
 }
 
 $union typename_(VM* vm, const std::vector<$union> &args) {
-    auto name = std::bit_cast<Object*>(args[0])->getType()->toString();
+    auto name = args[0].$object->getType()->toString();
     return vm->newObject<String>(name);
 }
 

@@ -145,6 +145,9 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
                 case Opcode::SCMP:
                     runtime.scmp();
                     break;
+                case Opcode::OCMP:
+                    runtime.ocmp();
+                    break;
                 case Opcode::EQ:
                     runtime.eq();
                     break;
@@ -211,6 +214,24 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
                 case Opcode::NEXT:
                     runtime.next();
                     break;
+                case Opcode::I2S:
+                    runtime.i2s();
+                    break;
+                case Opcode::F2S:
+                    runtime.f2s();
+                    break;
+                case Opcode::B2S:
+                    runtime.b2s();
+                    break;
+                case Opcode::Z2S:
+                    runtime.z2s();
+                    break;
+                case Opcode::C2S:
+                    runtime.c2s();
+                    break;
+                case Opcode::O2S:
+                    runtime.o2s();
+                    break;
             }
         }
         __builtin_unreachable();
@@ -220,39 +241,6 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
 } catch (Runtime::Exception& e) {
     e.append("at func " + std::to_string(func));
     throw;
-}
-
-struct Stringifier {
-    ScalarTypeKind kind;
-    std::string operator()($union value) const {
-        switch (kind) {
-            case ScalarTypeKind::NONE:
-                return "()";
-            case ScalarTypeKind::BOOL:
-                return value.$bool ? "true" : "false";
-            case ScalarTypeKind::BYTE: {
-                char buf[8];
-                sprintf(buf, "%llX", value);
-                return buf;
-            }
-            case ScalarTypeKind::INT:
-                return std::to_string(value.$int);
-            case ScalarTypeKind::FLOAT: {
-                char buf[24];
-                sprintf(buf, "%g", value);
-                return buf;
-            }
-            case ScalarTypeKind::CHAR:
-                return encodeUnicode(value.$char);
-            default:
-                return value.$object->toString();
-        }
-        unreachable();
-    }
-};
-
-Stringifier stringifier(TypeReference const& type) {
-    return {isValueBased(type) ? dynamic_cast<ScalarType *>(type.get())->S : ScalarTypeKind::ANY};
 }
 
 std::string AnyScalar::toString() {
@@ -456,7 +444,7 @@ size_t ByteList::hashCode() {
 
 std::string ScalarList::toString() {
     Stringifier sf{type};
-    std::string buf = "@[";
+    std::string buf = "[";
     bool first = true;
     for (auto&& element : elements) {
         if (first) { first = false; } else { buf += ", "; }
@@ -501,7 +489,7 @@ bool Set::equals(Object *other) {
     if (this == other) return true;
     if (auto set = dynamic_cast<Set*>(other)) {
         for (auto&& element : elements) {
-            if (set->elements.contains(element)) {
+            if (!set->elements.contains(element)) {
                 return false;
             }
         }
@@ -555,6 +543,32 @@ size_t Dict::hashCode() {
         hash += (keyhasher(key) << 1) ^ valuehasher(value);
     }
     return hash;
+}
+
+std::string Stringifier::operator()($union value) const {
+    switch (kind) {
+        case ScalarTypeKind::NONE:
+            return "()";
+        case ScalarTypeKind::BOOL:
+            return value.$bool ? "true" : "false";
+        case ScalarTypeKind::BYTE: {
+            char buf[8];
+            sprintf(buf, "%llX", value);
+            return buf;
+        }
+        case ScalarTypeKind::INT:
+            return std::to_string(value.$int);
+        case ScalarTypeKind::FLOAT: {
+            char buf[24];
+            sprintf(buf, "%g", value);
+            return buf;
+        }
+        case ScalarTypeKind::CHAR:
+            return encodeUnicode(value.$char);
+        default:
+            return value.$object->toString();
+    }
+    unreachable();
 }
 
 }

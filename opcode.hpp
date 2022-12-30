@@ -65,6 +65,7 @@ enum class Opcode {
     ICMP,
     FCMP,
     SCMP,
+    OCMP,
     LT,
     LE,
     GT,
@@ -74,6 +75,12 @@ enum class Opcode {
     ITER,
     PEEK,
     NEXT,
+    I2S,
+    F2S,
+    B2S,
+    Z2S,
+    C2S,
+    O2S,
 };
 
 constexpr std::string_view OPCODE_NAME[] = {
@@ -136,6 +143,7 @@ constexpr std::string_view OPCODE_NAME[] = {
     "icmp",
     "fcmp",
     "scmp",
+    "ocmp",
     "lt",
     "le",
     "gt",
@@ -145,6 +153,12 @@ constexpr std::string_view OPCODE_NAME[] = {
     "iter",
     "peek",
     "next",
+    "i2s",
+    "f2s",
+    "b2s",
+    "z2s",
+    "c2s",
+    "o2s",
 };
 
 const std::unordered_map<std::string_view, Opcode> OPCODES {
@@ -207,6 +221,7 @@ const std::unordered_map<std::string_view, Opcode> OPCODES {
     {"icmp", Opcode::ICMP},
     {"fcmp", Opcode::FCMP},
     {"scmp", Opcode::SCMP},
+    {"ocmp", Opcode::OCMP},
     {"lt", Opcode::LT},
     {"le", Opcode::LE},
     {"gt", Opcode::GT},
@@ -216,6 +231,12 @@ const std::unordered_map<std::string_view, Opcode> OPCODES {
     {"iter", Opcode::ITER},
     {"peek", Opcode::PEEK},
     {"next", Opcode::NEXT},
+    {"i2s", Opcode::I2S},
+    {"f2s", Opcode::F2S},
+    {"b2s", Opcode::B2S},
+    {"z2s", Opcode::Z2S},
+    {"c2s", Opcode::C2S},
+    {"o2s", Opcode::O2S},
 };
 
 }

@@ -59,8 +59,7 @@ PorkchopInterpreter <input> [args...]
 等价于
 
 ```
-Porkchop <input> -t -o tmp
-PorkchopRuntime tmp [args...]
+Porkchop <input> -t -o tmp && PorkchopRuntime tmp [args...] && r
 ```
 
 ## 示例：九九乘法表
@@ -72,10 +71,10 @@ PorkchopRuntime tmp [args...]
     while i <= 9 {
         j = 1
         while j <= i {
-            print(i2s(i) + "*" + i2s(j) + "=" + i2s(i * j) + " ")
+            print(i + "*" + j + "=" + i * j + " ")
             ++j
         }
-        println(" ")
+        println("")
         ++i
     }
 }
@@ -147,47 +146,35 @@ graph
 29-->30
 30["+"]
 30-->31
-31["()"]
-31-->32
-32["i2s"]
-31-->33
-33["i"]
-30-->34
-34[""*""]
-29-->35
-35["()"]
+31["i"]
+30-->32
+32[""*""]
+29-->33
+33["j"]
+28-->34
+34[""=""]
+27-->35
+35["*"]
 35-->36
-36["i2s"]
+36["i"]
 35-->37
 37["j"]
-28-->38
-38[""=""]
-27-->39
-39["()"]
+26-->38
+38["" ""]
+23-->39
+39["++"]
 39-->40
-40["i2s"]
-39-->41
-41["*"]
+40["j"]
+15-->41
+41["()"]
 41-->42
-42["i"]
+42["println"]
 41-->43
-43["j"]
-26-->44
-44["" ""]
-23-->45
-45["++"]
-45-->46
-46["j"]
-15-->47
-47["()"]
-47-->48
-48["println"]
-47-->49
-49["" ""]
-15-->50
-50["++"]
-50-->51
-51["i"]
+43["" ""]
+15-->44
+44["++"]
+44-->45
+45["i"]
 ```
 
 文本汇编编译结果：
@@ -201,8 +188,6 @@ func $:v
 func $s:v
 func $s:v
 func $:s
-func $i:s
-func $f:s
 func $s:i
 func $s:f
 func $i:n
@@ -239,25 +224,19 @@ icmp
 le
 jmp0 L3
 fconst 1
-fconst 4
 load 0
-bind 1
-call
+i2s
 sconst 0
 sadd
-fconst 4
 load 1
-bind 1
-call
+i2s
 sadd
 sconst 1
 sadd
-fconst 4
 load 0
 load 1
 imul
-bind 1
-call
+i2s
 sadd
 sconst 2
 sadd
@@ -298,8 +277,6 @@ return
 7*1=7 7*2=14 7*3=21 7*4=28 7*5=35 7*6=42 7*7=49
 8*1=8 8*2=16 8*3=24 8*4=32 8*5=40 8*6=48 8*7=56 8*8=64
 9*1=9 9*2=18 9*3=27 9*4=36 9*5=45 9*6=54 9*7=63 9*8=72 9*9=81
-
-Program finished with exit code 0
 ```
 
 # Porkchop 语法介绍
@@ -624,7 +601,7 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
             if (balance[0] >= amount) {
                 balance[0] -= amount
                 if (amount >= 0) {
-                    println(i2s(balance[0]))
+                    println("" + balance[0])
                 }
             } else {
                 println("v50")

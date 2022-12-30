@@ -7,15 +7,6 @@
 
 namespace Porkchop {
 
-template<typename T>
-inline size_t as_size(T&& t) {
-    return std::bit_cast<size_t>(t);
-}
-
-inline double as_double(size_t arg) {
-    return std::bit_cast<double>(arg);
-}
-
 inline bool isInvalidChar(int64_t value) {
     return value < 0 || value > 0x10FFFFLL || 0xD800LL <= value && value <= 0xDFFFLL;
 }
@@ -39,8 +30,7 @@ inline std::string readAll(std::string const& filename) {
 
 inline void forceUTF8() {
 #ifdef _WIN32
-    system("chcp 65001");
-    puts("Porkchop: UTF-8 is adopted via 'chcp 65001' in Windows");
+    system("chcp>nul 65001");
 #endif
 }
 
