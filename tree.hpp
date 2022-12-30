@@ -262,11 +262,20 @@ struct CompareExpr : InfixExprBase {
 
 struct LogicalExpr : InfixExprBase {
     LogicalExpr(Compiler& compiler, Token token, ExprHandle lhs, ExprHandle rhs):
-            InfixExprBase(compiler, token, std::move(lhs), std::move(rhs)) {}
+        InfixExprBase(compiler, token, std::move(lhs), std::move(rhs)) {}
 
     [[nodiscard]] TypeReference evalType() const override;
 
     [[nodiscard]] $union evalConst() const override;
+
+    void walkBytecode(Assembler* assembler) const override;
+};
+
+struct InExpr : InfixExprBase {
+    InExpr(Compiler& compiler, Token token, ExprHandle lhs, ExprHandle rhs):
+        InfixExprBase(compiler, token, std::move(lhs), std::move(rhs)) {}
+
+    [[nodiscard]] TypeReference evalType() const override;
 
     void walkBytecode(Assembler* assembler) const override;
 };

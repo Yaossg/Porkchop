@@ -597,6 +597,23 @@ void LogicalExpr::walkBytecode(Assembler* assembler) const {
     }
 }
 
+TypeReference InExpr::evalType() const {
+    if (auto element = elementof(rhs->typeCache)) {
+        if (auto dict = dynamic_cast<DictType*>(rhs->typeCache.get())) {
+            element = dict->K;
+        }
+        lhs->expect(element);
+        return ScalarTypes::BOOL;
+    }
+    rhs->expect("iterable type");
+}
+
+void InExpr::walkBytecode(Assembler *assembler) const {
+    lhs->walkBytecode(assembler);
+    rhs->walkBytecode(assembler);
+    assembler->opcode(Opcode::IN);
+}
+
 TypeReference AssignExpr::evalType() const {
     lhs->ensureAssignable();
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;

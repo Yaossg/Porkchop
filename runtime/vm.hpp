@@ -359,12 +359,13 @@ struct Iterable : Object {
 struct Collection : Iterable {
     virtual void add($union element) = 0;
     virtual void remove($union element) = 0;
+    virtual bool contains($union element) = 0;
+    virtual size_t size() = 0;
 };
 
 struct List : Collection {
     virtual $union load(size_t index) = 0;
     virtual void store(size_t index, $union element) = 0;
-    virtual size_t size() = 0;
 };
 
 struct ObjectList : List {
@@ -394,9 +395,17 @@ struct ObjectList : List {
         elements.push_back(element);
     }
 
+    auto find($union element) {
+        return std::find_if(elements.begin(), elements.end(),
+                            [element]($union element0){ return element0.$object->equals(element.$object); });
+    }
+
+    bool contains($union element) override {
+        return find(element) != elements.end();
+    }
+
     void remove($union element) override {
-        elements.erase(std::find_if(elements.begin(), elements.end(),
-                                    [element]($union element0){ return element0.$object->equals(element.$object); }));
+        elements.erase(find(element));
     }
 
     size_t size() override {
@@ -456,6 +465,10 @@ struct NoneList : List {
         --count;
     }
 
+    bool contains($union element) override {
+        return true;
+    }
+
     size_t size() override {
         return count;
     }
@@ -512,8 +525,16 @@ struct BoolList : List {
         elements.push_back(element.$bool);
     }
 
+    auto find($union element) {
+        return std::find(elements.begin(), elements.end(), element.$bool);
+    }
+
     void remove($union element) override {
-        elements.erase(std::find(elements.begin(), elements.end(), element.$bool));
+        elements.erase(find(element));
+    }
+
+    bool contains($union element) override {
+        return find(element) != elements.end();
     }
 
     size_t size() override {
@@ -571,8 +592,16 @@ struct ByteList : List {
         elements.push_back(element.$byte);
     }
 
+    auto find($union element) {
+        return std::find(elements.begin(), elements.end(), element.$byte);
+    }
+
     void remove($union element) override {
-        elements.erase(std::find(elements.begin(), elements.end(), element.$byte));
+        elements.erase(find(element));
+    }
+
+    bool contains($union element) override {
+        return find(element) != elements.end();
     }
 
     size_t size() override {
@@ -631,10 +660,18 @@ struct ScalarList : List {
         elements.push_back(element);
     }
 
-    void remove($union element) override {
+    auto find($union element) {
         Equator equator{type == ScalarTypeKind::FLOAT ? IdentityKind::FLOAT : IdentityKind::SELF};
-        elements.erase(std::find_if(elements.begin(), elements.end(),
-                                    [element, equator]($union element0){ return equator(element0, element); }));
+        return std::find_if(elements.begin(), elements.end(),
+                            [element, equator]($union element0){ return equator(element0, element); });
+    }
+
+    void remove($union element) override {
+        elements.erase(find(element));
+    }
+
+    bool contains($union element) override {
+        return find(element) != elements.end();
     }
 
     size_t size() override {
@@ -696,6 +733,14 @@ struct Set : Collection {
 
     void remove($union element) override {
         elements.erase(element);
+    }
+
+    bool contains($union element) override {
+        return elements.contains(element);
+    }
+
+    size_t size() override {
+        return elements.size();
     }
 
     struct SetIterator : Iterator {
@@ -762,6 +807,14 @@ struct Dict : Collection {
 
     void remove($union element) override {
         elements.erase(element);
+    }
+
+    bool contains($union element) override {
+        return elements.contains(element);
+    }
+
+    size_t size() override {
+        return elements.size();
     }
 
     struct DictIterator : Iterator {

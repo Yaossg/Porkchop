@@ -21,6 +21,7 @@ bool isInLevel(TokenType type, Expr::Level level) {
         case TokenType::OP_USHR: return level == Expr::Level::SHIFT;
         case TokenType::OP_ADD:
         case TokenType::OP_SUB: return level == Expr::Level::ADDITION;
+        case TokenType::KW_IN:
         case TokenType::OP_MUL:
         case TokenType::OP_DIV:
         case TokenType::OP_REM: return level == Expr::Level::MULTIPLICATION;
@@ -82,7 +83,11 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         lhs = context.make<CompareExpr>(token, std::move(lhs), std::move(rhs));
                         break;
                     [[likely]] default:
-                        lhs = context.make<InfixExpr>(token, std::move(lhs), std::move(rhs));
+                        if (token.type == TokenType::KW_IN) {
+                            lhs = context.make<InExpr>(token, std::move(lhs), std::move(rhs));
+                        } else {
+                            lhs = context.make<InfixExpr>(token, std::move(lhs), std::move(rhs));
+                        }
                         break;
                 }
             }
@@ -144,7 +149,8 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     }
                     case TokenType::OP_DOT: {
                         next();
-                        lhs = context.make<DotExpr>(std::move(lhs), parseId(true));
+                        auto id = parseId(true);
+                        lhs = context.make<DotExpr>(std::move(lhs), std::move(id));
                         break;
                     }
                     case TokenType::KW_AS: {

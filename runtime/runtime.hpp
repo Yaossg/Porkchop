@@ -154,7 +154,9 @@ struct Runtime {
     void dload() {
         auto key = pop();
         auto dict = dynamic_cast<Dict*>(opop());
-        push(dict->elements[key], !isValueBased(dict->prototype->V));
+        if (!dict->elements.contains(key))
+            throw Exception("missing value for key");
+        push(dict->elements.at(key), !isValueBased(dict->prototype->V));
     }
 
     void dstore() {
@@ -550,9 +552,11 @@ struct Runtime {
         push(sf(value));
     }
 
+
     void z2s() {
+        const static std::string $true{"true"}, $false{"false"};
         auto value = pop();
-        push(value.$bool ? "true" : "false");
+        push(value.$bool ? $true : $false);
     }
 
     void c2s() {
@@ -578,6 +582,12 @@ struct Runtime {
         auto collection = dynamic_cast<Collection*>(opop());
         collection->remove(value);
         push(collection);
+    }
+
+    void in() {
+        auto collection = dynamic_cast<Collection*>(opop());
+        auto value = pop();
+        push(collection->contains(value));
     }
 };
 

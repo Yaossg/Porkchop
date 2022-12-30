@@ -238,6 +238,9 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
                 case Opcode::REMOVE:
                     runtime.remove();
                     break;
+                case Opcode::IN:
+                    runtime.in();
+                    break;
             }
         }
         __builtin_unreachable();
