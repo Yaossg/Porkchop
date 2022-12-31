@@ -520,18 +520,18 @@ struct Runtime {
         frame->vm->temporaries.pop_back();
     }
 
-    void peek() {
+    void move() {
         auto object = opop();
         auto iter = dynamic_cast<Iterator*>(object);
         push(object);
-        push(iter->peek());
+        push(iter->move());
     }
 
-    void next() {
+    void get() {
         auto object = opop();
         auto iter = dynamic_cast<Iterator*>(object);
         push(object);
-        push(iter->next(), !isValueBased(iter->E));
+        push(iter->get(), !isValueBased(iter->E));
     }
 
     void i2s() {

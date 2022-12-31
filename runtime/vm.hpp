@@ -353,9 +353,13 @@ struct More : Tuple {
 
 struct Iterator : Object {
     TypeReference E;
+    $union cache;
 
-    virtual bool peek() = 0;
-    virtual $union next() = 0;
+    virtual bool move() = 0;
+
+    [[nodiscard]] $union get() const {
+        return cache;
+    }
 
     TypeReference getType() override { __builtin_unreachable(); }
 };
@@ -431,12 +435,12 @@ struct ObjectList : List {
             list->mark();
         }
 
-        bool peek() override {
-            return first != last;
-        }
-
-        $union next() override {
-            return *first++;
+        bool move() override {
+            if (first != last) {
+                cache = *first++;
+                return true;
+            }
+            return false;
         }
     };
 
@@ -482,23 +486,19 @@ struct NoneList : List {
 
     struct NoneListIterator : Iterator {
         NoneList* list;
-        size_t countdown;
+        size_t i;
 
-        explicit NoneListIterator(NoneList* list): list(list), countdown(list->count) {
+        explicit NoneListIterator(NoneList* list): list(list), i(list->count + 1) {
             E = ScalarTypes::NONE;
+            cache = nullptr;
         }
 
         void walkMark() override {
             list->mark();
         }
 
-        bool peek() override {
-            return countdown;
-        }
-
-        $union next() override {
-            --countdown;
-            return nullptr;
+        bool move() override {
+            return i && --i;
         }
     };
 
@@ -560,12 +560,12 @@ struct BoolList : List {
             list->mark();
         }
 
-        bool peek() override {
-            return first != last;
-        }
-
-        $union next() override {
-            return (bool) *first++;
+        bool move() override {
+            if (first != last) {
+                cache = (bool) *first++;
+                return true;
+            }
+            return false;
         }
     };
 
@@ -627,12 +627,12 @@ struct ByteList : List {
             list->mark();
         }
 
-        bool peek() override {
-            return first != last;
-        }
-
-        $union next() override {
-            return (bool) *first++;
+        bool move() override {
+            if (first != last) {
+                cache = *first++;
+                return true;
+            }
+            return false;
         }
     };
 
@@ -697,12 +697,12 @@ struct ScalarList : List {
             list->mark();
         }
 
-        bool peek() override {
-            return first != last;
-        }
-
-        $union next() override {
-            return *first++;
+        bool move() override {
+            if (first != last) {
+                cache = *first++;
+                return true;
+            }
+            return false;
         }
     };
 
@@ -762,12 +762,12 @@ struct Set : Collection {
             set->mark();
         }
 
-        bool peek() override {
-            return first != last;
-        }
-
-        $union next() override {
-            return *first++;
+        bool move() override {
+            if (first != last) {
+                cache = *first++;
+                return true;
+            }
+            return false;
         }
 
     };
@@ -834,17 +834,18 @@ struct Dict : Collection {
 
         void walkMark() override {
             dict->mark();
+            if (cache.$object)
+                cache.$object->mark();
         }
 
-        bool peek() override {
-            return first != last;
+        bool move() override {
+            if (first != last) {
+                auto [key, value] = *first++;
+                cache = vm->newObject<Pair>(key, value, dict->prototype->K, dict->prototype->V);
+                return true;
+            }
+            return false;
         }
-
-        $union next() override {
-            auto [key, value] = *first++;
-            return vm->newObject<Pair>(key, value, dict->prototype->K, dict->prototype->V);
-        }
-
     };
 
     Iterator * iterator() override {

@@ -208,11 +208,11 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
                 case Opcode::ITER:
                     runtime.iter();
                     break;
-                case Opcode::PEEK:
-                    runtime.peek();
+                case Opcode::MOVE:
+                    runtime.move();
                     break;
-                case Opcode::NEXT:
-                    runtime.next();
+                case Opcode::GET:
+                    runtime.get();
                     break;
                 case Opcode::I2S:
                     runtime.i2s();

@@ -1231,9 +1231,9 @@ void ForExpr::walkBytecode(Assembler *assembler) const {
     initializer->walkBytecode(assembler);
     assembler->opcode(Opcode::ITER);
     assembler->label(A);
-    assembler->opcode(Opcode::PEEK);
+    assembler->opcode(Opcode::MOVE);
     assembler->labeled(Opcode::JMP0, B);
-    assembler->opcode(Opcode::NEXT);
+    assembler->opcode(Opcode::GET);
     declarator->walkBytecode(assembler);
     assembler->opcode(Opcode::POP);
     clause->walkBytecode(assembler);
