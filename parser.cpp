@@ -41,6 +41,21 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     returns.push_back(expr.get());
                     return expr;
                 }
+                case TokenType::KW_YIELD: {
+                    next();
+                    Token token2 = next();
+                    if (token2.type == TokenType::KW_RETURN) {
+                        auto expr = context.make<YieldReturnExpr>(token, token2, parseExpression(level));
+                        yieldReturns.push_back(expr.get());
+                        return expr;
+                    } else if(token2.type == TokenType::KW_BREAK) {
+                        auto expr = context.make<YieldBreakExpr>(token, token2);
+                        yieldBreaks.push_back(expr.get());
+                        return expr;
+                    } else {
+                        throw ParserException("either yield return or yield break is expected", token);
+                    }
+                }
                 default: {
                     auto lhs = parseExpression(Expr::upper(level));
                     switch (Token token = peek(); token.type) {
@@ -114,7 +129,8 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::KW_SIZEOF:
                 case TokenType::OP_MUL:
                 case TokenType::OP_AND:
-                case TokenType::OP_ATAT: {
+                case TokenType::OP_ATAT:
+                case TokenType::OP_SHR: {
                     next();
                     auto rhs = parseExpression(level);
                     return context.make<PrefixExpr>(token, std::move(rhs));
@@ -123,9 +139,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::OP_DEC: {
                     next();
                     auto rhs = parseExpression(level);
-                    if (dynamic_cast<IterType*>(rhs->typeCache.get())) {
-                        return context.make<PrefixExpr>(token, std::move(rhs));
-                    } else if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(rhs))) {
+                    if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(rhs))) {
                         return context.make<StatefulPrefixExpr>(token, std::move(load));
                     } else {
                         throw ParserException("assignable expression is expected", token);
@@ -304,6 +318,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     throw ParserException("stray 'else'", next());
 
                 case TokenType::KW_RETURN:
+                case TokenType::KW_YIELD:
                     return parseExpression();
 
                 case TokenType::LINEBREAK:
@@ -394,6 +409,9 @@ std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parsePa
         auto declarator = parseSimpleDeclarator();
         parameters.first.push_back(std::move(declarator->name));
         parameters.second.push_back(declarator->designated);
+        if (declarator->designated == nullptr) {
+            throw ParserException("missing type for the parameter", declarator->segment);
+        }
         if (peek().type == TokenType::RPAREN) break;
         expectComma();
     }
@@ -402,21 +420,46 @@ std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parsePa
     return parameters;
 }
 
-ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F) {
+ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool async) {
     auto clause = parseExpression();
     TypeReference type0;
-    if (returns.empty()) {
-        type0 = clause->typeCache;
-    } else {
-        type0 = returns[0]->rhs->typeCache;
-        for (size_t i = 1; i < returns.size(); ++i) {
-            auto type = returns[i]->rhs->typeCache;
-            if (!type0->equals(type)) {
-                returns[i]->mismatch(type0, "returns", i);
-            }
+    if (async) {
+        if (!returns.empty()) {
+            throw ParserException("return in async function", returns[0]->segment());
         }
-        if (auto type = clause->typeCache; !isNever(type) && !type0->equals(type)) {
-            mismatch(type0, type, "returns and expression body", clause->segment());
+        if (F->R && !dynamic_cast<IterType*>(F->R.get())) {
+            throw ParserException("async function must return iter type", clause->segment());
+        }
+        if (yieldReturns.empty()) {
+            if (F->R) {
+                return clause;
+            } else {
+                throw ParserException("missing yield return and specified return type", clause->segment());
+            }
+        } else {
+            type0 = yieldReturns[0]->rhs->typeCache;
+            for (size_t i = 1; i < yieldReturns.size(); ++i) {
+                yieldReturns[i]->rhs->match(type0, "returns");
+            }
+            type0 = std::make_shared<IterType>(type0);
+        }
+    } else {
+        if (!yieldReturns.empty()) {
+            throw ParserException("yield return in non-async function", yieldReturns[0]->segment());
+        }
+        if (!yieldBreaks.empty()) {
+            throw ParserException("yield break in non-async function", yieldBreaks[0]->segment());
+        }
+        if (returns.empty()) {
+            type0 = clause->typeCache;
+        } else {
+            type0 = returns[0]->rhs->typeCache;
+            for (size_t i = 1; i < returns.size(); ++i) {
+                returns[i]->rhs->match(type0, "returns");
+            }
+            if (!isNever(clause->typeCache)) {
+                clause->match(type0, "returns and expression body");
+            }
         }
     }
     if (F->R == nullptr) {
@@ -431,25 +474,21 @@ ExprHandle Parser::parseFn() {
     auto token = next();
     IdExprHandle name = parseId(false);
     auto [parameters, P] = parseParameters();
-    for (size_t i = 0; i < parameters.size(); ++i) {
-        if (P[i] == nullptr) {
-            throw ParserException("missing type for " + ordinal(i) + " parameter", parameters[i]->segment());
-        }
-    }
     auto R = optionalType();
     auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
-    if (peek().type == TokenType::OP_ASSIGN) {
+    if (peek().type == TokenType::OP_ASSIGN || peek().type == TokenType::KW_ASYNC) {
         auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), F);
-        next();
+        bool async = next().type == TokenType::KW_ASYNC;
         context.declare(decl->name->token, decl.get());
         Parser child(compiler, p, q, &context);
         for (size_t i = 0; i < parameters.size(); ++i) {
             child.context.local(parameters[i]->token, F->P[i]);
         }
-        auto clause = child.parseFnBody(F);
+        auto clause = child.parseFnBody(F, async);
         p = child.p;
         name = std::move(decl->name);
         auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F), std::move(clause));
+        fn->async = async;
         fn->locals = std::move(child.context.localTypes);
         context.define(fn->name->token, fn.get());
         return fn;
@@ -474,14 +513,12 @@ ExprHandle Parser::parseLambda() {
     }
     optionalComma(captures.size());
     auto [parameters, P] = parseParameters();
-    for (size_t i = 0; i < parameters.size(); ++i) {
-        if (P[i] == nullptr) {
-            throw ParserException("missing type for " + ordinal(i) + " parameter", parameters[i]->segment());
-        }
-    }
     auto R = optionalType();
     auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
-    expect(TokenType::OP_ASSIGN, "'=' is expected before lambda body");
+    if (auto type = peek().type; type != TokenType::OP_ASSIGN && type != TokenType::KW_ASYNC) {
+        throw ParserException("lambda body is expected", next());
+    }
+    bool async = next().type == TokenType::KW_ASYNC;
     Parser child(compiler, p, q, &context);
     for (auto&& capture : captures) {
         child.context.local(capture->token, capture->typeCache);
@@ -489,10 +526,11 @@ ExprHandle Parser::parseLambda() {
     for (size_t i = 0; i < parameters.size(); ++i) {
         child.context.local(parameters[i]->token, F->P[i]);
     }
-    auto clause = child.parseFnBody(F);
+    auto clause = child.parseFnBody(F, async);
     p = child.p;
     auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F), std::move(clause));
     lambda->locals = std::move(child.context.localTypes);
+    lambda->async = async;
     context.lambda(lambda.get());
     return lambda;
 }

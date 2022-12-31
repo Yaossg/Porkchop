@@ -31,8 +31,9 @@ struct Assembler {
     virtual void beginFunction() = 0;
     virtual void endFunction() = 0;
 
-    void newFunction(std::vector<TypeReference> const& localTypes, ExprHandle const& clause) {
+    void newFunction(std::vector<TypeReference> const& localTypes, ExprHandle const& clause, bool async) {
         beginFunction();
+        if (async) opcode(Opcode::ASYNC);
         for (auto&& type : localTypes) {
             local(type);
         }

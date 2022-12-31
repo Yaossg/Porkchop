@@ -67,28 +67,6 @@ inline std::string join(Args&&... args) {
     return result;
 }
 
-inline const char* ordinalSuffix(size_t ordinal) {
-    switch (ordinal % 100) {
-        default:
-            switch (ordinal % 10) {
-                case 1:
-                    return "st";
-                case 2:
-                    return "nd";
-                case 3:
-                    return "rd";
-            }
-        case 11:
-        case 12:
-        case 13: ;
-    }
-    return "th";
-}
-
-inline std::string ordinal(size_t index) {
-    return join("the ", std::to_string(index + 1), ordinalSuffix(index + 1));
-}
-
 template<typename Derived, typename Base>
 inline std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& base) noexcept {
     if (auto derived = dynamic_cast<Derived*>(base.get())) {

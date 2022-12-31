@@ -14,6 +14,20 @@ namespace Porkchop {
 struct VM;
 struct Assembly;
 
+struct Exception : std::runtime_error {
+    std::string messages;
+    explicit Exception(std::string const& message): std::runtime_error(message), messages(message) {}
+
+    void append(std::string const& message) {
+        messages += "\n    ";
+        messages += message;
+    }
+
+    [[nodiscard]] const char * what() const noexcept override {
+        return messages.c_str();
+    }
+};
+
 struct Object {
     friend struct VM;
 
@@ -52,10 +66,14 @@ struct VM {
         std::vector<$union> stack;
         std::vector<bool> companion;
 
-        explicit Frame(VM* vm): vm(vm) {}
+        explicit Frame(VM* vm, std::vector<$union> captures): vm(vm), stack(std::move(captures)) {}
 
-        void init(std::vector<$union> const& captures) {
-            stack = captures;
+        void pushToVM() {
+            vm->frames.push_back(this);
+        }
+
+        void popFromVM() {
+            vm->frames.pop_back();
         }
 
         void local(TypeReference const& type) {
@@ -114,9 +132,16 @@ struct VM {
             stack[index] = stack.back();
         }
 
+        void markAll() {
+            for (size_t i = 0; i < stack.size(); ++i) {
+                if (companion[i] && stack[i].$object)
+                    stack[i].$object->mark();
+            }
+        }
+
     };
 
-    std::vector<std::shared_ptr<Frame>> frames;
+    std::vector<Frame*> frames;
     std::vector<Object*> temporaries;
 
     template<std::derived_from<Object> T, typename... Args>
@@ -133,10 +158,7 @@ struct VM {
 
     void markAll() {
         for (auto&& frame : frames) {
-            for (size_t i = 0; i < frame->stack.size(); ++i) {
-                if (frame->companion[i] && frame->stack[i].$object)
-                    frame->stack[i].$object->mark();
-            }
+            frame->markAll();
         }
         for (auto&& temporary : temporaries) {
             temporary->mark();
@@ -164,9 +186,8 @@ struct VM {
         maxObjects = std::max(numObjects * 2, 1024);
     }
 
-    std::shared_ptr<Frame> newFrame() {
-        frames.emplace_back(std::make_shared<Frame>(this));
-        return frames.back();
+    std::unique_ptr<Frame> newFrame(std::vector<$union> const& captures) {
+        return std::make_unique<Frame>(this, captures);
     }
 
 private:
@@ -870,6 +891,20 @@ struct Dict : Collection {
 
     size_t hashCode() override;
 
+};
+
+struct Runtime;
+
+struct Coroutine : Iterator {
+    std::unique_ptr<Runtime> runtime;
+    
+    explicit Coroutine(TypeReference R, std::unique_ptr<Runtime> runtime): runtime(std::move(runtime)) {
+        E = std::move(R);
+    }
+
+    void walkMark() override;
+
+    bool move() override;
 };
 
 }

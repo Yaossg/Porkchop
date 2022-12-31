@@ -27,9 +27,11 @@ void Expr::expect(const char *expected) const {
     throw TypeException(join("expected ", expected, " but got '", typeCache->toString(), "'"), segment());
 }
 
-void Expr::mismatch(const TypeReference &expected, const char *msg, size_t index) const {
-    throw TypeException(join("type mismatch on ", msg, ", the 1st one is '", expected->toString(),
-                             "', but ", ordinal(index), " one is '", typeCache->toString(), "'"), segment());
+void Expr::match(const TypeReference &expected, const char *msg) const {
+    if (!typeCache->equals(expected)) {
+        throw TypeException(join("type mismatch on ", msg, ", the first one is '", expected->toString(),
+                                 "', but this one is '", typeCache->toString(), "'"), segment());
+    }
 }
 
 void Expr::assignable(const TypeReference &expected) const {
@@ -38,12 +40,6 @@ void Expr::assignable(const TypeReference &expected) const {
 
 void Expr::neverGonnaGiveYouUp(const char* msg) const {
     Porkchop::neverGonnaGiveYouUp(typeCache, msg, segment());
-}
-
-void match(Expr const* expr1, Expr const* expr2) {
-    if (!expr1->typeCache->equals(expr2->typeCache)) {
-        mismatch(expr1->typeCache, expr2->typeCache, "both operands", range(expr1->segment(), expr2->segment()));
-    }
 }
 
 BoolConstExpr::BoolConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
@@ -222,7 +218,7 @@ TypeReference PrefixExpr::evalType() const {
             }
             rhs->expect("iterator type");
             break;
-        case TokenType::OP_INC:
+        case TokenType::OP_SHR:
             if (auto iter = dynamic_cast<IterType*>(type.get())) {
                 return ScalarTypes::BOOL;
             }
@@ -311,7 +307,7 @@ void PrefixExpr::walkBytecode(Assembler* assembler) const {
         case TokenType::OP_MUL:
             assembler->opcode(Opcode::GET);
             break;
-        case TokenType::OP_INC:
+        case TokenType::OP_SHR:
             assembler->opcode(Opcode::MOVE);
             break;
         default:
@@ -364,7 +360,7 @@ TypeReference InfixExpr::evalType() const {
         case TokenType::OP_XOR:
         case TokenType::OP_AND:
             lhs->expect(isIntegral, "integral type");
-            match(lhs.get(), rhs.get());
+            rhs->match(lhs->typeCache, "both operands");
             return type1;
         case TokenType::OP_SHL:
         case TokenType::OP_SHR:
@@ -377,14 +373,14 @@ TypeReference InfixExpr::evalType() const {
                 lhs->neverGonnaGiveYouUp("toString");
                 return ScalarTypes::STRING;
             }
-            match(lhs.get(), rhs.get());
+            rhs->match(lhs->typeCache, "both operands");
             lhs->expect(isArithmetic, "arithmetic");
             return type1;
         case TokenType::OP_SUB:
         case TokenType::OP_MUL:
         case TokenType::OP_DIV:
         case TokenType::OP_REM:
-            match(lhs.get(), rhs.get());
+            rhs->match(lhs->typeCache, "both operands");
             lhs->expect(isArithmetic, "arithmetic");
             return type1;
         default:
@@ -541,7 +537,7 @@ void InfixExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference CompareExpr::evalType() const {
-    match(lhs.get(), rhs.get());
+    rhs->match(lhs->typeCache, "both operands");
     auto type = lhs->typeCache;
     bool equality =token.type == TokenType::OP_EQ
             || token.type == TokenType::OP_NE
@@ -1037,10 +1033,7 @@ TypeReference ListExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
     elements.front()->neverGonnaGiveYouUp("as a list element");
     for (size_t i = 1; i < elements.size(); ++i) {
-        auto type = elements[i]->typeCache;
-        if (!type0->equals(type)) {
-            elements[i]->mismatch(type0, "the elements of list", i);
-        }
+        elements[i]->match(type0, "the elements of list");
     }
     return std::make_shared<ListType>(type0);
 }
@@ -1056,10 +1049,7 @@ TypeReference SetExpr::evalType() const {
     auto type0 = elements.front()->typeCache;
     elements.front()->neverGonnaGiveYouUp("as a set element");
     for (size_t i = 1; i < elements.size(); ++i) {
-        auto type = elements[i]->typeCache;
-        if (!type0->equals(type)) {
-            elements[i]->mismatch(type0, "the elements of set", i);
-        }
+        elements[i]->match(type0, "the elements of set");
     }
     return std::make_shared<SetType>(type0);
 }
@@ -1077,14 +1067,8 @@ TypeReference DictExpr::evalType() const {
     elements.front().first->neverGonnaGiveYouUp("as a dict key");
     elements.front().second->neverGonnaGiveYouUp("as a dict value");
     for (size_t i = 1; i < elements.size(); ++i) {
-        auto key = elements[i].first->typeCache;
-        auto value = elements[i].second->typeCache;
-        if (!key0->equals(key)) {
-            elements[i].first->mismatch(key0, "the keys of dict", i);
-        }
-        if (!value0->equals(value)) {
-            elements[i].second->mismatch(key0, "the keys of dict", i);
-        }
+        elements[i].first->match(key0, "the keys of dict");
+        elements[i].second->match(key0, "the keys of dict");
     }
     return std::make_shared<DictType>(std::move(key0), std::move(value0));
 }
@@ -1129,8 +1113,12 @@ TypeReference IfElseExpr::evalType() const {
     try {
         return (cond->evalConst().$bool ? lhs : rhs)->typeCache;
     } catch (ConstException&) {}
-    if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) return either;
-    Porkchop::mismatch(lhs->typeCache, rhs->typeCache, "both clause", segment());
+    if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) {
+        return either;
+    } else {
+        rhs->match(lhs->typeCache, "both clauses");
+        unreachable();
+    }
 }
 
 $union IfElseExpr::evalConst() const {
@@ -1302,5 +1290,23 @@ void ForExpr::walkBytecode(Assembler *assembler) const {
     assembler->const0();
 }
 
+TypeReference YieldReturnExpr::evalType() const {
+    rhs->neverGonnaGiveYouUp("to yield return");
+    return ScalarTypes::NEVER;
+}
+
+void YieldReturnExpr::walkBytecode(Assembler *assembler) const {
+    rhs->walkBytecode(assembler);
+    assembler->opcode(Opcode::YIELD);
+}
+
+TypeReference YieldBreakExpr::evalType() const {
+    return ScalarTypes::NEVER;
+}
+
+void YieldBreakExpr::walkBytecode(Assembler *assembler) const {
+    assembler->const0();
+    assembler->opcode(Opcode::RETURN);
+}
 
 }

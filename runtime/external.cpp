@@ -69,14 +69,14 @@ $union getargs(VM* vm, const std::vector<$union> &args) {
 
 $union output(VM* vm, const std::vector<$union> &args) {
     if (disableIO || !(out = fopen(as_string(args[0]).c_str(), "w"))) {
-        throw Runtime::Exception("failed to reopen output stream");
+        throw Exception("failed to reopen output stream");
     }
     return nullptr;
 }
 
 $union input(VM* vm, const std::vector<$union> &args) {
     if (disableIO || !(in = fopen(as_string(args[0]).c_str(), "r"))) {
-        throw Runtime::Exception("failed to reopen input stream");
+        throw Exception("failed to reopen input stream");
     }
     return nullptr;
 }

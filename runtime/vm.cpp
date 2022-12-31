@@ -7,256 +7,16 @@ namespace Porkchop {
 $union Func::call(Assembly *assembly, VM* vm) const try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
-        auto& instructions = std::get<Instructions>(f);
-        Runtime runtime(assembly, vm->newFrame());
-        runtime.frame->init(captures);
-        for (size_t i = 0; i < instructions.size(); ++i) {
-            auto&& [opcode, args] = instructions[i];
-            switch (opcode) {
-                case Opcode::NOP:
-                    break;
-                case Opcode::DUP:
-                    runtime.dup();
-                    break;
-                case Opcode::POP:
-                    runtime.pop();
-                    break;
-                case Opcode::JMP:
-                    i = std::get<size_t>(args) - 1;
-                    break;
-                case Opcode::JMP0:
-                    if (!runtime.pop().$bool) {
-                        i = std::get<size_t>(args) - 1;
-                    }
-                    break;
-                case Opcode::CONST:
-                    runtime.const_(std::get<size_t>(args));
-                    break;
-                case Opcode::SCONST:
-                    runtime.sconst(std::get<size_t>(args));
-                    break;
-                case Opcode::FCONST:
-                    runtime.fconst(std::get<size_t>(args));
-                    break;
-                case Opcode::LOAD:
-                    runtime.load(std::get<size_t>(args));
-                    break;
-                case Opcode::STORE:
-                    runtime.store(std::get<size_t>(args));
-                    break;
-                case Opcode::TLOAD:
-                    runtime.tload(std::get<size_t>(args));
-                    break;
-                case Opcode::LLOAD:
-                    runtime.lload();
-                    break;
-                case Opcode::DLOAD:
-                    runtime.dload();
-                    break;
-                case Opcode::LSTORE:
-                    runtime.lstore();
-                    break;
-                case Opcode::DSTORE:
-                    runtime.dstore();
-                    break;
-                case Opcode::CALL:
-                    runtime.call();
-                    break;
-                case Opcode::BIND:
-                    runtime.bind(std::get<size_t>(args));
-                    break;
-                case Opcode::LOCAL:
-                    runtime.local(std::get<TypeReference>(args));
-                    break;
-                case Opcode::AS:
-                    runtime.as(std::get<TypeReference>(args));
-                    break;
-                case Opcode::IS:
-                    runtime.is(std::get<TypeReference>(args));
-                    break;
-                case Opcode::ANY:
-                    runtime.any(std::get<TypeReference>(args));
-                    break;
-                case Opcode::I2B:
-                    runtime.i2b();
-                    break;
-                case Opcode::I2C:
-                    runtime.i2c();
-                    break;
-                case Opcode::I2F:
-                    runtime.i2f();
-                    break;
-                case Opcode::F2I:
-                    runtime.f2i();
-                    break;
-                case Opcode::TUPLE:
-                    runtime.tuple(std::get<TypeReference>(args));
-                    break;
-                case Opcode::LIST:
-                    runtime.list(std::get<std::pair<TypeReference, size_t>>(args));
-                    break;
-                case Opcode::SET:
-                    runtime.set(std::get<std::pair<TypeReference, size_t>>(args));
-                    break;
-                case Opcode::DICT:
-                    runtime.dict(std::get<std::pair<TypeReference, size_t>>(args));
-                    break;
-                case Opcode::RETURN:
-                    return runtime.return_();
-                case Opcode::INEG:
-                    runtime.ineg();
-                    break;
-                case Opcode::FNEG:
-                    runtime.fneg();
-                    break;
-                case Opcode::NOT:
-                    runtime.not_();
-                    break;
-                case Opcode::INV:
-                    runtime.inv();
-                    break;
-                case Opcode::OR:
-                    runtime.or_();
-                    break;
-                case Opcode::XOR:
-                    runtime.xor_();
-                    break;
-                case Opcode::AND:
-                    runtime.and_();
-                    break;
-                case Opcode::SHL:
-                    runtime.shl();
-                    break;
-                case Opcode::SHR:
-                    runtime.shr();
-                    break;
-                case Opcode::USHR:
-                    runtime.ushr();
-                    break;
-                case Opcode::UCMP:
-                    runtime.ucmp();
-                    break;
-                case Opcode::ICMP:
-                    runtime.icmp();
-                    break;
-                case Opcode::FCMP:
-                    runtime.fcmp();
-                    break;
-                case Opcode::SCMP:
-                    runtime.scmp();
-                    break;
-                case Opcode::OCMP:
-                    runtime.ocmp();
-                    break;
-                case Opcode::EQ:
-                    runtime.eq();
-                    break;
-                case Opcode::NE:
-                    runtime.ne();
-                    break;
-                case Opcode::LT:
-                    runtime.lt();
-                    break;
-                case Opcode::GT:
-                    runtime.gt();
-                    break;
-                case Opcode::LE:
-                    runtime.le();
-                    break;
-                case Opcode::GE:
-                    runtime.ge();
-                    break;
-                case Opcode::SADD:
-                    runtime.sadd();
-                    break;
-                case Opcode::IADD:
-                    runtime.iadd();
-                    break;
-                case Opcode::FADD:
-                    runtime.fadd();
-                    break;
-                case Opcode::ISUB:
-                    runtime.isub();
-                    break;
-                case Opcode::FSUB:
-                    runtime.fsub();
-                    break;
-                case Opcode::IMUL:
-                    runtime.imul();
-                    break;
-                case Opcode::FMUL:
-                    runtime.fmul();
-                    break;
-                case Opcode::IDIV:
-                    runtime.idiv();
-                    break;
-                case Opcode::FDIV:
-                    runtime.fdiv();
-                    break;
-                case Opcode::IREM:
-                    runtime.irem();
-                    break;
-                case Opcode::FREM:
-                    runtime.frem();
-                    break;
-                case Opcode::INC:
-                    runtime.inc(std::get<size_t>(args));
-                    break;
-                case Opcode::DEC:
-                    runtime.dec(std::get<size_t>(args));
-                    break;
-                case Opcode::ITER:
-                    runtime.iter();
-                    break;
-                case Opcode::MOVE:
-                    runtime.move();
-                    break;
-                case Opcode::GET:
-                    runtime.get();
-                    break;
-                case Opcode::I2S:
-                    runtime.i2s();
-                    break;
-                case Opcode::F2S:
-                    runtime.f2s();
-                    break;
-                case Opcode::B2S:
-                    runtime.b2s();
-                    break;
-                case Opcode::Z2S:
-                    runtime.z2s();
-                    break;
-                case Opcode::C2S:
-                    runtime.c2s();
-                    break;
-                case Opcode::O2S:
-                    runtime.o2s();
-                    break;
-                case Opcode::ADD:
-                    runtime.add();
-                    break;
-                case Opcode::REMOVE:
-                    runtime.remove();
-                    break;
-                case Opcode::IN:
-                    runtime.in();
-                    break;
-                case Opcode::SIZEOF:
-                    runtime.sizeof_();
-                    break;
-                case Opcode::FHASH:
-                    runtime.fhash();
-                    break;
-                case Opcode::OHASH:
-                    runtime.ohash();
-                    break;
-            }
+        auto runtime = std::make_unique<Runtime>(assembly, vm->newFrame(captures), std::get<Instructions>(f));
+        if (runtime->code() == Opcode::ASYNC) {
+            return vm->newObject<Coroutine>(prototype->R, std::move(runtime));
+        } else {
+            return runtime->loop();
         }
-        __builtin_unreachable();
     } else {
         return std::get<ExternalFunctionR>(f)(vm, captures);
     }
-} catch (Runtime::Exception& e) {
+} catch (Exception& e) {
     e.append("at func " + std::to_string(func));
     throw;
 }
@@ -644,5 +404,21 @@ bool Dict::DictIterator::equals(Object *other) {
     }
     return false;
 }
+
+void Coroutine::walkMark() {
+    if (!isValueBased(E) && cache.$object)
+        cache.$object->mark();
+    runtime->frame->markAll();
+}
+
+bool Coroutine::move() {
+    if (runtime->code() != Opcode::RETURN) {
+        ++runtime->i;
+        cache = runtime->loop();
+        return runtime->code() != Opcode::RETURN;
+    }
+    return false;
+}
+
 
 }

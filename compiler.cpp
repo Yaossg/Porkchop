@@ -32,7 +32,7 @@ void Compiler::parse() {
     Parser parser(this, tokens);
     predefined(parser.context);
     auto F = std::make_shared<FuncType>(std::vector<TypeReference>{}, nullptr);
-    tree = parser.parseFnBody(F);
+    tree = parser.parseFnBody(F, false);
     parser.expect(TokenType::LINEBREAK, "a linebreak is expected");
     if (parser.remains())
         throw ParserException("unterminated tokens", parser.peek());
@@ -44,7 +44,7 @@ void Compiler::compile(Assembler* assembler) {
     for (auto&& function : functions) {
         assembler->func(function->prototype());
     }
-    assembler->newFunction(locals, tree);
+    assembler->newFunction(locals, tree, false);
     for (auto&& function : functions) {
         function->assemble(assembler);
     }

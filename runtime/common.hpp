@@ -26,7 +26,7 @@ inline void catching(void proc(int, const char*[]), int argc, const char* argv[]
 } catch (std::bad_alloc& e) {
     fprintf(stderr, "Out of memory\n");
     std::exit(-10);
-} catch (Porkchop::Runtime::Exception& e) {
+} catch (Porkchop::Exception& e) {
     fprintf(stderr, "Runtime exception occurred: \n");
     fprintf(stderr, "%s\n", e.what());
     std::exit(1);

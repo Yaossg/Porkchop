@@ -10,26 +10,14 @@
 namespace Porkchop {
 
 struct Runtime {
-
-    struct Exception : std::runtime_error {
-        std::string messages;
-        explicit Exception(std::string const& message): std::runtime_error(message), messages(message) {}
-
-        void append(std::string const& message) {
-            messages += "\n    ";
-            messages += message;
-        }
-
-        [[nodiscard]] const char * what() const noexcept override {
-            return messages.c_str();
-        }
-    };
-
     Assembly *assembly;
-    std::shared_ptr<VM::Frame> frame;
+    std::unique_ptr<VM::Frame> frame;
+    Instructions& instructions;
+    size_t i = 0;
 
-    Runtime(Assembly *assembly, std::shared_ptr<VM::Frame> frame)
-            : assembly(assembly), frame(std::move(frame)) {}
+    Runtime(Assembly *assembly, std::unique_ptr<VM::Frame> frame, Instructions& instructions)
+            : assembly(assembly), frame(std::move(frame)), instructions(instructions) {
+    }
 
     void local(TypeReference const& type) {
         frame->local(type);
@@ -72,12 +60,6 @@ struct Runtime {
         frame->stack.erase(b1, e1);
         frame->companion.erase(b2, e2);
         return r1;
-    }
-
-    $union return_() {
-        $union ret = frame->stack.back();
-        frame->vm->frames.pop_back();
-        return ret;
     }
 
     void const_($union value) {
@@ -602,6 +584,264 @@ struct Runtime {
 
     void ohash() {
         push((int64_t) opop()->hashCode());
+    }
+
+    $union yield() {
+        $union ret = frame->stack.back();
+        frame->popFromVM();
+        return ret;
+    }
+
+    Opcode code() {
+        return instructions[i].first;
+    }
+
+    $union loop() {
+        for (frame->pushToVM(); i < instructions.size(); ++i) {
+            switch (auto&& [opcode, args] = instructions[i]; opcode) {
+                case Opcode::NOP:
+                    break;
+                case Opcode::DUP:
+                    dup();
+                    break;
+                case Opcode::POP:
+                    pop();
+                    break;
+                case Opcode::JMP:
+                    i = std::get<size_t>(args) - 1;
+                    break;
+                case Opcode::JMP0:
+                    if (!pop().$bool) {
+                        i = std::get<size_t>(args) - 1;
+                    }
+                    break;
+                case Opcode::CONST:
+                    const_(std::get<size_t>(args));
+                    break;
+                case Opcode::SCONST:
+                    sconst(std::get<size_t>(args));
+                    break;
+                case Opcode::FCONST:
+                    fconst(std::get<size_t>(args));
+                    break;
+                case Opcode::LOAD:
+                    load(std::get<size_t>(args));
+                    break;
+                case Opcode::STORE:
+                    store(std::get<size_t>(args));
+                    break;
+                case Opcode::TLOAD:
+                    tload(std::get<size_t>(args));
+                    break;
+                case Opcode::LLOAD:
+                    lload();
+                    break;
+                case Opcode::DLOAD:
+                    dload();
+                    break;
+                case Opcode::LSTORE:
+                    lstore();
+                    break;
+                case Opcode::DSTORE:
+                    dstore();
+                    break;
+                case Opcode::CALL:
+                    call();
+                    break;
+                case Opcode::BIND:
+                    bind(std::get<size_t>(args));
+                    break;
+                case Opcode::LOCAL:
+                    local(std::get<TypeReference>(args));
+                    break;
+                case Opcode::AS:
+                    as(std::get<TypeReference>(args));
+                    break;
+                case Opcode::IS:
+                    is(std::get<TypeReference>(args));
+                    break;
+                case Opcode::ANY:
+                    any(std::get<TypeReference>(args));
+                    break;
+                case Opcode::I2B:
+                    i2b();
+                    break;
+                case Opcode::I2C:
+                    i2c();
+                    break;
+                case Opcode::I2F:
+                    i2f();
+                    break;
+                case Opcode::F2I:
+                    f2i();
+                    break;
+                case Opcode::TUPLE:
+                    tuple(std::get<TypeReference>(args));
+                    break;
+                case Opcode::LIST:
+                    list(std::get<std::pair<TypeReference, size_t>>(args));
+                    break;
+                case Opcode::SET:
+                    set(std::get<std::pair<TypeReference, size_t>>(args));
+                    break;
+                case Opcode::DICT:
+                    dict(std::get<std::pair<TypeReference, size_t>>(args));
+                    break;
+                case Opcode::INEG:
+                    ineg();
+                    break;
+                case Opcode::FNEG:
+                    fneg();
+                    break;
+                case Opcode::NOT:
+                    not_();
+                    break;
+                case Opcode::INV:
+                    inv();
+                    break;
+                case Opcode::OR:
+                    or_();
+                    break;
+                case Opcode::XOR:
+                    xor_();
+                    break;
+                case Opcode::AND:
+                    and_();
+                    break;
+                case Opcode::SHL:
+                    shl();
+                    break;
+                case Opcode::SHR:
+                    shr();
+                    break;
+                case Opcode::USHR:
+                    ushr();
+                    break;
+                case Opcode::UCMP:
+                    ucmp();
+                    break;
+                case Opcode::ICMP:
+                    icmp();
+                    break;
+                case Opcode::FCMP:
+                    fcmp();
+                    break;
+                case Opcode::SCMP:
+                    scmp();
+                    break;
+                case Opcode::OCMP:
+                    ocmp();
+                    break;
+                case Opcode::EQ:
+                    eq();
+                    break;
+                case Opcode::NE:
+                    ne();
+                    break;
+                case Opcode::LT:
+                    lt();
+                    break;
+                case Opcode::GT:
+                    gt();
+                    break;
+                case Opcode::LE:
+                    le();
+                    break;
+                case Opcode::GE:
+                    ge();
+                    break;
+                case Opcode::SADD:
+                    sadd();
+                    break;
+                case Opcode::IADD:
+                    iadd();
+                    break;
+                case Opcode::FADD:
+                    fadd();
+                    break;
+                case Opcode::ISUB:
+                    isub();
+                    break;
+                case Opcode::FSUB:
+                    fsub();
+                    break;
+                case Opcode::IMUL:
+                    imul();
+                    break;
+                case Opcode::FMUL:
+                    fmul();
+                    break;
+                case Opcode::IDIV:
+                    idiv();
+                    break;
+                case Opcode::FDIV:
+                    fdiv();
+                    break;
+                case Opcode::IREM:
+                    irem();
+                    break;
+                case Opcode::FREM:
+                    frem();
+                    break;
+                case Opcode::INC:
+                    inc(std::get<size_t>(args));
+                    break;
+                case Opcode::DEC:
+                    dec(std::get<size_t>(args));
+                    break;
+                case Opcode::ITER:
+                    iter();
+                    break;
+                case Opcode::MOVE:
+                    move();
+                    break;
+                case Opcode::GET:
+                    get();
+                    break;
+                case Opcode::I2S:
+                    i2s();
+                    break;
+                case Opcode::F2S:
+                    f2s();
+                    break;
+                case Opcode::B2S:
+                    b2s();
+                    break;
+                case Opcode::Z2S:
+                    z2s();
+                    break;
+                case Opcode::C2S:
+                    c2s();
+                    break;
+                case Opcode::O2S:
+                    o2s();
+                    break;
+                case Opcode::ADD:
+                    add();
+                    break;
+                case Opcode::REMOVE:
+                    remove();
+                    break;
+                case Opcode::IN:
+                    in();
+                    break;
+                case Opcode::SIZEOF:
+                    sizeof_();
+                    break;
+                case Opcode::FHASH:
+                    fhash();
+                    break;
+                case Opcode::OHASH:
+                    ohash();
+                    break;
+                case Opcode::RETURN:
+                case Opcode::YIELD:
+                    return yield();
+                default:
+                    unreachable();
+            }
+        }
+        unreachable();
     }
 };
 

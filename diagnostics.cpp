@@ -72,11 +72,6 @@ void neverGonnaGiveYouUp(const TypeReference &type, const char *msg, Segment seg
     }
 }
 
-[[noreturn]] void mismatch(TypeReference const& type1, TypeReference const& type2, const char *msg, Segment segment) {
-    throw TypeException(join("type mismatch on ", msg, ", the one is '", type1->toString(),
-                             "', but the other is '", type2->toString(), "'"), segment);
-}
-
 void assignable(TypeReference const& type, TypeReference const& expected, Segment segment) {
     if (!expected->assignableFrom(type)) {
         throw TypeException(join("'", type->toString(), "' is not assignable to '", expected->toString(), "'"), segment);

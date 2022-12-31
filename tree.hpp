@@ -55,7 +55,7 @@ struct Expr : Descriptor {
 
     void assignable(TypeReference const& expected) const;
 
-    [[noreturn]] void mismatch(TypeReference const& expected, const char *msg, size_t index) const;
+    void match(TypeReference const& expected, const char *msg) const;
 
     void neverGonnaGiveYouUp(const char* msg) const;
 };
@@ -645,7 +645,7 @@ struct ReturnExpr : Expr {
     ReturnExpr(Compiler& compiler, Token token, ExprHandle rhs): Expr(compiler), token(token), rhs(std::move(rhs)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
-    [[nodiscard]] std::string_view descriptor() const noexcept override { return compiler.of(token); }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "return"; }
 
     [[nodiscard]] Segment segment() const override {
         return range(token, rhs->segment());
@@ -678,6 +678,7 @@ struct DefinedFnExpr : virtual FnExprBase {
     std::vector<IdExprHandle> parameters;
     ExprHandle clause;
     std::vector<TypeReference> locals;
+    bool async = false;
 
     DefinedFnExpr(std::vector<IdExprHandle> parameters, ExprHandle clause):
             parameters(std::move(parameters)), clause(std::move(clause)) {}
@@ -813,6 +814,41 @@ struct ForExpr : LoopExpr {
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {declarator.get(), initializer.get(), clause.get()}; }
     [[nodiscard]] std::string_view descriptor() const noexcept override { return "for"; }
+
+    [[nodiscard]] TypeReference evalType() const override;
+
+    void walkBytecode(Assembler* assembler) const override;
+};
+
+struct YieldReturnExpr : Expr {
+    Token token1, token2;
+    ExprHandle rhs;
+
+    YieldReturnExpr(Compiler& compiler, Token token1, Token token2, ExprHandle rhs): Expr(compiler), token1(token1), token2(token2), rhs(std::move(rhs)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {rhs.get()}; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "yield return"; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token1, rhs->segment());
+    }
+
+    [[nodiscard]] TypeReference evalType() const override;
+
+    void walkBytecode(Assembler* assembler) const override;
+};
+
+
+struct YieldBreakExpr : Expr {
+    Token token1, token2;
+
+    YieldBreakExpr(Compiler& compiler, Token token1, Token token2): Expr(compiler), token1(token1), token2(token2) {}
+
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "yield break"; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token1, token2);
+    }
 
     [[nodiscard]] TypeReference evalType() const override;
 

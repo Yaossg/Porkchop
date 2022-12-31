@@ -18,7 +18,6 @@ using TypeException = SegmentException;
 using ConstException = SegmentException;
 
 void neverGonnaGiveYouUp(TypeReference const& type, const char* msg, Segment segment);
-[[noreturn]] void mismatch(TypeReference const& type1, TypeReference const& type2, const char *msg, Segment segment);
 void assignable(TypeReference const& type, TypeReference const& expected, Segment segment);
 
 }

@@ -11,6 +11,8 @@ struct Parser {
     const std::vector<Token>::const_iterator q;
     std::vector<std::shared_ptr<LoopHook>> hooks;
     std::vector<const ReturnExpr*> returns;
+    std::vector<const YieldReturnExpr*> yieldReturns;
+    std::vector<const YieldBreakExpr*> yieldBreaks;
     LocalContext context;
 
     Parser(Compiler* compiler, std::vector<Token> const& tokens): Parser(compiler, tokens.cbegin(), tokens.cend(), nullptr) {}
@@ -40,7 +42,7 @@ struct Parser {
     IdExprHandle parseId(bool initialize);
     ExprHandle parseIf(), parseWhile(), parseFor(), parseFn(), parseLambda(), parseLet();
     TypeReference parseType();
-    ExprHandle parseFnBody(std::shared_ptr<FuncType> const& func);
+    ExprHandle parseFnBody(std::shared_ptr<FuncType> const& func, bool async);
 
     std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters();
 
