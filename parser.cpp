@@ -109,7 +109,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 }
                 case TokenType::OP_NOT:
                 case TokenType::OP_INV:
-                case TokenType::KW_SIZEOF: {
+                case TokenType::KW_SIZEOF:
+                case TokenType::OP_MUL:
+                case TokenType::OP_AND:
+                case TokenType::OP_ATAT: {
                     next();
                     auto rhs = parseExpression(level);
                     return context.make<PrefixExpr>(token, std::move(rhs));
@@ -118,7 +121,9 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::OP_DEC: {
                     next();
                     auto rhs = parseExpression(level);
-                    if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(rhs))) {
+                    if (dynamic_cast<IterType*>(rhs->typeCache.get())) {
+                        return context.make<PrefixExpr>(token, std::move(rhs));
+                    } else if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(rhs))) {
                         return context.make<StatefulPrefixExpr>(token, std::move(load));
                     } else {
                         throw ParserException("assignable expression is expected", token);
@@ -528,12 +533,11 @@ TypeReference Parser::parseType() {
                         throw TypeException("index out of bound", expr->segment());
                     }
                 } else {
-                    auto element = elementof(type);
                     expect(TokenType::RPAREN, "missing ')' to match '('");
-                    if (element == nullptr) {
-                        throw TypeException("elementof expect a tuple, list, set, or dict type", token);
+                    if (auto element = elementof(type)) {
+                        return element;
                     }
-                    return elementof(type);
+                    throw TypeException("elementof expect a tuple, list, set, dict, or iter type", token);
                 }
             }
             if (id == "returnof") {
@@ -601,6 +605,11 @@ TypeReference Parser::parseType() {
                         return std::make_shared<TupleType>(std::move(P));
                 }
             }
+        }
+        case TokenType::OP_MUL: {
+            auto E = parseType();
+            neverGonnaGiveYouUp(E, "as a iter element", rewind());
+            return std::make_shared<IterType>(E);
         }
     }
 }

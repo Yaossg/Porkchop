@@ -206,10 +206,6 @@ struct Func : Object {
     $union call(Assembly *assembly, VM *vm) const;
 };
 
-enum class IdentityKind {
-    SELF, FLOAT, OBJECT
-};
-
 struct Hasher {
     IdentityKind kind;
     size_t operator()($union u) const {
@@ -239,12 +235,6 @@ struct Equator {
         unreachable();
     }
 };
-
-inline IdentityKind getIdentityKind(TypeReference const& type) {
-    if (isFloat(type)) return IdentityKind::FLOAT;
-    if (isValueBased(type)) return IdentityKind::SELF;
-    return IdentityKind::OBJECT;
-}
 
 struct Stringifier {
     ScalarTypeKind kind;
@@ -351,7 +341,13 @@ struct More : Tuple {
     size_t hashCode() override;
 };
 
-struct Iterator : Object {
+struct Iterator;
+
+struct Iterable : Object {
+    virtual Iterator* iterator() = 0;
+};
+
+struct Iterator : Iterable {
     TypeReference E;
     $union cache;
 
@@ -361,12 +357,15 @@ struct Iterator : Object {
         return cache;
     }
 
-    TypeReference getType() override { __builtin_unreachable(); }
+    TypeReference getType() override {
+        return std::make_shared<IterType>(E);
+    }
+
+    Iterator * iterator() override {
+        return this;
+    }
 };
 
-struct Iterable : Object {
-    virtual Iterator* iterator() = 0;
-};
 
 struct Collection : Iterable, Sizeable {
     virtual void add($union element) = 0;

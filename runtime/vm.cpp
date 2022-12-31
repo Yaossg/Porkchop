@@ -25,7 +25,7 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
                     i = std::get<size_t>(args) - 1;
                     break;
                 case Opcode::JMP0:
-                    if (!runtime.ipop()) {
+                    if (!runtime.pop().$bool) {
                         i = std::get<size_t>(args) - 1;
                     }
                     break;
@@ -243,6 +243,12 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
                     break;
                 case Opcode::SIZEOF:
                     runtime.sizeof_();
+                    break;
+                case Opcode::FHASH:
+                    runtime.fhash();
+                    break;
+                case Opcode::OHASH:
+                    runtime.ohash();
                     break;
             }
         }

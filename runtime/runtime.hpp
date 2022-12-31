@@ -309,7 +309,7 @@ struct Runtime {
     }
 
     void not_() {
-        push(!ipop());
+        push(!pop().$bool);
     }
 
     void inv() {
@@ -522,16 +522,18 @@ struct Runtime {
 
     void move() {
         auto object = opop();
+        frame->vm->temporaries.push_back(object);
         auto iter = dynamic_cast<Iterator*>(object);
-        push(object);
         push(iter->move());
+        frame->vm->temporaries.pop_back();
     }
 
     void get() {
         auto object = opop();
+        frame->vm->temporaries.push_back(object);
         auto iter = dynamic_cast<Iterator*>(object);
-        push(object);
         push(iter->get(), !isValueBased(iter->E));
+        frame->vm->temporaries.pop_back();
     }
 
     void i2s() {
@@ -592,6 +594,14 @@ struct Runtime {
     void sizeof_() {
         auto sizeable = dynamic_cast<Sizeable*>(opop());
         push((int64_t) sizeable->size());
+    }
+
+    void fhash() {
+        push((int64_t) std::hash<double>()(fpop()));
+    }
+
+    void ohash() {
+        push((int64_t) opop()->hashCode());
     }
 };
 

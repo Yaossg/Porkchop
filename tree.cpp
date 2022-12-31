@@ -186,6 +186,7 @@ void IdExpr::ensureAssignable() const {
 }
 
 TypeReference PrefixExpr::evalType() const {
+    auto type = rhs->typeCache;
     switch (token.type) {
         case TokenType::OP_ADD:
         case TokenType::OP_SUB:
@@ -198,7 +199,7 @@ TypeReference PrefixExpr::evalType() const {
             rhs->expect(isIntegral, "integral type");
             break;
         case TokenType::KW_SIZEOF:
-            if (auto type = rhs->typeCache; !isString(type)
+            if (!isString(type)
                 && !dynamic_cast<SetType*>(type.get())
                 && !dynamic_cast<ListType*>(type.get())
                 && !dynamic_cast<DictType*>(type.get())
@@ -206,6 +207,27 @@ TypeReference PrefixExpr::evalType() const {
                 rhs->expect("sizeable type");
             }
             return ScalarTypes::INT;
+        case TokenType::OP_ATAT:
+            rhs->neverGonnaGiveYouUp("to hash");
+            return ScalarTypes::INT;
+        case TokenType::OP_AND:
+            if (auto element = elementof(type)) {
+                return std::make_shared<IterType>(element);
+            }
+            rhs->expect("iterable type");
+            break;
+        case TokenType::OP_MUL:
+            if (auto iter = dynamic_cast<IterType*>(type.get())) {
+                return iter->E;
+            }
+            rhs->expect("iterator type");
+            break;
+        case TokenType::OP_INC:
+            if (auto iter = dynamic_cast<IterType*>(type.get())) {
+                return ScalarTypes::BOOL;
+            }
+            rhs->expect("iterator type");
+            break;
         default:
             unreachable();
     }
@@ -237,8 +259,14 @@ $union PrefixExpr::evalConst() const {
             } else {
                 return (unsigned char)~value.$byte;
             }
+        case TokenType::OP_ATAT:
+            if (isFloat(type)) {
+                return (int64_t) std::hash<double>()(value.$float);
+            } else {
+                return value;
+            }
         default:
-            unreachable();
+            return Expr::evalConst();
     }
 }
 
@@ -266,6 +294,25 @@ void PrefixExpr::walkBytecode(Assembler* assembler) const {
         case TokenType::OP_INV:
             assembler->opcode(Opcode::INV);
             if (isByte(type)) assembler->opcode(Opcode::I2B);
+            break;
+        case TokenType::OP_ATAT:
+            switch (getIdentityKind(type)) {
+                case IdentityKind::FLOAT:
+                    assembler->opcode(Opcode::FHASH);
+                    break;
+                case IdentityKind::OBJECT:
+                    assembler->opcode(Opcode::OHASH);
+                    break;
+            }
+            break;
+        case TokenType::OP_AND:
+            assembler->opcode(Opcode::ITER);
+            break;
+        case TokenType::OP_MUL:
+            assembler->opcode(Opcode::GET);
+            break;
+        case TokenType::OP_INC:
+            assembler->opcode(Opcode::MOVE);
             break;
         default:
             unreachable();
@@ -622,7 +669,7 @@ void LogicalExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference InExpr::evalType() const {
-    if (auto element = elementof(rhs->typeCache)) {
+    if (auto element = elementof(rhs->typeCache, true)) {
         if (auto dict = dynamic_cast<DictType*>(rhs->typeCache.get())) {
             element = dict->K;
         }
@@ -641,7 +688,7 @@ void InExpr::walkBytecode(Assembler *assembler) const {
 TypeReference AssignExpr::evalType() const {
     lhs->ensureAssignable();
     auto type1 = lhs->typeCache, type2 = rhs->typeCache;
-    if (auto element = elementof(type1);
+    if (auto element = elementof(type1, true);
             element && (token.type == TokenType::OP_ASSIGN_ADD || token.type == TokenType::OP_ASSIGN_SUB)) {
         bool remove = token.type == TokenType::OP_ASSIGN_SUB;
         if (auto dict = dynamic_cast<DictType*>(type1.get()); dict && remove) {
@@ -685,7 +732,7 @@ void AssignExpr::walkBytecode(Assembler* assembler) const {
     if (token.type == TokenType::OP_ASSIGN) {
         rhs->walkBytecode(assembler);
         lhs->walkStoreBytecode(assembler);
-    } else if (auto element = elementof(lhs->typeCache);
+    } else if (auto element = elementof(lhs->typeCache, true);
         element && (token.type == TokenType::OP_ASSIGN_ADD || token.type == TokenType::OP_ASSIGN_SUB)) {
         lhs->walkBytecode(assembler);
         rhs->walkBytecode(assembler);
@@ -1231,8 +1278,10 @@ void ForExpr::walkBytecode(Assembler *assembler) const {
     initializer->walkBytecode(assembler);
     assembler->opcode(Opcode::ITER);
     assembler->label(A);
+    assembler->opcode(Opcode::DUP);
     assembler->opcode(Opcode::MOVE);
     assembler->labeled(Opcode::JMP0, B);
+    assembler->opcode(Opcode::DUP);
     assembler->opcode(Opcode::GET);
     declarator->walkBytecode(assembler);
     assembler->opcode(Opcode::POP);

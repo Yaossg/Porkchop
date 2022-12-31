@@ -78,6 +78,7 @@ enum class TokenType {
     OP_DOLLAR,
     OP_COMMA,
     OP_COLON,
+    OP_ATAT,
 
     CHARACTER_LITERAL,
     STRING_LITERAL,
@@ -160,6 +161,7 @@ const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
     {"{", TokenType::LBRACE},
     {"}", TokenType::RBRACE},
     {"@[", TokenType::AT_BRACKET},
+    {"@@", TokenType::OP_ATAT},
 };
 
 struct Segment {

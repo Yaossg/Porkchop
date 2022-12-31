@@ -350,6 +350,29 @@ struct FuncType : Type {
     }
 };
 
+struct IterType : Type {
+    TypeReference E;
+
+    explicit IterType(TypeReference E): E(std::move(E)) {}
+
+    [[nodiscard]] std::string toString() const override {
+        return "*" + E->toString();
+    }
+
+    [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
+        if (auto iter = dynamic_cast<const IterType*>(type.get()))
+            return iter->E->equals(E);
+        return false;
+    }
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "*"; }
+
+    [[nodiscard]] std::string serialize() const override {
+        return '*' + E->serialize();
+    }
+};
+
 [[nodiscard]] inline TypeReference eithertype(TypeReference const& type1, TypeReference const& type2) noexcept {
     if (type1->equals(type2)) return type1;
     if (isNever(type1)) return type2;
@@ -358,13 +381,16 @@ struct FuncType : Type {
     return nullptr;
 }
 
-[[nodiscard]] inline TypeReference elementof(TypeReference const& type) noexcept {
+[[nodiscard]] inline TypeReference elementof(TypeReference const& type, bool forbid = false) noexcept {
     if (auto set = dynamic_cast<SetType*>(type.get())) {
         return set->E;
     } else if (auto list = dynamic_cast<ListType*>(type.get())) {
         return list->E;
     } else if (auto dict = dynamic_cast<DictType*>(type.get())) {
         return std::make_shared<TupleType>(std::vector{dict->K, dict->V});
+    } else if (auto iter = dynamic_cast<IterType*>(type.get())) {
+        if (forbid) return nullptr;
+        return iter->E;
     } else {
         return nullptr;
     }
@@ -404,6 +430,7 @@ inline TypeReference deserialize(const char*& str) {
             ++str;
             return std::make_shared<FuncType>(std::move(parameters), deserialize(str));
         }
+        case '*': return std::make_shared<IterType>(deserialize(str));
     }
     std::string msg = "error to deserialize type at ";
     msg += --str;
@@ -431,5 +458,15 @@ union $union {
     $union(double $float): $float($float) {}
     $union(Object* $object): $object($object) {}
 };
+
+enum class IdentityKind {
+    SELF, FLOAT, OBJECT
+};
+
+inline IdentityKind getIdentityKind(TypeReference const& type) {
+    if (isFloat(type)) return IdentityKind::FLOAT;
+    if (isValueBased(type)) return IdentityKind::SELF;
+    return IdentityKind::OBJECT;
+}
 
 }

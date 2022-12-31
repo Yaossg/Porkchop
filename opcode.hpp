@@ -84,7 +84,9 @@ enum class Opcode {
     ADD,
     REMOVE,
     IN,
-    SIZEOF
+    SIZEOF,
+    FHASH,
+    OHASH,
 };
 
 constexpr std::string_view OPCODE_NAME[] = {
@@ -166,7 +168,9 @@ constexpr std::string_view OPCODE_NAME[] = {
     "add",
     "remove",
     "in",
-    "sizeof"
+    "sizeof",
+    "fhash",
+    "ohash",
 };
 
 const std::unordered_map<std::string_view, Opcode> OPCODES {
@@ -248,7 +252,9 @@ const std::unordered_map<std::string_view, Opcode> OPCODES {
     {"add", Opcode::ADD},
     {"remove", Opcode::REMOVE},
     {"in", Opcode::IN},
-    {"sizeof", Opcode::SIZEOF}
+    {"sizeof", Opcode::SIZEOF},
+    {"fhash", Opcode::FHASH},
+    {"ohash", Opcode::OHASH},
 };
 
 }
