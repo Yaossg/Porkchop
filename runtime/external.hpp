@@ -29,6 +29,7 @@ $union input(VM* vm, std::vector<$union> const &args);
 $union flush(VM* vm, std::vector<$union> const &args);
 $union eof(VM* vm, std::vector<$union> const &args);
 $union typename_(VM* vm, std::vector<$union> const &args);
+$union gc(VM* vm, std::vector<$union> const &args);
 
 }
 

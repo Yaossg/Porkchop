@@ -95,4 +95,9 @@ $union typename_(VM* vm, const std::vector<$union> &args) {
     return vm->newObject<String>(name);
 }
 
+$union gc(VM* vm, std::vector<$union> const &args) {
+    vm->gc();
+    return nullptr;
+}
+
 }

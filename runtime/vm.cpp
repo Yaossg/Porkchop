@@ -413,7 +413,7 @@ void Coroutine::walkMark() {
 
 bool Coroutine::move() {
     if (runtime->code() != Opcode::RETURN) {
-        ++runtime->i;
+        ++runtime->pc;
         cache = runtime->loop();
         return runtime->code() != Opcode::RETURN;
     }

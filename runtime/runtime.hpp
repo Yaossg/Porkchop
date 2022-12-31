@@ -13,7 +13,7 @@ struct Runtime {
     Assembly *assembly;
     std::unique_ptr<VM::Frame> frame;
     Instructions& instructions;
-    size_t i = 0;
+    size_t pc = 0;
 
     Runtime(Assembly *assembly, std::unique_ptr<VM::Frame> frame, Instructions& instructions)
             : assembly(assembly), frame(std::move(frame)), instructions(instructions) {
@@ -149,29 +149,17 @@ struct Runtime {
     }
 
     void call() {
-        auto func = dynamic_cast<Func *>(opop());
-        frame->vm->temporaries.push_back(func);
+        VM::ObjectHolder object = opop();
+        auto func = object.as<Func>();
         push(func->call(assembly, frame->vm), !isValueBased(func->prototype->R));
-        frame->vm->temporaries.pop_back();
     }
 
     void bind(size_t size) {
         if (size > 0) {
+            VM::GCGuard guard{frame->vm};
             auto captures = npop(size);
-            auto unbound = dynamic_cast<Func*>(opop());
-            size_t temporaries = 0;
-            for (size_t i = 0; i < captures.size(); ++i) {
-                if (!isValueBased(unbound->prototype->P[i])) {
-                    frame->vm->temporaries.push_back(captures[i].$object);
-                    ++temporaries;
-                }
-            }
-            frame->vm->temporaries.push_back(unbound);
-            auto bound = unbound->bind(captures);
-            push(bound);
-            frame->vm->temporaries.pop_back();
-            for (size_t i = 0; i < temporaries; ++i)
-                frame->vm->temporaries.pop_back();
+            auto object = opop();
+            push(dynamic_cast<Func*>(object)->bind(captures));
         }
     }
 
@@ -221,6 +209,7 @@ struct Runtime {
     }
 
     void tuple(TypeReference const& prototype) {
+        VM::GCGuard guard{frame->vm};
         auto tuple = std::dynamic_pointer_cast<TupleType>(prototype);
         auto elements = npop(tuple->E.size());
         if (elements.size() == 2) {
@@ -259,11 +248,13 @@ struct Runtime {
                     break;
             }
         } else {
+            VM::GCGuard guard{frame->vm};
             push(frame->vm->newObject<ObjectList>(std::move(elements), list));
         }
     }
 
     void set(std::pair<TypeReference, size_t> const& cons) {
+        VM::GCGuard guard{frame->vm};
         auto elements = npop(cons.second);
         auto type = std::dynamic_pointer_cast<SetType>(cons.first);
         auto kind = getIdentityKind(type->E);
@@ -272,6 +263,7 @@ struct Runtime {
     }
 
     void dict(std::pair<TypeReference, size_t> const& cons) {
+        VM::GCGuard guard{frame->vm};
         auto elements = npop(cons.second * 2);
         auto type = std::dynamic_pointer_cast<DictType>(cons.first);
         auto kind = getIdentityKind(type->K);
@@ -496,26 +488,19 @@ struct Runtime {
     }
 
     void iter() {
-        auto object = opop();
-        frame->vm->temporaries.push_back(object);
-        push(dynamic_cast<Iterable*>(object)->iterator());
-        frame->vm->temporaries.pop_back();
+        VM::ObjectHolder object = opop();
+        push(object.as<Iterable>()->iterator());
     }
 
     void move() {
-        auto object = opop();
-        frame->vm->temporaries.push_back(object);
-        auto iter = dynamic_cast<Iterator*>(object);
-        push(iter->move());
-        frame->vm->temporaries.pop_back();
+        VM::ObjectHolder object = opop();
+        push(object.as<Iterator>()->move());
     }
 
     void get() {
-        auto object = opop();
-        frame->vm->temporaries.push_back(object);
-        auto iter = dynamic_cast<Iterator*>(object);
+        VM::ObjectHolder object = opop();
+        auto iter = object.as<Iterator>();
         push(iter->get(), !isValueBased(iter->E));
-        frame->vm->temporaries.pop_back();
     }
 
     void i2s() {
@@ -593,12 +578,12 @@ struct Runtime {
     }
 
     Opcode code() {
-        return instructions[i].first;
+        return instructions[pc].first;
     }
 
     $union loop() {
-        for (frame->pushToVM(); i < instructions.size(); ++i) {
-            switch (auto&& [opcode, args] = instructions[i]; opcode) {
+        for (frame->pushToVM(); pc < instructions.size(); ++pc) {
+            switch (auto&& [opcode, args] = instructions[pc]; opcode) {
                 case Opcode::NOP:
                     break;
                 case Opcode::DUP:
@@ -608,11 +593,11 @@ struct Runtime {
                     pop();
                     break;
                 case Opcode::JMP:
-                    i = std::get<size_t>(args) - 1;
+                    pc = std::get<size_t>(args) - 1;
                     break;
                 case Opcode::JMP0:
                     if (!pop().$bool) {
-                        i = std::get<size_t>(args) - 1;
+                        pc = std::get<size_t>(args) - 1;
                     }
                     break;
                 case Opcode::CONST:

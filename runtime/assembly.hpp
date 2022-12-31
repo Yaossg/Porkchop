@@ -37,6 +37,7 @@ struct Assembly {
         functions.emplace_back(Externals::flush);
         functions.emplace_back(Externals::eof);
         functions.emplace_back(Externals::typename_);
+        functions.emplace_back(Externals::gc);
     }
 };
 

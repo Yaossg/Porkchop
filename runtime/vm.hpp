@@ -143,6 +143,34 @@ struct VM {
 
     std::vector<Frame*> frames;
     std::vector<Object*> temporaries;
+    bool disableGC = false;
+
+    struct ObjectHolder {
+        Object* object;
+
+        ObjectHolder(Object* object): object(object) {
+            object->vm->temporaries.push_back(object);
+        }
+
+        ~ObjectHolder() {
+            object->vm->temporaries.pop_back();
+        }
+
+        template<typename T>
+        T* as() {
+            return dynamic_cast<T*>(object);
+        }
+    };
+
+    struct GCGuard {
+        VM* vm;
+        GCGuard(VM* vm): vm(vm) {
+            vm->disableGC = true;
+        }
+        ~GCGuard() {
+            vm->disableGC = false;
+        }
+    };
 
     template<std::derived_from<Object> T, typename... Args>
         requires std::constructible_from<T, Args...>
@@ -181,6 +209,7 @@ struct VM {
     }
 
     void gc() {
+        if (disableGC) return;
         markAll();
         sweep();
         maxObjects = std::max(numObjects * 2, 1024);

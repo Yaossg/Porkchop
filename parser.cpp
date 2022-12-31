@@ -487,9 +487,8 @@ ExprHandle Parser::parseFn() {
         auto clause = child.parseFnBody(F, async);
         p = child.p;
         name = std::move(decl->name);
-        auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F), std::move(clause));
-        fn->async = async;
-        fn->locals = std::move(child.context.localTypes);
+        auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F),
+                                          std::move(clause), std::move(child.context.localTypes), async);
         context.define(fn->name->token, fn.get());
         return fn;
     } else {
@@ -528,9 +527,8 @@ ExprHandle Parser::parseLambda() {
     }
     auto clause = child.parseFnBody(F, async);
     p = child.p;
-    auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F), std::move(clause));
-    lambda->locals = std::move(child.context.localTypes);
-    lambda->async = async;
+    auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F),
+                                           std::move(clause), std::move(child.context.localTypes), async);
     context.lambda(lambda.get());
     return lambda;
 }

@@ -26,6 +26,7 @@ void predefined(LocalContext& context) {
     context.defineExternal("flush", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::NONE));
     context.defineExternal("eof", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::BOOL));
     context.defineExternal("typename", std::make_shared<FuncType>(std::vector{ScalarTypes::ANY}, ScalarTypes::STRING));
+    context.defineExternal("gc", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::NONE));
 }
 
 void Compiler::parse() {
