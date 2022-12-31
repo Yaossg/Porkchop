@@ -197,6 +197,15 @@ TypeReference PrefixExpr::evalType() const {
         case TokenType::OP_INV:
             rhs->expect(isIntegral, "integral type");
             break;
+        case TokenType::KW_SIZEOF:
+            if (auto type = rhs->typeCache; !isString(type)
+                && !dynamic_cast<SetType*>(type.get())
+                && !dynamic_cast<ListType*>(type.get())
+                && !dynamic_cast<DictType*>(type.get())
+                && !dynamic_cast<TupleType*>(type.get())) {
+                rhs->expect("sizeable type");
+            }
+            return ScalarTypes::INT;
         default:
             unreachable();
     }
@@ -205,6 +214,11 @@ TypeReference PrefixExpr::evalType() const {
 
 $union PrefixExpr::evalConst() const {
     auto type = rhs->typeCache;
+    if (token.type == TokenType::KW_SIZEOF) {
+        if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
+            return tuple->E.size();
+        }
+    }
     auto value = rhs->evalConst();
     switch (token.type) {
         case TokenType::OP_ADD:
@@ -229,19 +243,29 @@ $union PrefixExpr::evalConst() const {
 }
 
 void PrefixExpr::walkBytecode(Assembler* assembler) const {
+    auto type = rhs->typeCache;
+    if (token.type == TokenType::KW_SIZEOF) {
+        if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
+            assembler->const_((int64_t) tuple->E.size());
+        } else {
+            rhs->walkBytecode(assembler);
+            assembler->opcode(Opcode::SIZEOF);
+        }
+        return;
+    }
     rhs->walkBytecode(assembler);
     switch (token.type) {
         case TokenType::OP_ADD:
             break;
         case TokenType::OP_SUB:
-            assembler->opcode(isIntegral(typeCache) ? Opcode::INEG : Opcode::FNEG);
+            assembler->opcode(isIntegral(type) ? Opcode::INEG : Opcode::FNEG);
             break;
         case TokenType::OP_NOT:
             assembler->opcode(Opcode::NOT);
             break;
         case TokenType::OP_INV:
             assembler->opcode(Opcode::INV);
-            if (isByte(rhs->typeCache)) assembler->opcode(Opcode::I2B);
+            if (isByte(type)) assembler->opcode(Opcode::I2B);
             break;
         default:
             unreachable();

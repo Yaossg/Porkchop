@@ -108,7 +108,8 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     return context.make<PrefixExpr>(token, std::move(rhs));
                 }
                 case TokenType::OP_NOT:
-                case TokenType::OP_INV: {
+                case TokenType::OP_INV:
+                case TokenType::KW_SIZEOF: {
                     next();
                     auto rhs = parseExpression(level);
                     return context.make<PrefixExpr>(token, std::move(rhs));

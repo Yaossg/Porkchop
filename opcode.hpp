@@ -84,6 +84,7 @@ enum class Opcode {
     ADD,
     REMOVE,
     IN,
+    SIZEOF
 };
 
 constexpr std::string_view OPCODE_NAME[] = {
@@ -164,7 +165,8 @@ constexpr std::string_view OPCODE_NAME[] = {
     "o2s",
     "add",
     "remove",
-    "in"
+    "in",
+    "sizeof"
 };
 
 const std::unordered_map<std::string_view, Opcode> OPCODES {
@@ -245,7 +247,8 @@ const std::unordered_map<std::string_view, Opcode> OPCODES {
     {"o2s", Opcode::O2S},
     {"add", Opcode::ADD},
     {"remove", Opcode::REMOVE},
-    {"in", Opcode::IN}
+    {"in", Opcode::IN},
+    {"sizeof", Opcode::SIZEOF}
 };
 
 }

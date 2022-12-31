@@ -270,12 +270,20 @@ struct AnyScalar : Object {
     size_t hashCode() override;
 };
 
-struct String : Object {
+struct Sizeable {
+    virtual size_t size() = 0;
+};
+
+struct String : Object, Sizeable {
     std::string value;
 
     explicit String(std::string value): value(std::move(value)) {}
 
     TypeReference getType() override { return ScalarTypes::STRING; }
+
+    size_t size() override {
+        return value.length();
+    }
 
     std::string toString() override;
 
@@ -356,11 +364,10 @@ struct Iterable : Object {
     virtual Iterator* iterator() = 0;
 };
 
-struct Collection : Iterable {
+struct Collection : Iterable, Sizeable {
     virtual void add($union element) = 0;
     virtual void remove($union element) = 0;
     virtual bool contains($union element) = 0;
-    virtual size_t size() = 0;
 };
 
 struct List : Collection {

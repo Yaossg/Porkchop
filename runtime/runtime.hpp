@@ -552,7 +552,6 @@ struct Runtime {
         push(sf(value));
     }
 
-
     void z2s() {
         const static std::string $true{"true"}, $false{"false"};
         auto value = pop();
@@ -588,6 +587,11 @@ struct Runtime {
         auto collection = dynamic_cast<Collection*>(opop());
         auto value = pop();
         push(collection->contains(value));
+    }
+
+    void sizeof_() {
+        auto sizeable = dynamic_cast<Sizeable*>(opop());
+        push((int64_t) sizeable->size());
     }
 };
 

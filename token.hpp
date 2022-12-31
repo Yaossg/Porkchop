@@ -28,6 +28,7 @@ enum class TokenType {
     KW_DEFAULT,
     KW_LET,
     KW_IN,
+    KW_SIZEOF,
 
     LPAREN,
     RPAREN,
@@ -107,7 +108,8 @@ const std::unordered_map<std::string_view, TokenType> KEYWORDS {
     {"is", TokenType::KW_IS},
     {"default", TokenType::KW_DEFAULT},
     {"let", TokenType::KW_LET},
-    {"in", TokenType::KW_IN}
+    {"in", TokenType::KW_IN},
+    {"sizeof", TokenType::KW_SIZEOF}
 };
 
 const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
