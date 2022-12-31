@@ -441,6 +441,8 @@ struct ObjectList : List {
             }
             return false;
         }
+
+        bool equals(Object *other) override;
     };
 
     Iterator * iterator() override {
@@ -499,6 +501,8 @@ struct NoneList : List {
         bool move() override {
             return i && --i;
         }
+
+        bool equals(Object *other) override;
     };
 
     Iterator * iterator() override {
@@ -566,6 +570,8 @@ struct BoolList : List {
             }
             return false;
         }
+
+        bool equals(Object *other) override;
     };
 
     Iterator * iterator() override {
@@ -633,6 +639,8 @@ struct ByteList : List {
             }
             return false;
         }
+
+        bool equals(Object *other) override;
     };
 
     Iterator * iterator() override {
@@ -703,6 +711,8 @@ struct ScalarList : List {
             }
             return false;
         }
+
+        bool equals(Object *other) override;
     };
 
     Iterator * iterator() override {
@@ -769,6 +779,7 @@ struct Set : Collection {
             return false;
         }
 
+        bool equals(Object *other) override;
     };
 
     Iterator * iterator() override {
@@ -845,6 +856,8 @@ struct Dict : Collection {
             }
             return false;
         }
+
+        bool equals(Object *other) override;
     };
 
     Iterator * iterator() override {
@@ -858,6 +871,5 @@ struct Dict : Collection {
     size_t hashCode() override;
 
 };
-
 
 }

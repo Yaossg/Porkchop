@@ -11,7 +11,9 @@ bool isInLevel(TokenType type, Expr::Level level) {
         case TokenType::OP_XOR: return level == Expr::Level::XOR;
         case TokenType::OP_AND: return level == Expr::Level::AND;
         case TokenType::OP_EQ:
-        case TokenType::OP_NE: return level == Expr::Level::EQUALITY;
+        case TokenType::OP_NE:
+        case TokenType::OP_EQQ:
+        case TokenType::OP_NEQ: return level == Expr::Level::EQUALITY;
         case TokenType::OP_LT:
         case TokenType::OP_GT:
         case TokenType::OP_LE:

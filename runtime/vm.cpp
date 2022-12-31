@@ -589,4 +589,60 @@ std::string Stringifier::operator()($union value) const {
     unreachable();
 }
 
+bool ObjectList::ObjectListIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<ObjectList::ObjectListIterator*>(other)) {
+        return list == iter->list && first == iter->first;
+    }
+    return false;
+}
+
+bool NoneList::NoneListIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<NoneList::NoneListIterator*>(other)) {
+        return list == iter->list && i == iter->i;
+    }
+    return false;
+}
+
+bool BoolList::BoolListIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<BoolList::BoolListIterator*>(other)) {
+        return list == iter->list && first == iter->first;
+    }
+    return false;
+}
+
+bool ByteList::ByteListIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<ByteList::ByteListIterator*>(other)) {
+        return list == iter->list && first == iter->first;
+    }
+    return false;
+}
+
+bool ScalarList::ScalarListIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<ScalarList::ScalarListIterator*>(other)) {
+        return list == iter->list && first == iter->first;
+    }
+    return false;
+}
+
+bool Set::SetIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<Set::SetIterator*>(other)) {
+        return set == iter->set && first == iter->first;
+    }
+    return false;
+}
+
+bool Dict::DictIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<Dict::DictIterator*>(other)) {
+        return dict == iter->dict && first == iter->first;
+    }
+    return false;
+}
+
 }

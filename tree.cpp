@@ -543,7 +543,10 @@ void InfixExpr::walkBytecode(Assembler* assembler) const {
 TypeReference CompareExpr::evalType() const {
     match(lhs.get(), rhs.get());
     auto type = lhs->typeCache;
-    bool equality = token.type == TokenType::OP_EQ || token.type == TokenType::OP_NE;
+    bool equality =token.type == TokenType::OP_EQ
+            || token.type == TokenType::OP_NE
+            || token.type == TokenType::OP_EQQ
+            || token.type == TokenType::OP_NEQ;
     if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
         switch (scalar->S) {
             case ScalarTypeKind::ANY:
@@ -563,7 +566,7 @@ TypeReference CompareExpr::evalType() const {
 $union CompareExpr::evalConst() const {
     auto type = lhs->typeCache;
     if (!isValueBased(type)) throw ConstException("constant comparison between unsupported types", segment());
-    if (isNone(type)) return token.type == TokenType::OP_EQ;
+    if (isNone(type)) return token.type == TokenType::OP_EQ || token.type == TokenType::OP_EQQ;
     auto value1 = lhs->evalConst();
     auto value2 = rhs->evalConst();
     std::partial_ordering cmp = value1.$size <=> value2.$size;
@@ -574,8 +577,10 @@ $union CompareExpr::evalConst() const {
     }
     switch (token.type) {
         case TokenType::OP_EQ:
+        case TokenType::OP_EQQ:
             return cmp == 0;
         case TokenType::OP_NE:
+        case TokenType::OP_NEQ:
             return cmp != 0;
         case TokenType::OP_LT:
             return cmp < 0;
@@ -591,15 +596,17 @@ $union CompareExpr::evalConst() const {
 }
 
 void CompareExpr::walkBytecode(Assembler *assembler) const {
+    auto type = lhs->typeCache;
+    if (isNone(type)) {
+        assembler->const_(token.type == TokenType::OP_EQ || token.type == TokenType::OP_EQQ);
+        return;
+    }
     lhs->walkBytecode(assembler);
     rhs->walkBytecode(assembler);
-    auto type = lhs->typeCache;
-    if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
+    if (token.type == TokenType::OP_EQQ || token.type == TokenType::OP_NEQ) {
+        assembler->opcode(Opcode::UCMP);
+    } else if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
         switch (scalar->S) {
-            case ScalarTypeKind::NONE: {
-                assembler->const_(token.type == TokenType::OP_EQ);
-                return;
-            }
             case ScalarTypeKind::BOOL:
             case ScalarTypeKind::BYTE:
             case ScalarTypeKind::CHAR:
@@ -622,9 +629,11 @@ void CompareExpr::walkBytecode(Assembler *assembler) const {
     }
     switch (token.type) {
         case TokenType::OP_EQ:
+        case TokenType::OP_EQQ:
             assembler->opcode(Opcode::EQ);
             break;
         case TokenType::OP_NE:
+        case TokenType::OP_NEQ:
             assembler->opcode(Opcode::NE);
             break;
         case TokenType::OP_LT:
