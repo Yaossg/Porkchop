@@ -71,7 +71,8 @@ Porkchop <input> -t -o tmp && PorkchopRuntime tmp [args...] && r
     while i <= 9 {
         j = 1
         while j <= i {
-            print(i + "*" + j + "=" + i * j + " ")
+            let k = i * j
+            print("$i*$j=$k ")
             ++j
         }
         println("")
@@ -132,58 +133,62 @@ graph
 19-->23
 23["{}"]
 23-->24
-24["()"]
+24["let"]
 24-->25
-25["print"]
-24-->26
-26["+"]
-26-->27
-27["+"]
-27-->28
-28["+"]
+25[":"]
+25-->26
+26["k"]
+25-->27
+27["int"]
+24-->28
+28["*"]
 28-->29
-29["+"]
-29-->30
-30["+"]
-30-->31
-31["i"]
-30-->32
-32[""*""]
-29-->33
-33["j"]
-28-->34
-34[""=""]
-27-->35
-35["*"]
-35-->36
-36["i"]
-35-->37
+29["i"]
+28-->30
+30["j"]
+23-->31
+31["()"]
+31-->32
+32["print"]
+31-->33
+33["&quot${}&quot"]
+33-->34
+34["&quot$"]
+33-->35
+35["i"]
+33-->36
+36["*$"]
+33-->37
 37["j"]
-26-->38
-38["" ""]
-23-->39
-39["++"]
-39-->40
-40["j"]
-15-->41
-41["()"]
+33-->38
+38["=$"]
+33-->39
+39["k"]
+33-->40
+40[" &quot"]
+23-->41
+41["++"]
 41-->42
-42["println"]
-41-->43
-43["" ""]
-15-->44
-44["++"]
-44-->45
-45["i"]
+42["j"]
+15-->43
+43["()"]
+43-->44
+44["println"]
+43-->45
+45["&quot&quot"]
+15-->46
+46["++"]
+46-->47
+47["i"]
 ```
 
 文本汇编编译结果：
 
 ```
+string 0 
 string 1 2A
 string 1 3D
 string 1 20
-string 0 
 func $:v
 func $s:v
 func $s:v
@@ -199,7 +204,13 @@ func $s:v
 func $:v
 func $:z
 func $a:s
+func $:v
+func $s:[b
+func $s:[c
+func $[b:s
+func $[c:s
 (
+local i
 local i
 local i
 const 1
@@ -223,23 +234,23 @@ load 0
 icmp
 le
 jmp0 L3
-fconst 1
-load 0
-i2s
-sconst 0
-sadd
-load 1
-i2s
-sadd
-sconst 1
-sadd
 load 0
 load 1
 imul
+store 2
+pop
+fconst 1
+sconst 0
+load 0
 i2s
-sadd
+sconst 1
+load 1
+i2s
 sconst 2
-sadd
+load 2
+i2s
+sconst 3
+sjoin 7
 bind 1
 call
 pop
@@ -251,7 +262,7 @@ L3: nop
 const 0
 pop
 fconst 2
-sconst 3
+sconst 0
 bind 1
 call
 pop
@@ -691,3 +702,37 @@ Compilation Error: 'string' is not assignable to 'int' at line 2 column 34 to 61
 ```
 
 在对齐的等宽字体下可以看到更好的效果。
+
+## 协程
+
+Porkchop 支持生成器协程：
+
+```
+{
+    let n = [0]
+    let range = $n() async {
+        let i = 0
+        while i < n[0] {
+            yield return i++
+        }
+    }
+    let verbose = $range() = {
+        for i in range() {
+            print("" + i)
+        }
+        println("")
+    }
+    n[0] = 10
+    verbose()
+    n[0] = 5
+    verbose()
+}
+```
+
+输出：
+
+```
+0123456789
+01234
+```
+
