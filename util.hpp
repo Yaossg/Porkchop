@@ -76,4 +76,10 @@ inline std::unique_ptr<Derived> dynamic_pointer_cast(std::unique_ptr<Base>&& bas
     return nullptr;
 }
 
+inline void replaceAll(std::string& inout, std::string_view what, std::string_view with) {
+    for (size_t pos = 0; std::string::npos != (pos = inout.find(what.data(), pos, what.length())); pos += with.length()) {
+        inout.replace(pos, what.length(), with.data(), with.length());
+    }
+}
+
 }

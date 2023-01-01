@@ -134,12 +134,10 @@ struct LineTokenizer {
                 case ' ':
                     break;
                 case *"'":
-                    scan<*"'">("unterminated character literal");
-                    add(TokenType::CHARACTER_LITERAL);
+                    addChar();
                     break;
                 case '"':
-                    scan<'"'>("unterminated string literal");
-                    add(TokenType::STRING_LITERAL);
+                    addString();
                     break;
                 default: {
                     ungetc(ch);
@@ -256,15 +254,45 @@ struct LineTokenizer {
         add(type);
     }
 
-    template<char QUOTER>
-    void scan(const char* message) {
+    void addChar() {
         while (char ch = getc()) {
             switch (ch) {
-                case QUOTER: return;
-                case '\\': getc();
+                case *"'":
+                    add(TokenType::CHARACTER_LITERAL);
+                    return;
+                case '\\':
+                    getc();
+                    break;
             }
         }
-        raise(message);
+        raise("unterminated character literal");
+    }
+
+    void addString() {
+        bool first = true;
+        while (char ch = getc()) {
+            switch (ch) {
+                case '"':
+                    add(first ? TokenType::STRING_QQ : TokenType::STRING_Q);
+                    return;
+                case '\\':
+                    getc();
+                    break;
+                case '$': {
+                    add(first ? TokenType::STRING_QD : TokenType::STRING_D);
+                    step();
+                    if (peekc() == '{') {
+                        getc();
+                        raise("${} is unsupported yet");
+                    } else {
+                        addId();
+                        step();
+                        first = false;
+                    }
+                }
+            }
+        }
+        raise("unterminated string literal");
     }
 };
 
@@ -313,7 +341,9 @@ char32_t parseChar(Compiler& compiler, Token token) {
 }
 
 std::string parseString(Compiler& compiler, Token token) {
-    return UnicodeParser(compiler.of(token), token).unquoteString();
+    bool skip = token.type == TokenType::STRING_QQ || token.type == TokenType::STRING_QD;
+    bool stop = token.type == TokenType::STRING_QQ || token.type == TokenType::STRING_Q;
+    return UnicodeParser(compiler.of(token), token).unquoteString(skip, stop ? '"' : '$');
 }
 
 }

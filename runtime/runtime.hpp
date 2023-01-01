@@ -571,6 +571,15 @@ struct Runtime {
         push((int64_t) opop()->hashCode());
     }
 
+    void sjoin(size_t size) {
+        auto strings = npop(size);
+        std::string buf;
+        for (auto&& string : strings) {
+            buf += dynamic_cast<String*>(string.$object)->value;
+        }
+        push(frame->vm->newObject<String>(std::move(buf)));
+    }
+
     $union yield() {
         $union ret = frame->stack.back();
         frame->popFromVM();
@@ -822,6 +831,9 @@ struct Runtime {
                 case Opcode::RETURN:
                 case Opcode::YIELD:
                     return yield();
+                case Opcode::SJOIN:
+                    sjoin(std::get<size_t>(args));
+                    break;
                 default:
                     unreachable();
             }

@@ -74,7 +74,7 @@ struct UnicodeParser {
 
     char32_t decodeUnicode();
     char32_t unquoteChar(Token token);
-    std::string unquoteString();
+    std::string unquoteString(bool skip, char stop);
 };
 
 

@@ -3,8 +3,6 @@
 #include "assembler.hpp"
 #include "diagnostics.hpp"
 
-#include "util.hpp"
-
 namespace Porkchop {
 
 $union Expr::evalConst() const {
@@ -1307,6 +1305,20 @@ TypeReference YieldBreakExpr::evalType() const {
 void YieldBreakExpr::walkBytecode(Assembler *assembler) const {
     assembler->const0();
     assembler->opcode(Opcode::RETURN);
+}
+
+TypeReference InterpolationExpr::evalType() const {
+    return ScalarTypes::STRING;
+}
+
+void InterpolationExpr::walkBytecode(Assembler *assembler) const {
+    for (size_t i = 0; i < elements.size(); ++i) {
+        literals[i]->walkBytecode(assembler);
+        elements[i]->walkBytecode(assembler);
+        toStringBytecode(assembler, elements[i]->typeCache);
+    }
+    literals.back()->walkBytecode(assembler);
+    assembler->indexed(Opcode::SJOIN, literals.size() + elements.size());
 }
 
 }

@@ -2,8 +2,6 @@
 #include "function.hpp"
 #include "text-assembler.hpp"
 
-#include "util.hpp"
-
 std::unordered_map<std::string, std::string> parseArgs(int argc, const char* argv[]) {
     std::unordered_map<std::string, std::string> args;
     if (argc < 2) {

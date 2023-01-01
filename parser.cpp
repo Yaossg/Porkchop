@@ -1,5 +1,4 @@
 #include "parser.hpp"
-#include "util.hpp"
 
 namespace Porkchop {
 
@@ -274,7 +273,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     return context.make<BoolConstExpr>(next());
                 case TokenType::CHARACTER_LITERAL:
                     return context.make<CharConstExpr>(next());
-                case TokenType::STRING_LITERAL:
+                case TokenType::STRING_QQ:
                     return context.make<StringConstExpr>(next());
                 case TokenType::BINARY_INTEGER:
                 case TokenType::OCTAL_INTEGER:
@@ -287,6 +286,19 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::KW_NAN:
                 case TokenType::KW_INF:
                     return context.make<FloatConstExpr>(next());
+
+                case TokenType::STRING_QD: {
+                    Token token1 = next(), token2;
+                    std::vector<std::unique_ptr<StringConstExpr>> literals;
+                    std::vector<ExprHandle> elements;
+                    literals.push_back(context.make<StringConstExpr>(token1));
+                    do {
+                        elements.push_back(parseExpression(Expr::Level::PRIMARY));
+                        token2 = next();
+                        literals.push_back(context.make<StringConstExpr>(token2));
+                    } while (token2.type != TokenType::STRING_Q);
+                    return context.make<InterpolationExpr>(token1, token2, std::move(literals), std::move(elements));
+                }
 
                 case TokenType::KW_DEFAULT: {
                     next();

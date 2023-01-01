@@ -3,7 +3,6 @@
 #include <charconv>
 
 #include "assembly.hpp"
-#include "../util.hpp"
 
 namespace Porkchop {
 
@@ -111,6 +110,7 @@ struct TextAssembly : Assembly {
                         case Opcode::TLOAD:
                         case Opcode::INC:
                         case Opcode::DEC:
+                        case Opcode::SJOIN:
                             // index or size
                             instructions.emplace_back(opcode, strtoull(args.data(), nullptr, 10));
                             break;

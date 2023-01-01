@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include "util.hpp"
 
 namespace Porkchop {
 
@@ -21,7 +22,9 @@ private:
         std::string pid = std::to_string(id);
         buf += pid;
         buf += "[\"";
-        buf += descriptor();
+        std::string desc(descriptor());
+        replaceAll(desc, "\"", "&quot");
+        buf += desc;
         buf += "\"]\n";
         for (auto&& child : children()) {
             ++id;

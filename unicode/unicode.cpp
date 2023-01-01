@@ -130,6 +130,7 @@ char32_t UnicodeParser::unquoteChar(Token token) {
             case '\'': result = '\''; break;
             case '\"': result = '\"'; break;
             case '\\': result = '\\'; break;
+            case '$': result = '$'; break;
             case '0': result = '\0'; break;
             case 'a': result = '\a'; break;
             case 'b': result = '\b'; break;
@@ -158,11 +159,14 @@ char32_t UnicodeParser::unquoteChar(Token token) {
     return result;
 }
 
-std::string UnicodeParser::unquoteString() {
-    getc(); step();
+std::string UnicodeParser::unquoteString(bool skip, char stop) {
+    if (skip) {
+        getc();
+        step();
+    }
     std::string result;
     char8_t ch1;
-    while ((ch1 = getc()) != '"') {
+    while ((ch1 = getc()) != stop) {
         switch (successiveUTF8Length(ch1)) {
             case 1:
                 if (ch1 == '\\') {
@@ -170,6 +174,7 @@ std::string UnicodeParser::unquoteString() {
                         case '\'': result += '\''; break;
                         case '\"': result += '\"'; break;
                         case '\\': result += '\\'; break;
+                        case '$': result += '$'; break;
                         case '0': result += '\0'; break;
                         case 'a': result += '\a'; break;
                         case 'b': result += '\b'; break;

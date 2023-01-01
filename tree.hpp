@@ -859,4 +859,34 @@ struct YieldBreakExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
+struct InterpolationExpr : Expr {
+    Token token1, token2;
+    std::vector<std::unique_ptr<StringConstExpr>> literals;
+    std::vector<ExprHandle> elements;
+
+    InterpolationExpr(Compiler& compiler, Token token1, Token token2,
+                      std::vector<std::unique_ptr<StringConstExpr>> literals, std::vector<ExprHandle> elements)
+                      : Expr(compiler), token1(token1), token2(token2), literals(std::move(literals)), elements(std::move(elements)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (size_t i = 0; i < elements.size(); ++i) {
+            ret.push_back(literals[i].get());
+            ret.push_back(elements[i].get());
+        }
+        ret.push_back(literals.back().get());
+        return ret;
+    }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "\"${}\""; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token1, token2);
+    }
+
+    [[nodiscard]] TypeReference evalType() const override;
+
+    void walkBytecode(Assembler* assembler) const override;
+};
+
+
 }

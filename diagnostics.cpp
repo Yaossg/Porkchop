@@ -1,7 +1,6 @@
 #include "diagnostics.hpp"
 #include "tree.hpp"
 #include "unicode/unicode.hpp"
-#include "util.hpp"
 
 namespace Porkchop {
 
