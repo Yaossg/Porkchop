@@ -41,7 +41,10 @@ namespace Porkchop {
 
 struct LexContext {
     std::vector<Token> tokens;
-    std::vector<Token> braces;
+    enum class BraceType {
+        CODE, STRING
+    };
+    std::vector<BraceType> braces;
 };
 
 struct LineTokenizer {
@@ -90,20 +93,22 @@ struct LineTokenizer {
     }
 
     void add(TokenType type) {
-        auto token = make(type);
-        context.tokens.push_back(token);
-        switch (type) {
-            case TokenType::LBRACE:
-                context.braces.push_back(token);
-                break;
-            case TokenType::RBRACE:
-                if (context.braces.empty()) {
-                    throw TokenException("stray '}'", token);
-                } else {
-                    context.braces.pop_back();
-                }
-                break;
+        context.tokens.push_back(make(type));
+    }
+
+    void addLBrace(LexContext::BraceType braceType) {
+        add(TokenType::LBRACE);
+        context.braces.push_back(braceType);
+    }
+
+    LexContext::BraceType addRBrace() {
+        add(TokenType::RBRACE);
+        if (context.braces.empty()) {
+            throw TokenException("stray '}' without '{' to match", context.tokens.back());
         }
+        auto type = context.braces.back();
+        context.braces.pop_back();
+        return type;
     }
 
     void raise(const char* msg) const {
@@ -137,7 +142,16 @@ struct LineTokenizer {
                     addChar();
                     break;
                 case '"':
-                    addString();
+                    addString(true);
+                    break;
+                case '{':
+                    addLBrace(LexContext::BraceType::CODE);
+                    break;
+                case '}':
+                    if (addRBrace() == LexContext::BraceType::STRING) {
+                        step();
+                        addString(false);
+                    }
                     break;
                 default: {
                     ungetc(ch);
@@ -268,8 +282,7 @@ struct LineTokenizer {
         raise("unterminated character literal");
     }
 
-    void addString() {
-        bool first = true;
+    void addString(bool first) {
         while (char ch = getc()) {
             switch (ch) {
                 case '"':
@@ -283,7 +296,8 @@ struct LineTokenizer {
                     step();
                     if (peekc() == '{') {
                         getc();
-                        raise("${} is unsupported yet");
+                        addLBrace(LexContext::BraceType::STRING);
+                        return;
                     } else {
                         addId();
                         step();
@@ -302,9 +316,6 @@ void Compiler::tokenize() {
     LexContext context;
     for (size_t line = 0; line < lines.size(); ++line) {
         LineTokenizer(context, lines[line], line);
-    }
-    if (!context.braces.empty()) {
-        throw TokenException("open brace unclosed", context.braces.back());
     }
     tokens = std::move(context.tokens);
 }
