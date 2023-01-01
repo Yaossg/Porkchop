@@ -30,6 +30,10 @@ $union flush(VM* vm, std::vector<$union> const &args);
 $union eof(VM* vm, std::vector<$union> const &args);
 $union typename_(VM* vm, std::vector<$union> const &args);
 $union gc(VM* vm, std::vector<$union> const &args);
+$union toBytes(VM* vm, std::vector<$union> const &args);
+$union toChars(VM* vm, std::vector<$union> const &args);
+$union fromBytes(VM* vm, std::vector<$union> const &args);
+$union fromChars(VM* vm, std::vector<$union> const &args);
 
 }
 

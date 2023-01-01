@@ -331,7 +331,7 @@ std::string Stringifier::operator()($union value) const {
             return value.$bool ? "true" : "false";
         case ScalarTypeKind::BYTE: {
             char buf[8];
-            sprintf(buf, "%llX", value);
+            sprintf(buf, "%hhX", value);
             return buf;
         }
         case ScalarTypeKind::INT:

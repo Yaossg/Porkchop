@@ -27,6 +27,10 @@ void predefined(LocalContext& context) {
     context.defineExternal("eof", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::BOOL));
     context.defineExternal("typename", std::make_shared<FuncType>(std::vector{ScalarTypes::ANY}, ScalarTypes::STRING));
     context.defineExternal("gc", std::make_shared<FuncType>(std::vector<TypeReference>{}, ScalarTypes::NONE));
+    context.defineExternal("toBytes", std::make_shared<FuncType>(std::vector{ScalarTypes::STRING}, std::make_shared<ListType>(ScalarTypes::BYTE)));
+    context.defineExternal("toChars", std::make_shared<FuncType>(std::vector{ScalarTypes::STRING}, std::make_shared<ListType>(ScalarTypes::CHAR)));
+    context.defineExternal("fromBytes", std::make_shared<FuncType>(std::vector<TypeReference>{std::make_shared<ListType>(ScalarTypes::BYTE)}, ScalarTypes::STRING));
+    context.defineExternal("fromChars", std::make_shared<FuncType>(std::vector<TypeReference>{std::make_shared<ListType>(ScalarTypes::CHAR)}, ScalarTypes::STRING));
 }
 
 void Compiler::parse() {

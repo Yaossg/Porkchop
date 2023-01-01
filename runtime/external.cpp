@@ -1,4 +1,5 @@
 #include "runtime.hpp"
+#include "../unicode/unicode.hpp"
 
 #include <chrono>
 
@@ -99,5 +100,42 @@ $union gc(VM* vm, std::vector<$union> const &args) {
     vm->gc();
     return nullptr;
 }
+
+$union toBytes(VM* vm, std::vector<$union> const &args) {
+    auto& string = as_string(args[0]);
+    std::vector<unsigned char> bytes(string.begin(), string.end());
+    return vm->newObject<ByteList>(std::move(bytes));
+}
+
+$union toChars(VM* vm, std::vector<$union> const &args) {
+    auto& string = as_string(args[0]);
+    std::vector<$union> chars;
+    chars.reserve(string.length());
+    try {
+        UnicodeParser parser(string, 0, 0);
+        while (parser.remains()) chars.emplace_back(parser.decodeUnicode());
+    } catch (...) {
+        throw Exception("failed to decode Unicode");
+    }
+    chars.shrink_to_fit();
+    return vm->newObject<ScalarList>(std::move(chars), ScalarTypeKind::CHAR);
+}
+
+$union fromBytes(VM* vm, std::vector<$union> const &args) {
+    auto list = dynamic_cast<ByteList*>(args[0].$object);
+    std::string string{list->elements.begin(), list->elements.end()};
+    return vm->newObject<String>(std::move(string));
+}
+
+$union fromChars(VM* vm, std::vector<$union> const &args) {
+    auto list = dynamic_cast<ScalarList*>(args[0].$object);
+    std::string string;
+    string.reserve(list->elements.size());
+    for (auto element : list->elements) {
+        string += encodeUnicode(element.$char);
+    }
+    return vm->newObject<String>(std::move(string));
+}
+
 
 }

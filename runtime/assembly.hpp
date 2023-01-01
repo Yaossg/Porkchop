@@ -38,6 +38,10 @@ struct Assembly {
         functions.emplace_back(Externals::eof);
         functions.emplace_back(Externals::typename_);
         functions.emplace_back(Externals::gc);
+        functions.emplace_back(Externals::toBytes);
+        functions.emplace_back(Externals::toChars);
+        functions.emplace_back(Externals::fromBytes);
+        functions.emplace_back(Externals::fromChars);
     }
 };
 
