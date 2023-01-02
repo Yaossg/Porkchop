@@ -365,6 +365,13 @@ struct IterType : Type {
         return false;
     }
 
+    [[nodiscard]] bool assignableFrom(const TypeReference& type) const noexcept override {
+        if (auto iter = dynamic_cast<const IterType*>(type.get())) {
+            return E->assignableFrom(iter->E);
+        }
+        return false;
+    }
+
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {E.get()}; }
     [[nodiscard]] std::string_view descriptor() const noexcept override { return "*"; }
 
@@ -441,7 +448,7 @@ struct Object;
 
 union $union {
     size_t $size;
-    nullptr_t $none;
+    std::nullptr_t $none;
     bool $bool;
     uint8_t $byte;
     char32_t $char;
@@ -450,7 +457,7 @@ union $union {
     Object* $object;
     $union(): $union(nullptr) {}
     $union(size_t $size): $size($size) {}
-    $union(nullptr_t $none): $none($none) {}
+    $union(std::nullptr_t $none): $none($none) {}
     $union(bool $bool): $bool($bool) {}
     $union(uint8_t $byte): $byte($byte) {}
     $union(char32_t $char): $char($char) {}

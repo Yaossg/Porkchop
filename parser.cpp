@@ -34,6 +34,12 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
     switch (level) {
         case Expr::Level::ASSIGNMENT: {
             switch (Token token = peek(); token.type) {
+                case TokenType::KW_BREAK:  {
+                    auto expr = context.make<BreakExpr>(next());
+                    if (hooks.empty()) throw ParserException("wild break", token);
+                    hooks.back()->breaks.push_back(expr.get());
+                    return expr;
+                }
                 case TokenType::KW_RETURN: {
                     next();
                     auto expr = context.make<ReturnExpr>(token, parseExpression(level));
@@ -307,12 +313,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     auto token2 = expect(TokenType::RPAREN, "missing ')' to match '('");
                     return context.make<DefaultExpr>(token, token2, type);
                 }
-                case TokenType::KW_BREAK: {
-                    auto expr = context.make<BreakExpr>(next());
-                    if (hooks.empty()) throw ParserException("wild break", token);
-                    hooks.back()->breaks.push_back(expr.get());
-                    return expr;
-                }
                 case TokenType::KW_WHILE:
                     return parseWhile();
                 case TokenType::KW_IF:
@@ -328,7 +328,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
                 case TokenType::KW_ELSE:
                     throw ParserException("stray 'else'", next());
+                case TokenType::KW_ASYNC:
+                    throw ParserException("stray 'async'", next());
 
+                case TokenType::KW_BREAK:
                 case TokenType::KW_RETURN:
                 case TokenType::KW_YIELD:
                     return parseExpression();

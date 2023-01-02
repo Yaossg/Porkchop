@@ -406,8 +406,8 @@ bool Dict::DictIterator::equals(Object *other) {
 }
 
 void Coroutine::walkMark() {
-    if (!isValueBased(E) && cache.$object)
-        cache.$object->mark();
+    if (!isValueBased(E) && cache.has_value() && cache->$object)
+        cache->$object->mark();
     runtime->frame->markAll();
 }
 

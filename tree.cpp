@@ -966,6 +966,7 @@ TypeReference DefaultExpr::evalType() const {
     Porkchop::neverGonnaGiveYouUp(T, "here for it has no instance at all", segment());
     if (isAny(T)) throw TypeException("any has no default instance", segment());
     if (auto tuple = dynamic_cast<TupleType*>(T.get())) throw TypeException("tuple has no default instance", segment());
+    if (auto iter = dynamic_cast<IterType*>(T.get())) throw TypeException("iter has no default instance", segment());
     if (auto func = dynamic_cast<FuncType*>(T.get())) throw TypeException("func has no default instance", segment());
     return T;
 }
@@ -1080,8 +1081,13 @@ void DictExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference ClauseExpr::evalType() const {
-    for (auto&& expr : lines) if (isNever(expr->typeCache)) return ScalarTypes::NEVER;
-    return lines.empty() ? ScalarTypes::NONE : lines.back()->typeCache;
+    if (lines.empty()) return ScalarTypes::NONE;
+    for (size_t i = 0; i < lines.size() - 1; ++i) {
+        if (isNever(lines[i]->typeCache)) {
+            throw TypeException("this line is unreachable since the previous line never return", lines[i + 1]->segment());
+        }
+    }
+    return lines.back()->typeCache;
 }
 
 $union ClauseExpr::evalConst() const {

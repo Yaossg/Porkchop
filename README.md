@@ -1,6 +1,6 @@
 # Porkchop
 
-Porkchop Programming Language
+Porkchop Programming Language: A Complete Nonsense
 
 ```
 {
@@ -21,6 +21,7 @@ Porkchop <input> [options...]
 - `-o <output>` 指定输出文件名。如果缺省，则根据输入文件名和输出类型自动合成。`-o <stdout>` 表示输出到控制台，`-o <null>` 表示只检查语法，不输出。
 - `-m` 或 `--mermaid` 输出语法树。
 - `-t` 或 `--text-asm` 输出文本汇编。
+- `-b` 或 `--bin-asm`输出二进制汇编。
 
 ### Mermaid 的使用
 
@@ -43,10 +44,11 @@ graph
 ## 运行时使用
 
 ```
-PorkchopRuntime <input> [args...]
+PorkchopTextRuntime <input> [args...]
+PorkchopBinRuntime <input> [args...]
 ```
 
-第一个参数为输入的文本汇编文件。该文件应该保证由 `Porkchop -t` 输出。
+第一个参数为输入的文本汇编文件。该文件应该保证由 `Porkchop -t` 或 `Porkchop -b` 输出。
 
 之后的参数作为程序的参数，在程序中可以通过 `getargs()` 获取。
 
@@ -345,26 +347,28 @@ string # UTF-8 字符串，如 "你好"
 
 ```
 {
-    let a = 10
-    let b = 10.0
-    a + b
+    let apple = 10
+    let banana = 10.0
+    apple + banana * 2.0
 }
 ```
 
 将会导致编译错误：
 
 ```
-Compilation Error: types mismatch on both operands, the one is 'int', but the other is 'float' at line 4 column 5 to 10
-    4 |     a + b
-      |     ^~~~~
+Compilation Error: type mismatch on both operands, the first one is 'int', but this one is 'float' at line 4 column 13 to 25
+   4  |     apple + banana * 2.0
+      |             ^~~~~~~~~~~~
 ```
 
-唯一的例外是，任何类型的值都可以无条件隐式转换为 `none`，也就是忽略表达式的值。`none` 存在一个字面量 `_`，可供存取。
+唯一的例外是，任何类型的值都可以无条件隐式转换为 `none`，也就是忽略表达式的值。`none` 存在一个隐变量 `_`，处处可供存取。
 
 ```
 {
     _ = 1 # discard this one
-    let a: none = _
+    _ # obtain a none via load
+    () # obtain a none via const
+    {} # obtain a none via const
 }
 ```
 
@@ -404,7 +408,7 @@ int<-->float
 }
 ```
 
-复合类型有元组、列表、集合、字典、函数（详见后文），前四个可用下面的方法构造：
+复合类型有元组、列表、集合、字典、迭代器、函数（详见后文），前四个可用下面的方法构造：
 
 ```
 {
@@ -412,6 +416,7 @@ int<-->float
     let l: [int]            = [1, 2, 3]
     let s: @[int]           = @[1, 2, 3]
     let d: @[string: float] = @["pi": 3.14]
+    let i: *int             = &s
 }
 ```
 
@@ -446,6 +451,7 @@ typeof(expression)
 elementof([E]) = E
 elementof(@[E]) = E
 elementof(@[K: V]) = (K, V)
+elementof(*E) = E
 获取元组第 i 个元素的类型
 elementof((E1, E2, ... Ei ...), i) = Ei
 获取函数参数列表和返回值类型
@@ -457,43 +463,41 @@ returnof((P1, P2, ...): R) = R
 
 下表包含了 Porkchop 所有的运算符。其中初等表达式也在列，方便观察。
 
-| 优先级 | 结合性 | 运算符     | 类型               |
-| ------ | ------ | ---------- | ------------------ |
-| 0      | -      | 初等表达式 | 多种               |
-| 1      | LR     | 后缀       | 多种               |
-| 2      | RL     | 前缀       | 多种               |
-| 3      | LR     | 乘除余     | 算术               |
-| 4      | LR     | 加减       | 算术、字符串（加） |
-| 5      | LR     | 位移       | 整型               |
-| 6      | LR     | 大小比较   | 算术、字符串       |
-| 7      | LR     | 等于比较   | 算术、字符串       |
-| 8      | LR     | 按位与     | 整型               |
-| 9      | LR     | 按位异或   | 整型               |
-| 10     | LR     | 按位或     | 整型               |
-| 11     | LR     | 逻辑与     | 布尔               |
-| 12     | LR     | 逻辑或     | 布尔               |
-| 13     | RL     | 赋值       | 多种               |
-
-整型包含 `int` 和 `byte`，算术类型包含 `int` 和 `float`。
+| 优先级 | 结合性 | 运算符     |
+| ------ | ------ | ---------- |
+| 0      | -      | 初等表达式 |
+| 1      | LR     | 后缀       |
+| 2      | RL     | 前缀       |
+| 3      | LR     | 乘除余in   |
+| 4      | LR     | 加减       |
+| 5      | LR     | 位移       |
+| 6      | LR     | 大小比较   |
+| 7      | LR     | 等于比较   |
+| 8      | LR     | 按位与     |
+| 9      | LR     | 按位异或   |
+| 10     | LR     | 按位或     |
+| 11     | LR     | 逻辑与     |
+| 12     | LR     | 逻辑或     |
+| 13     | RL     | 赋值       |
 
 具体包含下面的运算符：
 
 | 运算符     | 包含...                                                      |
 | ---------- | ------------------------------------------------------------ |
-| 初等表达式 | 布尔、字符、字符串、整数、浮点数字面量<br>元组、列表、集合、字典字面量<br>复合语句、标识符、lambda 表达式<br>`default` `break` `while` `for` `if` `fn` `let` |
+| 初等表达式 | 布尔、字符、字符串、整数、浮点数字面量<br>元组、列表、集合、字典字面量、字符串插值<br>复合语句、标识符、lambda 表达式<br>`default` `while` `for` `if` `fn` `let` |
 | 后缀       | 函数调用、下标访问、点、`as` `is`、自增自减                  |
-| 前缀       | 正负号、按位取反、逻辑取反、自增自减                         |
-| 乘除余     | 乘法、除法、求余                                             |
-| 加减       | 加法、减法                                                   |
+| 前缀       | 正负号、按位取反、逻辑取反、自增自减<br>求哈希、取迭代器、迭代器步进、迭代器取值 |
+| 乘除余in   | 乘法、除法、求余、包含                                       |
+| 加减       | 加法（字符串连接）、减法                                     |
 | 位移       | 左移、算术右移、逻辑右移                                     |
 | 大小比较   | 小于、大于、小于等于、大于等于                               |
-| 等于比较   | 等于、不等于                                                 |
+| 等于比较   | 等于、不等于、全等于、不全等于                               |
 | 按位与     | 按位与                                                       |
 | 按位异或   | 按位异或                                                     |
 | 按位或     | 按位或                                                       |
 | 逻辑与     | 逻辑与                                                       |
 | 逻辑或     | 逻辑或                                                       |
-| 赋值       | 赋值、复合赋值、`return`                                     |
+| 赋值       | 赋值、复合赋值<br>`return`、`yield return` `break` `yield break` |
 
 ## 流程控制
 
@@ -503,7 +507,8 @@ returnof((P1, P2, ...): R) = R
 {
     let a = 0 as any # 丢弃类型信息
     if a is int {
-        println("a is int")
+        let a = a as int # 内层的 a 隐藏外层的 a
+        println("a+1=${a+1}")
     } # none
 }
 ```
@@ -517,6 +522,8 @@ returnof((P1, P2, ...): R) = R
     let m = if a > b { a } else { b }
 }
 ```
+
+else 后面直接 if 可以不用花括号。
 
 while 和 for 表达式，默认返回值为 none
 

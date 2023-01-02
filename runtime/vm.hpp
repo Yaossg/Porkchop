@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
+#include <optional>
 
 #include "../type.hpp"
 #include "../util.hpp"
@@ -399,12 +400,15 @@ struct Iterable : Object {
 
 struct Iterator : Iterable {
     TypeReference E;
-    $union cache;
+    std::optional<$union> cache;
 
     virtual bool move() = 0;
 
     [[nodiscard]] $union get() const {
-        return cache;
+        if (!cache.has_value()) {
+            throw Exception("iterator has no value to yield");
+        }
+        return cache.value();
     }
 
     TypeReference getType() override {
@@ -894,8 +898,8 @@ struct Dict : Collection {
 
         void walkMark() override {
             dict->mark();
-            if (cache.$object)
-                cache.$object->mark();
+            if (cache.has_value() && cache->$object)
+                cache->$object->mark();
         }
 
         bool move() override {
