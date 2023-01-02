@@ -236,7 +236,7 @@ struct Runtime {
                     break;
                 }
                 case ScalarTypeKind::BYTE: {
-                    std::vector<unsigned char> elements0(elements.size());
+                    std::vector<uint8_t> elements0(elements.size());
                     for (size_t i = 0; i < elements.size(); ++i) {
                         elements0[i] = elements[i].$byte;
                     }

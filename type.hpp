@@ -443,7 +443,7 @@ union $union {
     size_t $size;
     nullptr_t $none;
     bool $bool;
-    unsigned char $byte;
+    uint8_t $byte;
     char32_t $char;
     int64_t $int;
     double $float;
@@ -452,7 +452,7 @@ union $union {
     $union(size_t $size): $size($size) {}
     $union(nullptr_t $none): $none($none) {}
     $union(bool $bool): $bool($bool) {}
-    $union(unsigned char $byte): $byte($byte) {}
+    $union(uint8_t $byte): $byte($byte) {}
     $union(char32_t $char): $char($char) {}
     $union(int64_t $int): $int($int) {}
     $union(double $float): $float($float) {}

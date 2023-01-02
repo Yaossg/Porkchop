@@ -103,7 +103,7 @@ $union gc(VM* vm, std::vector<$union> const &args) {
 
 $union toBytes(VM* vm, std::vector<$union> const &args) {
     auto& string = as_string(args[0]);
-    std::vector<unsigned char> bytes(string.begin(), string.end());
+    std::vector<uint8_t> bytes(string.begin(), string.end());
     return vm->newObject<ByteList>(std::move(bytes));
 }
 

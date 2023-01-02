@@ -11,10 +11,10 @@ inline bool isInvalidChar(int64_t value) {
     return value < 0 || value > 0x10FFFFLL || 0xD800LL <= value && value <= 0xDFFFLL;
 }
 
-inline std::string readAll(std::string const& filename) {
-    FILE* input_file = fopen(filename.c_str(), "r");
+inline std::string readAll(const char* filename) {
+    FILE* input_file = fopen(filename, "r");
     if (input_file == nullptr) {
-        fprintf(stderr, "Failed to open input file: %s\n", filename.c_str());
+        fprintf(stderr, "Failed to open input file: %s\n", filename);
         std::exit(20);
     }
     std::string content;

@@ -251,7 +251,7 @@ $union PrefixExpr::evalConst() const {
             if (isInt(type)) {
                 return ~value.$int;
             } else {
-                return (unsigned char)~value.$byte;
+                return (uint8_t)~value.$byte;
             }
         case TokenType::OP_ATAT:
             if (isFloat(type)) {
@@ -398,19 +398,19 @@ $union InfixExpr::evalConst() const {
             if (isInt(lhs->typeCache)) {
                 return lhs->evalConst().$int << rhs->evalConst().$int;
             } else {
-                return (unsigned char)(lhs->evalConst().$byte << rhs->evalConst().$int);
+                return (uint8_t)(lhs->evalConst().$byte << rhs->evalConst().$int);
             }
         case TokenType::OP_SHR:
             if (isInt(lhs->typeCache)) {
                 return lhs->evalConst().$int >> rhs->evalConst().$int;
             } else {
-                return (unsigned char)(lhs->evalConst().$byte >> rhs->evalConst().$int);
+                return (uint8_t)(lhs->evalConst().$byte >> rhs->evalConst().$int);
             }
         case TokenType::OP_USHR:
             if (isInt(lhs->typeCache)) {
                 return lhs->evalConst().$size >> rhs->evalConst().$int;
             } else {
-                return (unsigned char)(lhs->evalConst().$byte >> rhs->evalConst().$int);
+                return (uint8_t)(lhs->evalConst().$byte >> rhs->evalConst().$int);
             }
         case TokenType::OP_ADD:
             if (isInt(lhs->typeCache)) {

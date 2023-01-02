@@ -3,7 +3,7 @@
 
 void proc(int argc, const char *argv[]) {
     Porkchop::forceUTF8();
-    Porkchop::TextAssembly assembly(Porkchop::input("PorkchopRuntime", argc, argv));
+    Porkchop::TextAssembly assembly(Porkchop::input("PorkchopTextRuntime", argc, argv));
     assembly.parse();
     Porkchop::execute(assembly, argc, argv);
 }

@@ -21,12 +21,7 @@ struct Assembler {
     void const0() { const_(false); }
     void const1() { const_(true); }
 
-    virtual void func(TypeReference const& type) {
-        typed(Opcode::FUNC, type);
-    }
-    virtual void local(TypeReference const& type) {
-        typed(Opcode::LOCAL, type);
-    }
+    virtual void func(TypeReference const& type) = 0;
 
     virtual void beginFunction() = 0;
     virtual void endFunction() = 0;
@@ -35,7 +30,7 @@ struct Assembler {
         beginFunction();
         if (async) opcode(Opcode::ASYNC);
         for (auto&& type : localTypes) {
-            local(type);
+            typed(Opcode::LOCAL, type);
         }
         clause->walkBytecode(this);
         opcode(Opcode::RETURN);

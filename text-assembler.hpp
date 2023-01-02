@@ -33,9 +33,7 @@ struct TextAssembler : Assembler {
         if (index == table.size()) {
             table.push_back(s);
         }
-        char buf[24];
-        sprintf(buf, "sconst %llX", index);
-        assemblies.emplace_back(buf);
+        indexed(Opcode::SCONST, index);
     }
     void label(size_t index) override {
         char buf[24];
@@ -54,6 +52,10 @@ struct TextAssembler : Assembler {
         char buf[24];
         sprintf(buf, "%s %s%zu", OPCODE_NAME[(size_t)opcode].data(), type->serialize().c_str(), size);
         assemblies.emplace_back(buf);
+    }
+
+    void func(const TypeReference &type) override  {
+        typed(Opcode::FUNC, type);
     }
 
     void beginFunction() override {

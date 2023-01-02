@@ -5,7 +5,7 @@
 
 namespace Porkchop {
 
-enum class Opcode {
+enum class Opcode : uint8_t {
     NOP,
     DUP,
     POP,

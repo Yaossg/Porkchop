@@ -32,11 +32,11 @@ struct Interpretation : Assembler, Assembly {
         if (index == table.size()) {
             table.push_back(s);
         }
-        instructions.emplace_back(Opcode::SCONST, index);
+        indexed(Opcode::SCONST, index);
     }
     void label(size_t index) override {
         labels[index] = instructions.size();
-        instructions.emplace_back(Opcode::NOP, std::monostate{});
+        opcode(Opcode::NOP);
     }
     void labeled(Opcode opcode, size_t index) override {
         instructions.emplace_back(opcode, index);

@@ -636,9 +636,9 @@ struct BoolList : List {
 };
 
 struct ByteList : List {
-    std::vector<unsigned char> elements;
+    std::vector<uint8_t> elements;
 
-    explicit ByteList(std::vector<unsigned char> elements): elements(std::move(elements)) {}
+    explicit ByteList(std::vector<uint8_t> elements): elements(std::move(elements)) {}
 
     TypeReference getType() override { return std::make_shared<ListType>(ScalarTypes::BYTE); }
 
@@ -672,7 +672,7 @@ struct ByteList : List {
 
     struct ByteListIterator : Iterator {
         ByteList* list;
-        std::vector<unsigned char>::iterator first, last;
+        std::vector<uint8_t>::iterator first, last;
 
         explicit ByteListIterator(ByteList* list): list(list), first(list->elements.begin()), last(list->elements.end()) {
             E = ScalarTypes::BYTE;

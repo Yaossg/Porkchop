@@ -1,6 +1,7 @@
 #include "common.hpp"
 #include "function.hpp"
 #include "text-assembler.hpp"
+#include "bin-assembler.hpp"
 
 std::unordered_map<std::string, std::string> parseArgs(int argc, const char* argv[]) {
     std::unordered_map<std::string, std::string> args;
@@ -19,6 +20,8 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
             args["type"] = "mermaid";
         } else if (!strcmp("-t", argv[i]) || !strcmp("--text-asm", argv[i])) {
             args["type"] = "text-asm";
+        } else if (!strcmp("-b", argv[i]) || !strcmp("--bin-asm", argv[i])) {
+            args["type"] = "bin-asm";
         } else {
             fprintf(stderr, "Fatal: Unknown flag: %s\n", argv[i]);
             std::exit(11);
@@ -45,13 +48,13 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
 struct OutputFile {
     FILE* file;
 
-    explicit OutputFile(std::string const& filename) {
+    explicit OutputFile(std::string const& filename, bool binary) {
         if (filename == "<null>") {
             file = nullptr;
         } else if (filename == "<stdout>") {
             file = stdout;
         } else {
-            FILE* o = fopen(filename.c_str(), "w");
+            FILE* o = fopen(filename.c_str(), binary ? "wb" : "w");
             if (o == nullptr) {
                 fprintf(stderr, "Failed to open output file: %s\n", filename.c_str());
                 std::exit(21);
@@ -80,15 +83,19 @@ struct OutputFile {
 int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     auto args = parseArgs(argc, argv);
-    Porkchop::Compiler compiler(Porkchop::readAll(args["input"]));
+    Porkchop::Compiler compiler(Porkchop::readAll(args["input"].c_str()));
     Porkchop::parse(compiler);
-    OutputFile of(args["output"]);
     auto const& output_type = args["type"];
+    OutputFile of(args["output"], output_type == "bin-asm");
     if (output_type == "mermaid") {
         auto descriptor = compiler.descriptor();
         of.puts(descriptor.c_str());
-    } else if (output_type == "text-asm") {
-        auto assembler = std::make_unique<Porkchop::TextAssembler>();
+    } else if (output_type.ends_with("asm")) {
+        std::unique_ptr<Porkchop::Assembler> assembler(
+                output_type == "text-asm"
+                ? (Porkchop::Assembler*) new Porkchop::TextAssembler()
+                : (Porkchop::Assembler*) new Porkchop::BinAssembler()
+        );
         compiler.compile(assembler.get());
         of.write(assembler.get());
     }

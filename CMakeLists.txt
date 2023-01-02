@@ -21,14 +21,29 @@ add_executable(Porkchop
         util.hpp
         descriptor.hpp
         common.hpp
-)
+        bin-assembler.hpp)
 
-add_executable(PorkchopRuntime
-        runtime/main.cpp
+add_executable(PorkchopTextRuntime
+        runtime/text-main.cpp
         runtime/assembly.hpp
         runtime/external.hpp runtime/external.cpp
         runtime/runtime.hpp
         runtime/text-assembly.hpp
+        runtime/vm.hpp runtime/vm.cpp
+        opcode.hpp
+        util.hpp
+        type.hpp
+        descriptor.hpp
+        runtime/common.hpp
+        unicode/unicode.hpp unicode/unicode.cpp
+)
+
+add_executable(PorkchopBinRuntime
+        runtime/bin-main.cpp
+        runtime/assembly.hpp
+        runtime/external.hpp runtime/external.cpp
+        runtime/runtime.hpp
+        runtime/bin-assembly.hpp
         runtime/vm.hpp runtime/vm.cpp
         opcode.hpp
         util.hpp
