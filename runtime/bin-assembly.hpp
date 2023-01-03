@@ -43,13 +43,8 @@ struct BinAssembly : Assembly {
     ByteStream stream{};
     std::unordered_map<size_t, size_t> labels;
 
-    explicit BinAssembly(FILE* file) {
-        fseek(file, 0, SEEK_END);
-        size_t size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-        fileBuffer.resize(size);
-        fread(fileBuffer.data(), 1, size, file);
-        stream.cur = fileBuffer.data();
+    explicit BinAssembly(std::vector<uint8_t> fileBuffer): fileBuffer(std::move(fileBuffer)) {
+        stream.cur = this->fileBuffer.data();
     }
 
     void parseFunction() {

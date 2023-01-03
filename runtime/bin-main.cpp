@@ -1,6 +1,21 @@
 #include "common.hpp"
 #include "bin-assembly.hpp"
 
+std::vector<uint8_t> readBin(const char* filename) {
+    FILE* file = fopen(filename, "rb");
+    if (file == nullptr) {
+        fprintf(stderr, "Failed to open input file: %s\n", filename);
+        std::exit(20);
+    }
+    fseek(file, 0, SEEK_END);
+    size_t size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    std::vector<uint8_t> fileBuffer(size);
+    fread(fileBuffer.data(), 1, size, file);
+    fclose(file);
+    return fileBuffer;
+}
+
 void proc(int argc, const char *argv[]) {
     Porkchop::forceUTF8();
     if (argc < 2) {
@@ -8,13 +23,7 @@ void proc(int argc, const char *argv[]) {
         fprintf(stderr, "Usage: PorkchopBinRuntime <input> [args...]\n");
         std::exit(10);
     }
-    const char* filename = argv[1];
-    FILE* input_file = fopen(filename, "rb");
-    if (input_file == nullptr) {
-        fprintf(stderr, "Failed to open input file: %s\n", filename);
-        std::exit(20);
-    }
-    Porkchop::BinAssembly assembly(input_file);
+    Porkchop::BinAssembly assembly(readBin(argv[1]));
     assembly.parse();
     Porkchop::execute(assembly, argc, argv);
 }
