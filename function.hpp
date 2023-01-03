@@ -36,9 +36,7 @@ struct LambdaFunction : Function {
         for (auto&& capture : lambda->captures) {
             P.push_back(capture->typeCache);
         }
-        for (auto&& param : lambda->prototype->P) {
-            P.push_back(param);
-        }
+        P.insert(P.end(), lambda->prototype->P.begin(), lambda->prototype->P.end());
         return std::make_shared<FuncType>(std::move(P), lambda->prototype->R);
     }
 };

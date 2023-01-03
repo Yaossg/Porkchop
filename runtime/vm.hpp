@@ -13,6 +13,7 @@
 namespace Porkchop {
 
 struct VM;
+struct Frame;
 struct Assembly;
 
 struct Exception : std::runtime_error {
@@ -33,7 +34,7 @@ struct Object {
     friend struct VM;
 
     void mark() {
-        if (this == nullptr || marked) return;
+        if (marked) return;
         marked = true;
         walkMark();
     }
@@ -62,86 +63,6 @@ protected:
 };
 
 struct VM {
-    struct Frame {
-        VM* vm;
-        std::vector<$union> stack;
-        std::vector<bool> companion;
-
-        explicit Frame(VM* vm, std::vector<$union> captures): vm(vm), stack(std::move(captures)) {}
-
-        void pushToVM() {
-            vm->frames.push_back(this);
-        }
-
-        void popFromVM() {
-            vm->frames.pop_back();
-        }
-
-        void local(TypeReference const& type) {
-            companion.push_back(!isValueBased(type));
-            if (companion.size() > stack.size()) {
-                stack.emplace_back(nullptr);
-            }
-        }
-
-        void dup() {
-            stack.push_back(stack.back());
-            companion.push_back(companion.back());
-        }
-
-        void pop() {
-            stack.pop_back();
-            companion.pop_back();
-        }
-
-        void push($union value, bool type) {
-            stack.emplace_back(value);
-            companion.push_back(type);
-        }
-
-        void const_($union value) {
-            stack.emplace_back(value);
-            companion.push_back(false);
-        }
-
-        void push(bool value) {
-            stack.emplace_back(value);
-            companion.push_back(false);
-        }
-
-        void push(int64_t value) {
-            stack.emplace_back(value);
-            companion.push_back(false);
-        }
-
-        void push(double value) {
-            stack.emplace_back(value);
-            companion.push_back(false);
-        }
-
-        void push(Object* object) {
-            stack.emplace_back(object);
-            companion.push_back(true);
-        }
-
-        void load(size_t index) {
-            stack.push_back(stack[index]);
-            companion.push_back(companion[index]);
-        }
-
-        void store(size_t index) {
-            stack[index] = stack.back();
-        }
-
-        void markAll() {
-            for (size_t i = 0; i < stack.size(); ++i) {
-                if (companion[i] && stack[i].$object)
-                    stack[i].$object->mark();
-            }
-        }
-
-    };
-
     std::vector<Frame*> frames;
     std::vector<Object*> temporaries;
     bool disableGC = false;
@@ -185,14 +106,7 @@ struct VM {
         return object;
     }
 
-    void markAll() {
-        for (auto&& frame : frames) {
-            frame->markAll();
-        }
-        for (auto&& temporary : temporaries) {
-            temporary->mark();
-        }
-    }
+    void markAll();
 
     void sweep() {
         Object** object = &firstObject;
@@ -216,10 +130,6 @@ struct VM {
         maxObjects = std::max(numObjects * 2, 1024);
     }
 
-    std::unique_ptr<Frame> newFrame(std::vector<$union> const& captures) {
-        return std::make_unique<Frame>(this, captures);
-    }
-
 private:
     Object* firstObject = nullptr;
     int numObjects = 0;
@@ -231,17 +141,15 @@ struct Func : Object {
     std::shared_ptr<FuncType> prototype;
     std::vector<$union> captures;
 
-    Func(size_t func, std::shared_ptr<FuncType> prototype): func(func), prototype(std::move(prototype)) {}
+    Func(size_t func, std::shared_ptr<FuncType> prototype, std::vector<$union> captures = {})
+            : func(func), prototype(std::move(prototype)), captures(std::move(captures)) {}
 
-    Func* bind(std::vector<$union> const& params) {
+    Func* bind(std::vector<$union> params) {
         auto P = prototype->P;
         P.erase(P.begin(), P.begin() + params.size());
-        auto copy = vm->newObject<Func>(func, std::make_shared<FuncType>(std::move(P), prototype->R));
-        copy->captures = captures;
-        for (auto param : params) {
-            copy->captures.push_back(param);
-        }
-        return copy;
+        auto cap = captures;
+        cap.insert(cap.end(), params.begin(), params.end());
+        return vm->newObject<Func>(func, std::make_shared<FuncType>(std::move(P), prototype->R), std::move(cap));
     }
 
     void walkMark() override {
@@ -898,7 +806,7 @@ struct Dict : Collection {
 
         void walkMark() override {
             dict->mark();
-            if (cache.has_value() && cache->$object)
+            if (cache.has_value())
                 cache->$object->mark();
         }
 
@@ -926,12 +834,10 @@ struct Dict : Collection {
 
 };
 
-struct Runtime;
-
 struct Coroutine : Iterator {
-    std::unique_ptr<Runtime> runtime;
+    std::unique_ptr<Frame> frame;
     
-    explicit Coroutine(TypeReference R, std::unique_ptr<Runtime> runtime): runtime(std::move(runtime)) {
+    explicit Coroutine(TypeReference R, std::unique_ptr<Frame> frame): frame(std::move(frame)) {
         E = std::move(R);
     }
 

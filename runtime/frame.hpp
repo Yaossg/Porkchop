@@ -9,31 +9,41 @@
 
 namespace Porkchop {
 
-struct Runtime {
+struct Frame {
+    VM* vm;
     Assembly *assembly;
-    std::unique_ptr<VM::Frame> frame;
     Instructions& instructions;
+    std::vector<$union> stack;
+    std::vector<bool> companion;
     size_t pc = 0;
 
-    Runtime(Assembly *assembly, std::unique_ptr<VM::Frame> frame, Instructions& instructions)
-            : assembly(assembly), frame(std::move(frame)), instructions(instructions) {
+    Frame(VM* vm, Assembly* assembly, Instructions& instructions, std::vector<$union> captures)
+            : vm(vm), assembly(assembly), instructions(instructions), stack(std::move(captures)) {}
+
+    void pushToVM() {
+        vm->frames.push_back(this);
+    }
+
+    void popFromVM() {
+        vm->frames.pop_back();
     }
 
     void local(TypeReference const& type) {
-        frame->local(type);
+        companion.push_back(!isValueBased(type));
+        if (companion.size() > stack.size()) {
+            stack.emplace_back(nullptr);
+        }
     }
 
     void dup() {
-        frame->dup();
-    }
-
-    $union top() {
-        return frame->stack.back();
+        stack.push_back(stack.back());
+        companion.push_back(companion.back());
     }
 
     $union pop() {
-        auto back = frame->stack.back();
-        frame->pop();
+        auto back = top();
+        stack.pop_back();
+        companion.pop_back();
         return back;
     }
 
@@ -54,44 +64,70 @@ struct Runtime {
     }
 
     std::vector<$union> npop(size_t n) {
-        auto b1 = std::prev(frame->stack.end(), n), e1 = frame->stack.end();
-        auto b2 = std::prev(frame->companion.end(), n), e2 = frame->companion.end();
+        auto b1 = std::prev(stack.end(), n), e1 = stack.end();
+        auto b2 = std::prev(companion.end(), n), e2 = companion.end();
         std::vector<$union> r1{b1, e1};
-        frame->stack.erase(b1, e1);
-        frame->companion.erase(b2, e2);
+        stack.erase(b1, e1);
+        companion.erase(b2, e2);
         return r1;
     }
 
-    void const_($union value) {
-        frame->const_(value);
+    $union top() {
+        return stack.back();
     }
 
     void push(std::pair<$union, bool> value) {
-        frame->push(value.first, value.second);
+        push(value.first, value.second);
     }
 
     void push($union value, bool type) {
-        frame->push(value, type);
+        stack.emplace_back(value);
+        companion.push_back(type);
+    }
+
+    void const_($union value) {
+        stack.emplace_back(value);
+        companion.push_back(false);
     }
 
     void push(bool value) {
-        frame->push(value);
+        stack.emplace_back(value);
+        companion.push_back(false);
     }
 
     void push(int64_t value) {
-        frame->push(value);
+        stack.emplace_back(value);
+        companion.push_back(false);
     }
 
     void push(double value) {
-        frame->push(value);
+        stack.emplace_back(value);
+        companion.push_back(false);
     }
 
     void push(Object* object) {
-        frame->push(object);
+        stack.emplace_back(object);
+        companion.push_back(true);
     }
 
     void push(std::string const& value) {
-        push(frame->vm->newObject<String>(value));
+        push(vm->newObject<String>(value));
+    }
+
+    void load(size_t index) {
+        stack.push_back(stack[index]);
+        companion.push_back(companion[index]);
+    }
+
+    void store(size_t index) {
+        stack[index] = stack.back();
+    }
+
+    void markAll() {
+        for (size_t i = 0; i < stack.size(); ++i) {
+            if (companion[i] && stack[i].$object)
+                stack[i].$object->mark();
+        }
     }
 
     void sconst(size_t index) {
@@ -100,15 +136,7 @@ struct Runtime {
 
     void fconst(size_t index) {
         auto func = std::dynamic_pointer_cast<FuncType>(assembly->prototypes[index]);
-        push(frame->vm->newObject<Func>(index, func));
-    }
-
-    void load(size_t index) {
-        frame->load(index);
-    }
-
-    void store(size_t index) {
-        frame->store(index);
+        push(vm->newObject<Func>(index, func));
     }
 
     void tload(size_t index) {
@@ -151,15 +179,15 @@ struct Runtime {
     void call() {
         VM::ObjectHolder object = opop();
         auto func = object.as<Func>();
-        push(func->call(assembly, frame->vm), !isValueBased(func->prototype->R));
+        push(func->call(assembly, vm), !isValueBased(func->prototype->R));
     }
 
     void bind(size_t size) {
         if (size > 0) {
-            VM::GCGuard guard{frame->vm};
+            VM::GCGuard guard{vm};
             auto captures = npop(size);
             auto object = opop();
-            push(dynamic_cast<Func*>(object)->bind(captures));
+            push(dynamic_cast<Func*>(object)->bind(std::move(captures)));
         }
     }
 
@@ -182,7 +210,7 @@ struct Runtime {
 
     void any(TypeReference const& type) {
         if (isValueBased(type)) {
-            push(frame->vm->newObject<AnyScalar>(pop(), dynamic_cast<ScalarType*>(type.get())->S));
+            push(vm->newObject<AnyScalar>(pop(), dynamic_cast<ScalarType*>(type.get())->S));
         }
     }
 
@@ -209,13 +237,13 @@ struct Runtime {
     }
 
     void tuple(TypeReference const& prototype) {
-        VM::GCGuard guard{frame->vm};
+        VM::GCGuard guard{vm};
         auto tuple = std::dynamic_pointer_cast<TupleType>(prototype);
         auto elements = npop(tuple->E.size());
         if (elements.size() == 2) {
-            push(frame->vm->newObject<Pair>(elements.front(), elements.back(), tuple->E.front(), tuple->E.back()));
+            push(vm->newObject<Pair>(elements.front(), elements.back(), tuple->E.front(), tuple->E.back()));
         } else {
-            push(frame->vm->newObject<More>(std::move(elements), tuple));
+            push(vm->newObject<More>(std::move(elements), tuple));
         }
     }
 
@@ -225,14 +253,14 @@ struct Runtime {
         if (isValueBased(list->E)) {
             switch (auto type = dynamic_cast<ScalarType*>(list->E.get())->S) {
                 case ScalarTypeKind::NONE:
-                    push(frame->vm->newObject<NoneList>(elements.size()));
+                    push(vm->newObject<NoneList>(elements.size()));
                     break;
                 case ScalarTypeKind::BOOL: {
                     std::vector<bool> elements0(elements.size());
                     for (size_t i = 0; i < elements.size(); ++i) {
                         elements0[i] = elements[i].$bool;
                     }
-                    push(frame->vm->newObject<BoolList>(std::move(elements0)));
+                    push(vm->newObject<BoolList>(std::move(elements0)));
                     break;
                 }
                 case ScalarTypeKind::BYTE: {
@@ -240,30 +268,30 @@ struct Runtime {
                     for (size_t i = 0; i < elements.size(); ++i) {
                         elements0[i] = elements[i].$byte;
                     }
-                    push(frame->vm->newObject<ByteList>(std::move(elements0)));
+                    push(vm->newObject<ByteList>(std::move(elements0)));
                     break;
                 }
                 default:
-                    push(frame->vm->newObject<ScalarList>(std::move(elements), type));
+                    push(vm->newObject<ScalarList>(std::move(elements), type));
                     break;
             }
         } else {
-            VM::GCGuard guard{frame->vm};
-            push(frame->vm->newObject<ObjectList>(std::move(elements), list));
+            VM::GCGuard guard{vm};
+            push(vm->newObject<ObjectList>(std::move(elements), list));
         }
     }
 
     void set(std::pair<TypeReference, size_t> const& cons) {
-        VM::GCGuard guard{frame->vm};
+        VM::GCGuard guard{vm};
         auto elements = npop(cons.second);
         auto type = std::dynamic_pointer_cast<SetType>(cons.first);
         auto kind = getIdentityKind(type->E);
         Set::underlying set(elements.begin(), elements.end(), 0, Hasher{kind}, Equator{kind});
-        push(frame->vm->newObject<Set>(std::move(set), std::move(type)));
+        push(vm->newObject<Set>(std::move(set), std::move(type)));
     }
 
     void dict(std::pair<TypeReference, size_t> const& cons) {
-        VM::GCGuard guard{frame->vm};
+        VM::GCGuard guard{vm};
         auto elements = npop(cons.second * 2);
         auto type = std::dynamic_pointer_cast<DictType>(cons.first);
         auto kind = getIdentityKind(type->K);
@@ -271,7 +299,7 @@ struct Runtime {
         for (size_t i = 0; i < cons.second; ++i) {
             map.insert_or_assign(elements[2 * i], elements[2 * i + 1]);
         }
-        push(frame->vm->newObject<Dict>(std::move(map), std::move(type)));
+        push(vm->newObject<Dict>(std::move(map), std::move(type)));
     }
 
     void ineg() {
@@ -480,11 +508,11 @@ struct Runtime {
     }
 
     void inc(size_t index) {
-        ++frame->stack[index].$int;
+        ++stack[index].$int;
     }
 
     void dec(size_t index) {
-        --frame->stack[index].$int;
+        --stack[index].$int;
     }
 
     void iter() {
@@ -577,12 +605,12 @@ struct Runtime {
         for (auto&& string : strings) {
             buf += dynamic_cast<String*>(string.$object)->value;
         }
-        push(frame->vm->newObject<String>(std::move(buf)));
+        push(vm->newObject<String>(std::move(buf)));
     }
 
     $union yield() {
-        $union ret = frame->stack.back();
-        frame->popFromVM();
+        $union ret = stack.back();
+        popFromVM();
         return ret;
     }
 
@@ -590,8 +618,14 @@ struct Runtime {
         return instructions[pc].first;
     }
 
+    void init() {
+        for (; code() == Opcode::LOCAL; ++pc) {
+            local(std::get<TypeReference>(instructions[pc].second));
+        }
+    }
+
     $union loop() {
-        for (frame->pushToVM(); pc < instructions.size(); ++pc) {
+        for (pushToVM(); pc < instructions.size(); ++pc) {
             switch (auto&& [opcode, args] = instructions[pc]; opcode) {
                 case Opcode::NOP:
                     break;
@@ -644,9 +678,6 @@ struct Runtime {
                     break;
                 case Opcode::BIND:
                     bind(std::get<size_t>(args));
-                    break;
-                case Opcode::LOCAL:
-                    local(std::get<TypeReference>(args));
                     break;
                 case Opcode::AS:
                     as(std::get<TypeReference>(args));

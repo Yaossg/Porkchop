@@ -27,7 +27,7 @@ add_executable(PorkchopTextRuntime
         runtime/text-main.cpp
         runtime/assembly.hpp
         runtime/external.hpp runtime/external.cpp
-        runtime/runtime.hpp
+        runtime/frame.hpp
         runtime/text-assembly.hpp
         runtime/vm.hpp runtime/vm.cpp
         opcode.hpp
@@ -42,7 +42,7 @@ add_executable(PorkchopBinRuntime
         runtime/bin-main.cpp
         runtime/assembly.hpp
         runtime/external.hpp runtime/external.cpp
-        runtime/runtime.hpp
+        runtime/frame.hpp
         runtime/bin-assembly.hpp
         runtime/vm.hpp runtime/vm.cpp
         opcode.hpp
@@ -70,7 +70,7 @@ add_executable(PorkchopInterpreter
 
         runtime/assembly.hpp
         runtime/external.hpp runtime/external.cpp
-        runtime/runtime.hpp
+        runtime/frame.hpp
         runtime/vm.hpp runtime/vm.cpp
 
         runtime/interpreter.cpp runtime/interpretation.hpp

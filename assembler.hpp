@@ -28,10 +28,10 @@ struct Assembler {
 
     void newFunction(std::vector<TypeReference> const& localTypes, ExprHandle const& clause, bool async) {
         beginFunction();
-        if (async) opcode(Opcode::ASYNC);
         for (auto&& type : localTypes) {
             typed(Opcode::LOCAL, type);
         }
+        if (async) opcode(Opcode::ASYNC);
         clause->walkBytecode(this);
         opcode(Opcode::RETURN);
         endFunction();

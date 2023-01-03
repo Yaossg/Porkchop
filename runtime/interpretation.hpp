@@ -1,6 +1,6 @@
 #pragma once
 
-#include "runtime.hpp"
+#include "frame.hpp"
 
 #include "../parser.hpp"
 #include "../function.hpp"

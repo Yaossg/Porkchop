@@ -1,17 +1,27 @@
 #include "vm.hpp"
-#include "runtime.hpp"
+#include "frame.hpp"
 #include "../unicode/unicode.hpp"
 
 namespace Porkchop {
 
+void VM::markAll() {
+    for (auto&& frame : frames) {
+        frame->markAll();
+    }
+    for (auto&& temporary : temporaries) {
+        temporary->mark();
+    }
+}
+
 $union Func::call(Assembly *assembly, VM* vm) const try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
-        auto runtime = std::make_unique<Runtime>(assembly, vm->newFrame(captures), std::get<Instructions>(f));
-        if (runtime->code() == Opcode::ASYNC) {
-            return vm->newObject<Coroutine>(prototype->R, std::move(runtime));
+        auto frame = std::make_unique<Frame>(vm, assembly, std::get<Instructions>(f), captures);
+        frame->init();
+        if (frame->code() == Opcode::ASYNC) {
+            return vm->newObject<Coroutine>(prototype->R, std::move(frame));
         } else {
-            return runtime->loop();
+            return frame->loop();
         }
     } else {
         return std::get<ExternalFunctionR>(f)(vm, captures);
@@ -406,19 +416,18 @@ bool Dict::DictIterator::equals(Object *other) {
 }
 
 void Coroutine::walkMark() {
-    if (!isValueBased(E) && cache.has_value() && cache->$object)
+    if (cache.has_value() && !isValueBased(E))
         cache->$object->mark();
-    runtime->frame->markAll();
+    frame->markAll();
 }
 
 bool Coroutine::move() {
-    if (runtime->code() != Opcode::RETURN) {
-        ++runtime->pc;
-        cache = runtime->loop();
-        return runtime->code() != Opcode::RETURN;
+    if (frame->code() != Opcode::RETURN) {
+        ++frame->pc;
+        cache = frame->loop();
+        return frame->code() != Opcode::RETURN;
     }
     return false;
 }
-
 
 }
