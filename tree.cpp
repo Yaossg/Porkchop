@@ -91,9 +91,6 @@ IntConstExpr::IntConstExpr(Compiler &compiler, Token token, bool merged) : Const
         case TokenType::KW_LINE:
             parsed = int64_t(token.line);
             break;
-        case TokenType::KW_EOF:
-            parsed = -1;
-            break;
         case TokenType::BINARY_INTEGER:
         case TokenType::OCTAL_INTEGER:
         case TokenType::DECIMAL_INTEGER:

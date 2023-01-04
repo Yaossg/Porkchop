@@ -26,12 +26,12 @@ struct Assembler {
     virtual void beginFunction() = 0;
     virtual void endFunction() = 0;
 
-    void newFunction(std::vector<TypeReference> const& localTypes, ExprHandle const& clause, bool async) {
+    void newFunction(std::vector<TypeReference> const& localTypes, ExprHandle const& clause, bool yield) {
         beginFunction();
         for (auto&& type : localTypes) {
             typed(Opcode::LOCAL, type);
         }
-        if (async) opcode(Opcode::ASYNC);
+        if (yield) opcode(Opcode::YIELD);
         clause->walkBytecode(this);
         opcode(Opcode::RETURN);
         endFunction();

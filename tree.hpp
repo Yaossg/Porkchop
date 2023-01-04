@@ -678,10 +678,10 @@ struct DefinedFnExpr : virtual FnExprBase {
     std::vector<IdExprHandle> parameters;
     ExprHandle clause;
     std::vector<TypeReference> locals;
-    bool async;
+    bool yield;
 
-    DefinedFnExpr(std::vector<IdExprHandle> parameters, ExprHandle clause, std::vector<TypeReference> locals, bool async):
-            parameters(std::move(parameters)), clause(std::move(clause)), locals(std::move(locals)), async(async) {}
+    DefinedFnExpr(std::vector<IdExprHandle> parameters, ExprHandle clause, std::vector<TypeReference> locals, bool yield):
+            parameters(std::move(parameters)), clause(std::move(clause)), locals(std::move(locals)), yield(yield) {}
 
 
     [[nodiscard]] Segment segment() const override {
@@ -709,9 +709,9 @@ struct FnDeclExpr : NamedFnExpr {
 struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
 
     FnDefExpr(Compiler& compiler, Token token, IdExprHandle name, std::vector<IdExprHandle> parameters,
-              std::shared_ptr<FuncType> prototype, ExprHandle clause, std::vector<TypeReference> locals, bool async):
+              std::shared_ptr<FuncType> prototype, ExprHandle clause, std::vector<TypeReference> locals, bool yield):
             FnExprBase(compiler, token, std::move(prototype)), NamedFnExpr(std::move(name)),
-            DefinedFnExpr(std::move(parameters), std::move(clause), std::move(locals), async) {}
+            DefinedFnExpr(std::move(parameters), std::move(clause), std::move(locals), yield) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
@@ -729,9 +729,9 @@ struct LambdaExpr : DefinedFnExpr {
     std::vector<IdExprHandle> captures;
 
     LambdaExpr(Compiler& compiler, Token token, std::vector<IdExprHandle> captures, std::vector<IdExprHandle> parameters,
-               std::shared_ptr<FuncType> prototype, ExprHandle clause, std::vector<TypeReference> locals, bool async):
+               std::shared_ptr<FuncType> prototype, ExprHandle clause, std::vector<TypeReference> locals, bool yield):
             FnExprBase(compiler, token, std::move(prototype)), captures(std::move(captures)),
-            DefinedFnExpr(std::move(parameters), std::move(clause), std::move(locals), async) {}
+            DefinedFnExpr(std::move(parameters), std::move(clause), std::move(locals), yield) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;

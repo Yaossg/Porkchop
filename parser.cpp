@@ -286,7 +286,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::DECIMAL_INTEGER:
                 case TokenType::HEXADECIMAL_INTEGER:
                 case TokenType::KW_LINE:
-                case TokenType::KW_EOF:
                     return context.make<IntConstExpr>(next());
                 case TokenType::FLOATING_POINT:
                 case TokenType::KW_NAN:
@@ -328,8 +327,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
                 case TokenType::KW_ELSE:
                     throw ParserException("stray 'else'", next());
-                case TokenType::KW_ASYNC:
-                    throw ParserException("stray 'async'", next());
 
                 case TokenType::KW_BREAK:
                 case TokenType::KW_RETURN:
@@ -435,15 +432,15 @@ std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parsePa
     return parameters;
 }
 
-ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool async) {
+ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield) {
     auto clause = parseExpression();
     TypeReference type0;
-    if (async) {
+    if (yield) {
         if (!returns.empty()) {
-            throw ParserException("return in async function", returns[0]->segment());
+            throw ParserException("return in yielding function", returns[0]->segment());
         }
         if (F->R && !dynamic_cast<IterType*>(F->R.get())) {
-            throw ParserException("async function must return iter type", clause->segment());
+            throw ParserException("yielding function must return iter type", clause->segment());
         }
         if (yieldReturns.empty()) {
             if (F->R) {
@@ -460,10 +457,10 @@ ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool async) {
         }
     } else {
         if (!yieldReturns.empty()) {
-            throw ParserException("yield return in non-async function", yieldReturns[0]->segment());
+            throw ParserException("yield return in non-yielding function", yieldReturns[0]->segment());
         }
         if (!yieldBreaks.empty()) {
-            throw ParserException("yield break in non-async function", yieldBreaks[0]->segment());
+            throw ParserException("yield break in non-yielding function", yieldBreaks[0]->segment());
         }
         if (returns.empty()) {
             type0 = clause->typeCache;
@@ -491,19 +488,19 @@ ExprHandle Parser::parseFn() {
     auto [parameters, P] = parseParameters();
     auto R = optionalType();
     auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
-    if (peek().type == TokenType::OP_ASSIGN || peek().type == TokenType::KW_ASYNC) {
+    if (peek().type == TokenType::OP_ASSIGN || peek().type == TokenType::KW_YIELD) {
         auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), F);
-        bool async = next().type == TokenType::KW_ASYNC;
+        bool yield = next().type == TokenType::KW_YIELD;
         context.declare(decl->name->token, decl.get());
         Parser child(compiler, p, q, &context);
         for (size_t i = 0; i < parameters.size(); ++i) {
             child.context.local(parameters[i]->token, F->P[i]);
         }
-        auto clause = child.parseFnBody(F, async);
+        auto clause = child.parseFnBody(F, yield);
         p = child.p;
         name = std::move(decl->name);
         auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F),
-                                          std::move(clause), std::move(child.context.localTypes), async);
+                                          std::move(clause), std::move(child.context.localTypes), yield);
         context.define(fn->name->token, fn.get());
         return fn;
     } else {
@@ -529,10 +526,10 @@ ExprHandle Parser::parseLambda() {
     auto [parameters, P] = parseParameters();
     auto R = optionalType();
     auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
-    if (auto type = peek().type; type != TokenType::OP_ASSIGN && type != TokenType::KW_ASYNC) {
+    if (auto type = peek().type; type != TokenType::OP_ASSIGN && type != TokenType::KW_YIELD) {
         throw ParserException("lambda body is expected", next());
     }
-    bool async = next().type == TokenType::KW_ASYNC;
+    bool yield = next().type == TokenType::KW_YIELD;
     Parser child(compiler, p, q, &context);
     for (auto&& capture : captures) {
         child.context.local(capture->token, capture->typeCache);
@@ -540,10 +537,10 @@ ExprHandle Parser::parseLambda() {
     for (size_t i = 0; i < parameters.size(); ++i) {
         child.context.local(parameters[i]->token, F->P[i]);
     }
-    auto clause = child.parseFnBody(F, async);
+    auto clause = child.parseFnBody(F, yield);
     p = child.p;
     auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F),
-                                           std::move(clause), std::move(child.context.localTypes), async);
+                                           std::move(clause), std::move(child.context.localTypes), yield);
     context.lambda(lambda.get());
     return lambda;
 }

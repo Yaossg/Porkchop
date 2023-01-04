@@ -42,7 +42,7 @@ struct Parser {
     IdExprHandle parseId(bool initialize);
     ExprHandle parseIf(), parseWhile(), parseFor(), parseFn(), parseLambda(), parseLet();
     TypeReference parseType();
-    ExprHandle parseFnBody(std::shared_ptr<FuncType> const& func, bool async);
+    ExprHandle parseFnBody(std::shared_ptr<FuncType> const& func, bool yield);
 
     std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters();
 

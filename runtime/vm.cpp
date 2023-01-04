@@ -18,7 +18,7 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
     if (std::holds_alternative<Instructions>(f)) {
         auto frame = std::make_unique<Frame>(vm, assembly, std::get<Instructions>(f), captures);
         frame->init();
-        if (frame->code() == Opcode::ASYNC) {
+        if (frame->code() == Opcode::YIELD) {
             return vm->newObject<Coroutine>(prototype->R, std::move(frame));
         } else {
             return frame->loop();

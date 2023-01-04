@@ -88,7 +88,6 @@ enum class Opcode : uint8_t {
     FHASH,
     OHASH,
     YIELD,
-    ASYNC,
     SJOIN,
 };
 
@@ -175,7 +174,6 @@ constexpr std::string_view OPCODE_NAME[] = {
     "fhash",
     "ohash",
     "yield",
-    "async",
     "sjoin",
 };
 
@@ -262,7 +260,6 @@ const std::unordered_map<std::string_view, Opcode> OPCODES {
     {"fhash", Opcode::FHASH},
     {"ohash", Opcode::OHASH},
     {"yield", Opcode::YIELD},
-    {"async", Opcode::ASYNC},
     {"sjoin", Opcode::SJOIN},
 };
 

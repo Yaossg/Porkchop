@@ -754,30 +754,23 @@ Porkchop 支持生成器协程：
 
 ```
 {
-    let n = [0]
-    let range = $n() async {
+    fn range(n: int) yield {
         let i = 0
-        while i < n[0] {
+        while i < n {
             yield return i++
         }
     }
-    let verbose = $range() = {
-        for i in range() {
-            print("" + i)
-        }
-        println("")
+
+    for i in range(10) {
+        print("$i")
     }
-    n[0] = 10
-    verbose()
-    n[0] = 5
-    verbose()
 }
+
 ```
 
 输出：
 
 ```
 0123456789
-01234
 ```
 

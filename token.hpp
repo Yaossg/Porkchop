@@ -13,7 +13,6 @@ enum class TokenType {
     KW_FALSE,
     KW_TRUE,
     KW_LINE,
-    KW_EOF,
     KW_NAN,
     KW_INF,
     KW_WHILE,
@@ -29,7 +28,6 @@ enum class TokenType {
     KW_LET,
     KW_IN,
     KW_SIZEOF,
-    KW_ASYNC,
     KW_YIELD,
 
     LPAREN,
@@ -103,7 +101,6 @@ const std::unordered_map<std::string_view, TokenType> KEYWORDS {
     {"false", TokenType::KW_FALSE},
     {"true", TokenType::KW_TRUE},
     {"__LINE__", TokenType::KW_LINE},
-    {"EOF", TokenType::KW_EOF},
     {"nan", TokenType::KW_NAN},
     {"inf", TokenType::KW_INF},
     {"while", TokenType::KW_WHILE},
@@ -119,7 +116,6 @@ const std::unordered_map<std::string_view, TokenType> KEYWORDS {
     {"let", TokenType::KW_LET},
     {"in", TokenType::KW_IN},
     {"sizeof", TokenType::KW_SIZEOF},
-    {"async", TokenType::KW_ASYNC},
     {"yield", TokenType::KW_YIELD}
 };
 

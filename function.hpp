@@ -16,7 +16,7 @@ struct NamedFunction : Function {
     FnDefExpr* def;
 
     void assemble(Assembler* assembler) const override {
-        assembler->newFunction(def->locals, def->clause, def->async);
+        assembler->newFunction(def->locals, def->clause, def->yield);
     }
 
     [[nodiscard]] TypeReference prototype() const override {
@@ -28,7 +28,7 @@ struct LambdaFunction : Function {
     LambdaExpr* lambda;
 
     void assemble(Assembler* assembler) const override {
-        assembler->newFunction(lambda->locals, lambda->clause, lambda->async);
+        assembler->newFunction(lambda->locals, lambda->clause, lambda->yield);
     }
 
     [[nodiscard]] TypeReference prototype() const override {
