@@ -166,7 +166,8 @@ struct LineTokenizer {
             }
             step();
         }
-        add(TokenType::LINEBREAK);
+        if (context.tokens.back().type != TokenType::LINEBREAK)
+            add(TokenType::LINEBREAK);
     }
 
     void addId() {

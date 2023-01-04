@@ -44,7 +44,7 @@ $union readLine(VM* vm, const std::vector<$union> &args) {
 }
 
 $union parseInt(VM* vm, const std::vector<$union> &args) {
-    return std::stoll(as_string(args[0]));
+    return (int64_t) std::stoll(as_string(args[0]));
 }
 
 $union parseFloat(VM* vm, const std::vector<$union> &args) {
@@ -57,11 +57,11 @@ $union exit(VM* vm, const std::vector<$union> &args) {
 }
 
 $union millis(VM* vm, const std::vector<$union> &args) {
-    return std::chrono::system_clock::now().time_since_epoch().count() / 1'000'000LL;
+    return (int64_t) (std::chrono::system_clock::now().time_since_epoch().count() / 1'000'000LL);
 }
 
 $union nanos(VM* vm, const std::vector<$union> &args) {
-    return std::chrono::system_clock::now().time_since_epoch().count();
+    return (int64_t) std::chrono::system_clock::now().time_since_epoch().count();
 }
 
 $union getargs(VM* vm, const std::vector<$union> &args) {
@@ -88,7 +88,7 @@ $union flush(VM* vm, const std::vector<$union> &args) {
 }
 
 $union eof(VM* vm, const std::vector<$union> &args) {
-    return (bool)feof(in);
+    return (bool) feof(in);
 }
 
 $union typename_(VM* vm, const std::vector<$union> &args) {
