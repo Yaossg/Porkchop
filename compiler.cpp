@@ -37,11 +37,11 @@ void Compiler::parse() {
     Parser parser(this, tokens);
     predefined(parser.context);
     auto F = std::make_shared<FuncType>(std::vector<TypeReference>{}, nullptr);
-    tree = parser.parseFnBody(F, false);
-    parser.expect(TokenType::LINEBREAK, "a linebreak is expected");
+    auto tree = parser.parseFnBody(F, false);
+    parser.expect(TokenType::LINEBREAK, "a final linebreak is expected");
     if (parser.remains())
         throw ParserException("unterminated tokens", parser.peek());
-    locals = std::move(parser.context.localTypes);
+    definition = std::make_unique<FunctionDefinition>(false, std::move(tree), std::move(parser.context.localTypes));
     dynamic_cast<ExternalFunction*>(functions[0].get())->type = F;
 }
 
@@ -49,14 +49,14 @@ void Compiler::compile(Assembler* assembler) {
     for (auto&& function : functions) {
         assembler->func(function->prototype());
     }
-    assembler->newFunction(locals, tree, false);
+    assembler->newFunction(definition.get());
     for (auto&& function : functions) {
         function->assemble(assembler);
     }
 }
 
 std::string Compiler::descriptor() const {
-    return tree->walkDescriptor();
+    return definition->clause->walkDescriptor();
 }
 
 }

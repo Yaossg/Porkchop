@@ -4,6 +4,56 @@
 
 namespace Porkchop {
 
+size_t Hasher::operator()($union u) const {
+    switch (kind) {
+        case IdentityKind::SELF:
+            return u.$size;
+        case IdentityKind::FLOAT:
+            return std::hash<double>()(u.$float);
+        case IdentityKind::OBJECT:
+            return u.$object->hashCode();
+    }
+    unreachable();
+}
+
+bool Equator::operator()($union u, $union v) const {
+    switch (kind) {
+        case IdentityKind::SELF:
+            return u.$size == v.$size;
+        case IdentityKind::FLOAT:
+            return u.$float == v.$float;
+        case IdentityKind::OBJECT:
+            return u.$object->equals(v.$object);
+    }
+    unreachable();
+}
+
+std::string Stringifier::operator()($union value) const {
+    switch (kind) {
+        case ScalarTypeKind::NONE:
+            return "()";
+        case ScalarTypeKind::BOOL:
+            return value.$bool ? "true" : "false";
+        case ScalarTypeKind::BYTE: {
+            char buf[8];
+            sprintf(buf, "%hhX", value);
+            return buf;
+        }
+        case ScalarTypeKind::INT:
+            return std::to_string(value.$int);
+        case ScalarTypeKind::FLOAT: {
+            char buf[24];
+            sprintf(buf, "%g", value);
+            return buf;
+        }
+        case ScalarTypeKind::CHAR:
+            return encodeUnicode(value.$char);
+        default:
+            return value.$object->toString();
+    }
+    unreachable();
+}
+
 void VM::markAll() {
     for (auto&& frame : frames) {
         frame->markAll();
@@ -29,6 +79,45 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
 } catch (Exception& e) {
     e.append("at func " + std::to_string(func));
     throw;
+}
+
+std::string Func::toString() {
+    std::string buf = "<func ";
+    buf += std::to_string(func);
+    if (!captures.empty()) {
+        buf += " with captures: ";
+        bool first = true;
+        for (size_t i = 0; i < captures.size(); ++i) {
+            if (first) { first = false; } else { buf += ", "; }
+            buf += stringifier(prototype->P[i])(captures[i]);
+        }
+    }
+    buf += ">";
+    return buf;
+}
+
+bool Func::equals(Object *other) {
+    if (this == other) return true;
+    if (auto function = dynamic_cast<Func *>(other)) {
+        if (func != function->func) return false;
+        if (captures.size() != function->captures.size()) return false;
+        for (size_t i = 0; i < captures.size(); ++i) {
+            if (!Equator{getIdentityKind(prototype->P[i])}(captures[i], function->captures[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+size_t Func::hashCode() {
+    size_t hash = func;
+    for (size_t i = 0; i < captures.size(); ++i) {
+        hash <<= 1;
+        hash ^= Hasher{getIdentityKind(prototype->P[i])}(captures[i]);
+    }
+    return hash;
 }
 
 std::string AnyScalar::toString() {
@@ -331,32 +420,6 @@ size_t Dict::hashCode() {
         hash += (keyhasher(key) << 1) ^ valuehasher(value);
     }
     return hash;
-}
-
-std::string Stringifier::operator()($union value) const {
-    switch (kind) {
-        case ScalarTypeKind::NONE:
-            return "()";
-        case ScalarTypeKind::BOOL:
-            return value.$bool ? "true" : "false";
-        case ScalarTypeKind::BYTE: {
-            char buf[8];
-            sprintf(buf, "%hhX", value);
-            return buf;
-        }
-        case ScalarTypeKind::INT:
-            return std::to_string(value.$int);
-        case ScalarTypeKind::FLOAT: {
-            char buf[24];
-            sprintf(buf, "%g", value);
-            return buf;
-        }
-        case ScalarTypeKind::CHAR:
-            return encodeUnicode(value.$char);
-        default:
-            return value.$object->toString();
-    }
-    unreachable();
 }
 
 bool ObjectList::ObjectListIterator::equals(Object *other) {

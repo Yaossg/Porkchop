@@ -22,11 +22,12 @@ void proc(int argc, const char *argv[]) {
         fprintf(stderr, "Fatal: Unknown input type: %s\n", input_type);
         std::exit(11);
     }
-    std::unique_ptr<Porkchop::Assembly> assembly(
-            parsedType == InputType::TEXT
-            ? (Porkchop::Assembly*) new Porkchop::TextAssembly(Porkchop::readText(input_file))
-            : (Porkchop::Assembly*) new Porkchop::BinAssembly(Porkchop::readBin(input_file))
-    );
+    std::unique_ptr<Porkchop::Assembly> assembly;
+    if (parsedType == InputType::TEXT) {
+        assembly = std::make_unique<Porkchop::TextAssembly>(Porkchop::readText(input_file));
+    } else {
+        assembly = std::make_unique<Porkchop::BinAssembly>(Porkchop::readBin(input_file));
+    }
     Porkchop::execute(assembly.get(), argc, argv);
 }
 

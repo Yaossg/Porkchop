@@ -413,29 +413,31 @@ ExprHandle Parser::parseFor() {
     }
 }
 
-std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> Parser::parseParameters() {
+std::unique_ptr<ParameterList> Parser::parseParameters() {
     expect(TokenType::LPAREN, "'(' is expected");
-    std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parameters;
+    std::vector<IdExprHandle> identifiers;
+    std::vector<TypeReference> P;
     while (true) {
         if (peek().type == TokenType::RPAREN) break;
         auto declarator = parseSimpleDeclarator();
-        parameters.first.push_back(std::move(declarator->name));
-        parameters.second.push_back(declarator->designated);
+        identifiers.push_back(std::move(declarator->name));
+        P.push_back(declarator->designated);
         if (declarator->designated == nullptr) {
             throw ParserException("missing type for the parameter", declarator->segment);
         }
         if (peek().type == TokenType::RPAREN) break;
         expectComma();
     }
-    optionalComma(parameters.first.size());
+    optionalComma(identifiers.size());
     next();
-    return parameters;
+    return std::make_unique<ParameterList>(std::move(identifiers), std::make_shared<FuncType>(std::move(P),nullptr));
 }
 
 ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield) {
-    auto clause = parseExpression();
+    ExprHandle clause;
     TypeReference type0;
     if (yield) {
+        clause = parseClause();
         if (!returns.empty()) {
             throw ParserException("return in yielding function", returns[0]->segment());
         }
@@ -446,7 +448,7 @@ ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield) {
             if (F->R) {
                 return clause;
             } else {
-                throw ParserException("missing yield return and specified return type", clause->segment());
+                throw ParserException("return type of yielding function cannot be deduced without a yield return", clause->segment());
             }
         } else {
             type0 = yieldReturns[0]->rhs->typeCache;
@@ -456,6 +458,7 @@ ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield) {
             type0 = std::make_shared<IterType>(type0);
         }
     } else {
+        clause = parseExpression();
         if (!yieldReturns.empty()) {
             throw ParserException("yield return in non-yielding function", yieldReturns[0]->segment());
         }
@@ -485,29 +488,26 @@ ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield) {
 ExprHandle Parser::parseFn() {
     auto token = next();
     IdExprHandle name = parseId(false);
-    auto [parameters, P] = parseParameters();
+    auto parameters = parseParameters();
     auto R = optionalType();
-    auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
-    if (peek().type == TokenType::OP_ASSIGN || peek().type == TokenType::KW_YIELD) {
-        auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), F);
-        bool yield = next().type == TokenType::KW_YIELD;
-        context.declare(decl->name->token, decl.get());
+    if (auto type = peek().type; type == TokenType::OP_ASSIGN || type == TokenType::KW_YIELD) {
+        auto def = context.make<FnDefExpr>(token, rewind(), std::move(name), std::move(parameters));
+        next();
+        bool yield = type == TokenType::KW_YIELD;
+        context.declare(def->name->token, def.get());
         Parser child(compiler, p, q, &context);
-        for (size_t i = 0; i < parameters.size(); ++i) {
-            child.context.local(parameters[i]->token, F->P[i]);
-        }
-        auto clause = child.parseFnBody(F, yield);
+        def->parameters->declare(child.context);
+        auto clause = child.parseFnBody(def->parameters->prototype, yield);
         p = child.p;
-        name = std::move(decl->name);
-        auto fn = context.make<FnDefExpr>(token, std::move(name), std::move(parameters), std::move(F),
-                                          std::move(clause), std::move(child.context.localTypes), yield);
-        context.define(fn->name->token, fn.get());
-        return fn;
+        def->definition = std::make_unique<FunctionDefinition>(yield, std::move(clause), std::move(child.context.localTypes));
+        context.define(def->name->token, def.get());
+        return def;
     } else {
-        if (F->R == nullptr) {
+        if (R == nullptr) {
             throw ParserException("return type of declared function is missing", rewind());
         }
-        auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), std::move(F));
+        parameters->prototype->R = std::move(R);
+        auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), std::move(parameters));
         context.declare(decl->name->token, decl.get());
         return decl;
     }
@@ -523,24 +523,23 @@ ExprHandle Parser::parseLambda() {
         expectComma();
     }
     optionalComma(captures.size());
-    auto [parameters, P] = parseParameters();
+    auto parameters = parseParameters();
     auto R = optionalType();
-    auto F = std::make_shared<FuncType>(std::move(P), std::move(R));
-    if (auto type = peek().type; type != TokenType::OP_ASSIGN && type != TokenType::KW_YIELD) {
+    auto type = peek().type;
+    if (type != TokenType::OP_ASSIGN && type != TokenType::KW_YIELD) {
         throw ParserException("lambda body is expected", next());
     }
-    bool yield = next().type == TokenType::KW_YIELD;
+    next();
+    bool yield = type == TokenType::KW_YIELD;
     Parser child(compiler, p, q, &context);
     for (auto&& capture : captures) {
         child.context.local(capture->token, capture->typeCache);
     }
-    for (size_t i = 0; i < parameters.size(); ++i) {
-        child.context.local(parameters[i]->token, F->P[i]);
-    }
-    auto clause = child.parseFnBody(F, yield);
+    parameters->declare(child.context);
+    auto clause = child.parseFnBody(parameters->prototype, yield);
     p = child.p;
-    auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters), std::move(F),
-                                           std::move(clause), std::move(child.context.localTypes), yield);
+    auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters),
+                                           std::make_unique<FunctionDefinition>(yield, std::move(clause), std::move(child.context.localTypes)));
     context.lambda(lambda.get());
     return lambda;
 }

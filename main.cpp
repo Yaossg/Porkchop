@@ -10,12 +10,10 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
         fprintf(stderr, "Usage: Porkchop <input> [options...]\n");
         std::exit(10);
     }
-    args["this"] = argv[0];
     args["input"] = argv[1];
     for (int i = 2; i < argc; ++i) {
         if (!strcmp("-o", argv[i])) {
-            ++i;
-            args["output"] = argv[i];
+            args["output"] = argv[++i];
         } else if (!strcmp("-m", argv[i]) || !strcmp("--mermaid", argv[i])) {
             args["type"] = "mermaid";
         } else if (!strcmp("-t", argv[i]) || !strcmp("--text-asm", argv[i])) {
@@ -32,18 +30,8 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
         std::exit(12);
     }
     if (!args.contains("output")) {
-        std::string suffix;
-        if (args["type"] == "mermaid") {
-            suffix = ".mermaid";
-        } else if (args["type"] == "text-asm") {
-            suffix = ".text-asm";
-        } else if (args["type"] == "bin-asm") {
-            suffix = ".bin-asm";
-        } else {
-            suffix = ".output";
-        }
-        auto& input = args["input"];
-        args["output"] = input.substr(0, input.find_last_of('.')) + suffix;
+        auto const& input = args["input"];
+        args["output"] = input.substr(0, input.find_last_of('.')) + '.' + args["type"];
     }
     return args;
 }
@@ -86,27 +74,29 @@ struct OutputFile {
 int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     auto args = parseArgs(argc, argv);
-    Porkchop::Compiler compiler(Porkchop::readText(args["input"].c_str()));
+    auto original = Porkchop::readText(args["input"].c_str());
+    Porkchop::Compiler compiler(std::move(original));
     Porkchop::parse(compiler);
     auto const& output_type = args["type"];
-    OutputFile of(args["output"], output_type == "bin-asm");
+    OutputFile output_file(args["output"], output_type == "bin-asm");
     if (output_type == "mermaid") {
         auto descriptor = compiler.descriptor();
-        of.puts(descriptor.c_str());
+        output_file.puts(descriptor.c_str());
     } else if (output_type.ends_with("asm")) {
-        std::unique_ptr<Porkchop::Assembler> assembler(
-                output_type == "text-asm"
-                ? (Porkchop::Assembler*) new Porkchop::TextAssembler()
-                : (Porkchop::Assembler*) new Porkchop::BinAssembler()
-        );
+        std::unique_ptr<Porkchop::Assembler> assembler;
+        if (output_type == "text-asm") {
+            assembler = std::make_unique<Porkchop::TextAssembler>();
+        } else {
+            assembler = std::make_unique<Porkchop::BinAssembler>();
+        }
         compiler.compile(assembler.get());
-        of.write(assembler.get());
+        output_file.write(assembler.get());
     }
-    fprintf(stdout, "Compilation is done successfully\n");
+    puts("Compilation is done successfully");
 } catch (std::bad_alloc& e) {
     fprintf(stderr, "Out of memory\n");
     std::exit(-10);
 } catch (std::exception& e) {
-    fprintf(stderr, "Internal Runtime Error: %s\n", e.what());
+    fprintf(stderr, "Internal Compiler Error: %s\n", e.what());
     std::exit(-100);
 }

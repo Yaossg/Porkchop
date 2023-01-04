@@ -1187,7 +1187,7 @@ void ReturnExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference FnExprBase::evalType() const {
-    return prototype;
+    return parameters->prototype;
 }
 
 void FnDeclExpr::walkBytecode(Assembler* assembler) const {

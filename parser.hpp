@@ -44,7 +44,7 @@ struct Parser {
     TypeReference parseType();
     ExprHandle parseFnBody(std::shared_ptr<FuncType> const& func, bool yield);
 
-    std::pair<std::vector<IdExprHandle>, std::vector<TypeReference>> parseParameters();
+    std::unique_ptr<ParameterList> parseParameters();
 
     std::unique_ptr<SimpleDeclarator> parseSimpleDeclarator();
     DeclaratorHandle parseDeclarator();

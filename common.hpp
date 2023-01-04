@@ -7,7 +7,7 @@ namespace Porkchop {
 inline void parse(Compiler& compiler) try {
     compiler.tokenize();
     if (compiler.tokens.empty()) {
-        fprintf(stderr, "Compilation Error: no tokens to compile\n");
+        fprintf(stderr, "Compilation Error: no token to compile\n");
         std::exit(-2);
     }
     compiler.parse();

@@ -15,15 +15,15 @@ using IdExprHandle = std::unique_ptr<IdExpr>;
 struct Token;
 struct Function;
 struct Assembler;
+struct FunctionDefinition;
 
 struct Compiler {
     std::string original;
     std::vector<std::string_view> lines;
     std::vector<Token> tokens;
-    ExprHandle tree;
+    std::unique_ptr<FunctionDefinition> definition;
     std::vector<std::unique_ptr<Function>> functions;
 
-    std::vector<TypeReference> locals;
     size_t nextLabelIndex = 0;
 
     explicit Compiler(std::string original);

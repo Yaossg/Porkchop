@@ -80,12 +80,15 @@ struct ScalarType : Type {
     }
 
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
-        if (auto scalar = dynamic_cast<const ScalarType*>(type.get()))
+        if (this == type.get()) return true;
+        if (auto scalar = dynamic_cast<const ScalarType*>(type.get())) {
             return scalar->S == S;
+        }
         return false;
     }
 
     [[nodiscard]] bool assignableFrom(const TypeReference& type) const noexcept override {
+        if (this == type.get()) return true;
         switch (S) {
             case ScalarTypeKind::NEVER:
                 return false;
@@ -118,8 +121,9 @@ const TypeReference STRING = std::make_shared<ScalarType>(ScalarTypeKind::STRING
 }
 
 [[nodiscard]] inline bool isScalar(TypeReference const& type, ScalarTypeKind kind) noexcept {
-    if (auto scalar = dynamic_cast<ScalarType*>(type.get()))
+    if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
         return scalar->S == kind;
+    }
     return false;
 }
 
@@ -201,6 +205,7 @@ struct TupleType : Type {
     }
 
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
+        if (this == type.get()) return true;
         if (auto tuple = dynamic_cast<const TupleType*>(type.get())) {
             return std::equal(E.begin(), E.end(), tuple->E.begin(), tuple->E.end(),
                               [](const TypeReference& type1, const TypeReference& type2) { return type1->equals(type2); });
@@ -209,6 +214,7 @@ struct TupleType : Type {
     }
 
     [[nodiscard]] bool assignableFrom(const TypeReference& type) const noexcept override {
+        if (this == type.get()) return true;
         if (auto tuple = dynamic_cast<const TupleType*>(type.get())) {
             return std::equal(E.begin(), E.end(), tuple->E.begin(), tuple->E.end(),
                               [](const TypeReference& type1, const TypeReference& type2) { return type1->assignableFrom(type2); });
@@ -240,8 +246,10 @@ struct ListType : Type {
     }
 
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
-        if (auto list = dynamic_cast<const ListType*>(type.get()))
+        if (this == type.get()) return true;
+        if (auto list = dynamic_cast<const ListType*>(type.get())) {
             return list->E->equals(E);
+        }
         return false;
     }
 
@@ -263,8 +271,10 @@ struct SetType : Type {
     }
 
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
-        if (auto list = dynamic_cast<const SetType*>(type.get()))
+        if (this == type.get()) return true;
+        if (auto list = dynamic_cast<const SetType*>(type.get())) {
             return list->E->equals(E);
+        }
         return false;
     }
 
@@ -286,8 +296,10 @@ struct DictType : Type {
     }
 
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
-        if (auto dict = dynamic_cast<const DictType*>(type.get()))
+        if (this == type.get()) return true;
+        if (auto dict = dynamic_cast<const DictType*>(type.get())) {
             return dict->K->equals(K) && dict->V->equals(V);
+        }
         return false;
     }
 
@@ -318,6 +330,7 @@ struct FuncType : Type {
     }
 
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
+        if (this == type.get()) return true;
         if (auto func = dynamic_cast<const FuncType*>(type.get())) {
             return func->R->equals(R) &&
             std::equal(P.begin(), P.end(), func->P.begin(), func->P.end(),
@@ -327,6 +340,7 @@ struct FuncType : Type {
     }
 
     [[nodiscard]] bool assignableFrom(const TypeReference& type) const noexcept override {
+        if (this == type.get()) return true;
         if (auto func = dynamic_cast<const FuncType*>(type.get())) {
             return (func->R->assignableFrom(R) || isNever(R) && isNever(func->R)) &&
             std::equal(P.begin(), P.end(), func->P.begin(), func->P.end(),
@@ -360,12 +374,15 @@ struct IterType : Type {
     }
 
     [[nodiscard]] bool equals(const TypeReference& type) const noexcept override {
-        if (auto iter = dynamic_cast<const IterType*>(type.get()))
+        if (this == type.get()) return true;
+        if (auto iter = dynamic_cast<const IterType*>(type.get())) {
             return iter->E->equals(E);
+        }
         return false;
     }
 
     [[nodiscard]] bool assignableFrom(const TypeReference& type) const noexcept override {
+        if (this == type.get()) return true;
         if (auto iter = dynamic_cast<const IterType*>(type.get())) {
             return E->assignableFrom(iter->E);
         }

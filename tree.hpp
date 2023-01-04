@@ -656,47 +656,60 @@ struct ReturnExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
+struct ParameterList : Descriptor {
+    std::vector<IdExprHandle> identifiers;
+    std::shared_ptr<FuncType> prototype;
+
+    ParameterList(std::vector<IdExprHandle> identifiers, std::shared_ptr<FuncType> prototype)
+            : identifiers(std::move(identifiers)), prototype(std::move(prototype)) {}
+
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "()"; }
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (auto&& e : identifiers) ret.push_back(e.get());
+        ret.push_back(prototype.get());
+        return ret;
+    }
+
+    void declare(LocalContext& context) {
+        for (size_t i = 0; i < identifiers.size(); ++i) {
+            context.local(identifiers[i]->token, prototype->P[i]);
+        }
+    }
+};
+
+struct FunctionDefinition : Descriptor {
+    bool yield;
+    ExprHandle clause;
+    std::vector<TypeReference> locals;
+
+    FunctionDefinition(bool yield, ExprHandle clause, std::vector<TypeReference> locals)
+            : yield(yield), clause(std::move(clause)), locals(std::move(locals)) {}
+
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return yield ? "yield" : "=" ; }
+    [[nodiscard]] std::vector<const Descriptor*> children() const override { return {clause.get()}; }
+};
+
 struct FnExprBase : Expr {
     Token token;
-    std::shared_ptr<FuncType> prototype;
+    std::unique_ptr<ParameterList> parameters;
     size_t index;
 
-    FnExprBase(Compiler& compiler, Token token, std::shared_ptr<FuncType> prototype): Expr(compiler), token(token), prototype(std::move(prototype)) {}
+    FnExprBase(Compiler& compiler, Token token, std::unique_ptr<ParameterList> parameters): Expr(compiler), token(token), parameters(std::move(parameters)) {}
 
     [[nodiscard]] TypeReference evalType() const override;
 };
 
-struct NamedFnExpr : virtual FnExprBase {
+struct FnDeclExpr : FnExprBase {
+    Token token2;
     IdExprHandle name;
 
-    explicit NamedFnExpr(IdExprHandle name): name(std::move(name)) {}
+    FnDeclExpr(Compiler& compiler, Token token, Token token2, IdExprHandle name, std::unique_ptr<ParameterList> parameters):
+            FnExprBase(compiler, token, std::move(parameters)), name(std::move(name)), token2(token2) {}
 
     [[nodiscard]] std::string_view descriptor() const noexcept override { return "fn"; }
-};
-
-struct DefinedFnExpr : virtual FnExprBase {
-    std::vector<IdExprHandle> parameters;
-    ExprHandle clause;
-    std::vector<TypeReference> locals;
-    bool yield;
-
-    DefinedFnExpr(std::vector<IdExprHandle> parameters, ExprHandle clause, std::vector<TypeReference> locals, bool yield):
-            parameters(std::move(parameters)), clause(std::move(clause)), locals(std::move(locals)), yield(yield) {}
-
-
-    [[nodiscard]] Segment segment() const override {
-        return range(token, clause->segment());
-    }
-};
-
-struct FnDeclExpr : NamedFnExpr {
-    Token token2;
-
-    FnDeclExpr(Compiler& compiler, Token token, Token token2, IdExprHandle name, std::shared_ptr<FuncType> prototype):
-            FnExprBase(compiler, token, std::move(prototype)), NamedFnExpr(std::move(name)), token2(token2) {}
-
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
-        return {name.get(), prototype.get()};
+        return {name.get(), parameters.get()};
     }
 
     [[nodiscard]] Segment segment() const override {
@@ -706,43 +719,44 @@ struct FnDeclExpr : NamedFnExpr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct FnDefExpr : NamedFnExpr, DefinedFnExpr {
+struct FnDefExpr : FnDeclExpr {
+    std::unique_ptr<FunctionDefinition> definition;
 
-    FnDefExpr(Compiler& compiler, Token token, IdExprHandle name, std::vector<IdExprHandle> parameters,
-              std::shared_ptr<FuncType> prototype, ExprHandle clause, std::vector<TypeReference> locals, bool yield):
-            FnExprBase(compiler, token, std::move(prototype)), NamedFnExpr(std::move(name)),
-            DefinedFnExpr(std::move(parameters), std::move(clause), std::move(locals), yield) {}
+    FnDefExpr(Compiler& compiler, Token token, Token token2, IdExprHandle name, std::unique_ptr<ParameterList> parameters):
+            FnDeclExpr(compiler, token, token2, std::move(name), std::move(parameters)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
-        std::vector<const Descriptor*> ret;
-        ret.push_back(name.get());
-        for (auto&& e : parameters) ret.push_back(e.get());
-        ret.push_back(prototype.get());
-        ret.push_back(clause.get());
-        return ret;
+        return {name.get(), parameters.get(), definition.get()};
+    }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token, definition->clause->segment());
     }
 
     void walkBytecode(Assembler* assembler) const override;
 };
 
-struct LambdaExpr : DefinedFnExpr {
+struct LambdaExpr : FnExprBase {
     std::vector<IdExprHandle> captures;
+    std::unique_ptr<FunctionDefinition> definition;
 
-    LambdaExpr(Compiler& compiler, Token token, std::vector<IdExprHandle> captures, std::vector<IdExprHandle> parameters,
-               std::shared_ptr<FuncType> prototype, ExprHandle clause, std::vector<TypeReference> locals, bool yield):
-            FnExprBase(compiler, token, std::move(prototype)), captures(std::move(captures)),
-            DefinedFnExpr(std::move(parameters), std::move(clause), std::move(locals), yield) {}
+    LambdaExpr(Compiler& compiler, Token token, std::vector<IdExprHandle> captures, std::unique_ptr<ParameterList> parameters,
+               std::unique_ptr<FunctionDefinition> definition):
+            FnExprBase(compiler, token, std::move(parameters)), captures(std::move(captures)), definition(std::move(definition)) {}
 
+
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "$"; }
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
         for (auto&& e : captures) ret.push_back(e.get());
-        for (auto&& e : parameters) ret.push_back(e.get());
-        ret.push_back(prototype.get());
-        ret.push_back(clause.get());
+        ret.push_back(parameters.get());
+        ret.push_back(definition.get());
         return ret;
     }
 
-    [[nodiscard]] std::string_view descriptor() const noexcept override { return "$"; }
+    [[nodiscard]] Segment segment() const override {
+        return range(token, definition->clause->segment());
+    }
 
     void walkBytecode(Assembler* assembler) const override;
 };

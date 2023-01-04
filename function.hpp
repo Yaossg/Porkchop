@@ -16,11 +16,11 @@ struct NamedFunction : Function {
     FnDefExpr* def;
 
     void assemble(Assembler* assembler) const override {
-        assembler->newFunction(def->locals, def->clause, def->yield);
+        assembler->newFunction(def->definition.get());
     }
 
     [[nodiscard]] TypeReference prototype() const override {
-        return def != nullptr ? def->prototype : decl->prototype;
+        return decl->typeCache;
     }
 };
 
@@ -28,7 +28,7 @@ struct LambdaFunction : Function {
     LambdaExpr* lambda;
 
     void assemble(Assembler* assembler) const override {
-        assembler->newFunction(lambda->locals, lambda->clause, lambda->yield);
+        assembler->newFunction(lambda->definition.get());
     }
 
     [[nodiscard]] TypeReference prototype() const override {
@@ -36,8 +36,9 @@ struct LambdaFunction : Function {
         for (auto&& capture : lambda->captures) {
             P.push_back(capture->typeCache);
         }
-        P.insert(P.end(), lambda->prototype->P.begin(), lambda->prototype->P.end());
-        return std::make_shared<FuncType>(std::move(P), lambda->prototype->R);
+        auto prototype = lambda->parameters->prototype;
+        P.insert(P.end(), prototype->P.begin(), prototype->P.end());
+        return std::make_shared<FuncType>(std::move(P), prototype->R);
     }
 };
 

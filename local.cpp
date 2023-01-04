@@ -33,12 +33,27 @@ void LocalContext::local(Token token, const TypeReference& type) {
 void LocalContext::declare(Token token, FnDeclExpr* decl) {
     std::string_view name = compiler->of(token);
     if (name == "_") throw TypeException("function name must not be '_'", decl->segment());
-    auto function = std::make_unique<NamedFunction>();
-    function->decl = decl;
-    size_t index = compiler->functions.size();
-    declaredIndices.back().insert_or_assign(name, index);
-    compiler->functions.emplace_back(std::move(function));
-    decl->index = index;
+    if (auto it = declaredIndices.back().find(name); it != declaredIndices.back().end()) {
+        if (!decl->parameters->prototype->R) {
+            // If the program flow reaches here,
+            // it must be the function definition without specified return type,
+            // and the function must have been declared elsewhere before.
+            // Since declarations must have return type specified,
+            // incomplete prototype provided by definition is no longer necessary.
+            // Consistency check will be delayed to the actual definition below.
+            return;
+        }
+        size_t index = it->second;
+        auto function = dynamic_cast<NamedFunction *>(compiler->functions[index].get());
+        decl->expect(function->prototype());
+    } else {
+        auto function = std::make_unique<NamedFunction>();
+        function->decl = decl;
+        size_t index = compiler->functions.size();
+        declaredIndices.back().insert_or_assign(name, index);
+        compiler->functions.emplace_back(std::move(function));
+        decl->index = index;
+    }
 }
 
 void LocalContext::define(Token token, FnDefExpr* def) {
@@ -47,18 +62,13 @@ void LocalContext::define(Token token, FnDefExpr* def) {
     if (auto it = declaredIndices.back().find(name); it != declaredIndices.back().end()) {
         size_t index = it->second;
         auto function = dynamic_cast<NamedFunction*>(compiler->functions[index].get());
-        function->decl->expect(def->prototype);
+        function->decl->expect(def->typeCache);
         function->def = def;
         declaredIndices.back().erase(it);
         definedIndices.back().insert_or_assign(name, index);
         def->index = index;
     } else {
-        auto function = std::make_unique<NamedFunction>();
-        function->def = def;
-        size_t index = compiler->functions.size();
-        definedIndices.back().insert_or_assign(name, index);
-        compiler->functions.emplace_back(std::move(function));
-        def->index = index;
+        unreachable();
     }
 }
 
@@ -93,9 +103,9 @@ LocalContext::LookupResult LocalContext::lookup(Token token, bool local) const {
         if (auto lookup = it->find(name); lookup != it->end()) {
             size_t index = lookup->second;
             auto function = dynamic_cast<NamedFunction*>(compiler->functions[index].get());
-            if (function->decl->prototype->R == nullptr)
+            if (function->decl->parameters->prototype->R == nullptr)
                 throw TypeException("recursive function without specified return type", function->decl->segment());
-            return {function->decl->prototype, index, LookupResult::Scope::FUNCTION};
+            return {function->decl->parameters->prototype, index, LookupResult::Scope::FUNCTION};
         }
     }
     for (auto it = definedIndices.rbegin(); it != definedIndices.rend(); ++it) {

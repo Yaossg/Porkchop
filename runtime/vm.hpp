@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <optional>
+#include <algorithm>
 
 #include "../type.hpp"
 #include "../util.hpp"
@@ -15,6 +16,25 @@ namespace Porkchop {
 struct VM;
 struct Frame;
 struct Assembly;
+
+struct Hasher {
+    IdentityKind kind;
+    size_t operator()($union u) const;
+};
+
+struct Equator {
+    IdentityKind kind;
+    bool operator()($union u, $union v) const;
+};
+
+struct Stringifier {
+    ScalarTypeKind kind;
+    std::string operator()($union value) const;
+};
+
+inline Stringifier stringifier(TypeReference const& type) {
+    return {isValueBased(type) ? dynamic_cast<ScalarType *>(type.get())->S : ScalarTypeKind::ANY};
+}
 
 struct Exception : std::runtime_error {
     std::string messages;
@@ -163,46 +183,13 @@ struct Func : Object {
     TypeReference getType() override { return prototype; }
 
     $union call(Assembly *assembly, VM *vm) const;
-};
 
-struct Hasher {
-    IdentityKind kind;
-    size_t operator()($union u) const {
-        switch (kind) {
-            case IdentityKind::SELF:
-                return u.$size;
-            case IdentityKind::FLOAT:
-                return std::hash<double>()(u.$float);
-            case IdentityKind::OBJECT:
-                return u.$object->hashCode();
-        }
-        unreachable();
-    }
-};
+    std::string toString() override;
 
-struct Equator {
-    IdentityKind kind;
-    bool operator()($union u, $union v) const {
-        switch (kind) {
-            case IdentityKind::SELF:
-                return u.$size == v.$size;
-            case IdentityKind::FLOAT:
-                return u.$float == v.$float;
-            case IdentityKind::OBJECT:
-                return u.$object->equals(v.$object);
-        }
-        unreachable();
-    }
-};
+    bool equals(Object *other) override;
 
-struct Stringifier {
-    ScalarTypeKind kind;
-    std::string operator()($union value) const;
+    size_t hashCode() override;
 };
-
-inline Stringifier stringifier(TypeReference const& type) {
-    return {isValueBased(type) ? dynamic_cast<ScalarType *>(type.get())->S : ScalarTypeKind::ANY};
-}
 
 struct AnyScalar : Object {
     $union value;
