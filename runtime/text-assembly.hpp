@@ -11,7 +11,9 @@ struct TextAssembly : Assembly {
     std::vector<std::string_view> lines;
     bool initialized = false;
 
-    explicit TextAssembly(std::string original) : original(std::move(original)) {}
+    explicit TextAssembly(std::string original) : original(std::move(original)) {
+        parse();
+    }
 
     void parse() {
         lines = splitLines(original);

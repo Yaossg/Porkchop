@@ -17,7 +17,7 @@ std::string& as_string($union value) {
 
 void init(VM* vm, int argc, const char *argv[]) {
     _args = vm->newObject<ObjectList>(std::vector<$union>{}, std::make_shared<ListType>(ScalarTypes::STRING));
-    for (size_t i = 2; i < argc; ++i) {
+    for (size_t i = 3; i < argc; ++i) {
         _args->add(vm->newObject<String>(argv[i]));
     }
     if (getenv("PORKCHOP_IO_DISABLE")) {

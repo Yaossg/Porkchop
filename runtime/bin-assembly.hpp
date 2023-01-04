@@ -45,6 +45,7 @@ struct BinAssembly : Assembly {
 
     explicit BinAssembly(std::vector<uint8_t> fileBuffer): fileBuffer(std::move(fileBuffer)) {
         stream.cur = this->fileBuffer.data();
+        parse();
     }
 
     void parseFunction() {

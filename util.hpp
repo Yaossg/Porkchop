@@ -11,7 +11,7 @@ inline bool isInvalidChar(int64_t value) {
     return value < 0 || value > 0x10FFFFLL || 0xD800LL <= value && value <= 0xDFFFLL;
 }
 
-inline std::string readAll(const char* filename) {
+inline std::string readText(const char* filename) {
     FILE* input_file = fopen(filename, "r");
     if (input_file == nullptr) {
         fprintf(stderr, "Failed to open input file: %s\n", filename);
@@ -27,6 +27,22 @@ inline std::string readAll(const char* filename) {
     fclose(input_file);
     return content;
 }
+
+inline std::vector<uint8_t> readBin(const char* filename) {
+    FILE* input_file = fopen(filename, "rb");
+    if (input_file == nullptr) {
+        fprintf(stderr, "Failed to open input file: %s\n", filename);
+        std::exit(20);
+    }
+    fseek(input_file, 0, SEEK_END);
+    size_t size = ftell(input_file);
+    fseek(input_file, 0, SEEK_SET);
+    std::vector<uint8_t> fileBuffer(size);
+    fread(fileBuffer.data(), 1, size, input_file);
+    fclose(input_file);
+    return fileBuffer;
+}
+
 
 inline void forceUTF8() {
 #ifdef _WIN32

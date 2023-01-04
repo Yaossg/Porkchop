@@ -21,7 +21,7 @@ Porkchop <input> [options...]
 - `-o <output>` 指定输出文件名。如果缺省，则根据输入文件名和输出类型自动合成。`-o <stdout>` 表示输出到控制台，`-o <null>` 表示只检查语法，不输出。
 - `-m` 或 `--mermaid` 输出语法树。
 - `-t` 或 `--text-asm` 输出文本汇编。
-- `-b` 或 `--bin-asm`输出二进制汇编。
+- `-b` 或 `--bin-asm` 输出二进制汇编。
 
 ### Mermaid 的使用
 
@@ -44,11 +44,15 @@ graph
 ## 运行时使用
 
 ```
-PorkchopTextRuntime <input> [args...]
-PorkchopBinRuntime <input> [args...]
+PorkchopRuntime <input-type> <input-file> [args...]
 ```
 
-第一个参数为输入的文本汇编文件。该文件应该保证由 `Porkchop -t` 或 `Porkchop -b` 输出。
+第一个参数为输入的类型。
+
+- `-t` 或 `--text-asm` 输入文本汇编。
+- `-b` 或 `--bin-asm` 输入二进制汇编。
+
+第二个参数为输入的汇编文件。该文件应保证对应的由 `Porkchop -t` 或 `Porkchop -b` 输出。
 
 之后的参数作为程序的参数，在程序中可以通过 `getargs()` 获取。
 
@@ -58,11 +62,7 @@ PorkchopBinRuntime <input> [args...]
 PorkchopInterpreter <input> [args...]
 ```
 
-等价于
-
-```
-Porkchop <input> -t -o tmp && PorkchopRuntime tmp [args...] && r
-```
+编译第一个参数输入的程序之后，立即执行。之后的参数作为程序的参数。
 
 ## 示例：九九乘法表
 

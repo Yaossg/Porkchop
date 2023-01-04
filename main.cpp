@@ -37,10 +37,13 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
             suffix = ".mermaid";
         } else if (args["type"] == "text-asm") {
             suffix = ".text-asm";
+        } else if (args["type"] == "bin-asm") {
+            suffix = ".bin-asm";
         } else {
             suffix = ".output";
         }
-        args["output"] = args["input"] + suffix;
+        auto& input = args["input"];
+        args["output"] = input.substr(0, input.find_last_of('.')) + suffix;
     }
     return args;
 }
@@ -83,7 +86,7 @@ struct OutputFile {
 int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     auto args = parseArgs(argc, argv);
-    Porkchop::Compiler compiler(Porkchop::readAll(args["input"].c_str()));
+    Porkchop::Compiler compiler(Porkchop::readText(args["input"].c_str()));
     Porkchop::parse(compiler);
     auto const& output_type = args["type"];
     OutputFile of(args["output"], output_type == "bin-asm");
