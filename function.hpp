@@ -5,13 +5,13 @@
 
 namespace Porkchop {
 
-struct Function {
-    virtual ~Function() = default;
+struct FunctionReference {
+    virtual ~FunctionReference() = default;
     [[nodiscard]] virtual TypeReference prototype() const = 0;
     virtual void assemble(Assembler* assembler) const = 0;
 };
 
-struct NamedFunction : Function {
+struct NamedFunctionReference : FunctionReference {
     FnDeclExpr* decl;
     FnDefExpr* def;
 
@@ -24,7 +24,7 @@ struct NamedFunction : Function {
     }
 };
 
-struct LambdaFunction : Function {
+struct LambdaFunctionReference : FunctionReference {
     LambdaExpr* lambda;
 
     void assemble(Assembler* assembler) const override {
@@ -42,10 +42,23 @@ struct LambdaFunction : Function {
     }
 };
 
-struct ExternalFunction : Function {
+struct ExternalFunctionReference : FunctionReference {
     TypeReference type;
 
     void assemble(Assembler* assembler) const override {}
+
+    [[nodiscard]] TypeReference prototype() const override {
+        return type;
+    }
+};
+
+struct MainFunctionReference : FunctionReference {
+    FunctionDefinition* definition;
+    TypeReference type;
+
+    void assemble(Assembler* assembler) const override {
+        assembler->newFunction(definition);
+    }
 
     [[nodiscard]] TypeReference prototype() const override {
         return type;

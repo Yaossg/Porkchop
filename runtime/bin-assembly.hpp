@@ -117,12 +117,8 @@ struct BinAssembly : Assembly {
             labels[key] = value;
         }
         functions.reserve(prototypes.size());
-        for (size_t i = 0; i < prototypes.size(); ++i) {
+        for (size_t i = functions.size(); i < prototypes.size(); ++i) {
             parseFunction();
-            if (i == 0) {
-                externalFunctions();
-                i = functions.size() - 1;
-            }
         }
     }
 };

@@ -22,7 +22,7 @@ struct Assembly {
     std::vector<std::string> table;
     std::vector<std::shared_ptr<FuncType>> prototypes;
 
-    void externalFunctions() {
+    Assembly() {
         functions.emplace_back(Externals::print);
         functions.emplace_back(Externals::println);
         functions.emplace_back(Externals::readLine);

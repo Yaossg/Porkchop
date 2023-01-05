@@ -13,7 +13,7 @@ struct IdExpr;
 using ExprHandle = std::unique_ptr<Expr>;
 using IdExprHandle = std::unique_ptr<IdExpr>;
 struct Token;
-struct Function;
+struct FunctionReference;
 struct Assembler;
 struct FunctionDefinition;
 
@@ -22,7 +22,7 @@ struct Compiler {
     std::vector<std::string_view> lines;
     std::vector<Token> tokens;
     std::unique_ptr<FunctionDefinition> definition;
-    std::vector<std::unique_ptr<Function>> functions;
+    std::vector<std::unique_ptr<FunctionReference>> functions;
 
     size_t nextLabelIndex = 0;
 

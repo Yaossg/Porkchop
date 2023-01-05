@@ -68,10 +68,6 @@ struct Interpretation : Assembler, Assembly {
     void endFunction() override {
         processLabels();
         functions.emplace_back(std::move(instructions));
-        if (!initialized) {
-            externalFunctions();
-            initialized = true;
-        }
     }
 
     void write(FILE* file) override {}

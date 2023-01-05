@@ -3,9 +3,7 @@
 
 namespace Porkchop {
 
-Compiler::Compiler(std::string original): original(std::move(original)) /* default-constructed members... */ {
-    functions.emplace_back(std::make_unique<ExternalFunction>()); // main function
-}
+Compiler::Compiler(std::string original): original(std::move(original)) /* default-constructed members... */ {}
 
 std::string_view Compiler::of(Token token) const noexcept {
     return lines.at(token.line).substr(token.column, token.width);
@@ -42,14 +40,16 @@ void Compiler::parse() {
     if (parser.remains())
         throw ParserException("unterminated tokens", parser.peek());
     definition = std::make_unique<FunctionDefinition>(false, std::move(tree), std::move(parser.context.localTypes));
-    dynamic_cast<ExternalFunction*>(functions[0].get())->type = F;
+    auto main = std::make_unique<MainFunctionReference>();
+    main->type = F;
+    main->definition = definition.get();
+    functions.push_back(std::move(main));
 }
 
 void Compiler::compile(Assembler* assembler) {
     for (auto&& function : functions) {
         assembler->func(function->prototype());
     }
-    assembler->newFunction(definition.get());
     for (auto&& function : functions) {
         function->assemble(assembler);
     }

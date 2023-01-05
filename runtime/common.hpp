@@ -7,7 +7,7 @@ namespace Porkchop {
 inline void execute(Assembly* assembly, int argc, const char* argv[]) {
     Porkchop::VM vm;
     Porkchop::Externals::init(&vm, argc, argv);
-    Porkchop::Func main_{0, assembly->prototypes[0]};
+    Porkchop::Func main_{assembly->prototypes.size() - 1, assembly->prototypes.back()};
     auto ret = main_.call(assembly, &vm);
     std::exit(ret.$int);
 }

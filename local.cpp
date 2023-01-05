@@ -15,7 +15,7 @@ void LocalContext::push() {
 void LocalContext::pop() {
     if (!declaredIndices.back().empty() && std::uncaught_exceptions() == 0) {
         size_t index = declaredIndices.back().begin()->second;
-        auto function = dynamic_cast<NamedFunction*>(compiler->functions[index].get());
+        auto function = dynamic_cast<NamedFunctionReference*>(compiler->functions[index].get());
         throw TypeException("undefined declared function", function->decl->segment());
     }
     localIndices.pop_back();
@@ -44,10 +44,10 @@ void LocalContext::declare(Token token, FnDeclExpr* decl) {
             return;
         }
         size_t index = it->second;
-        auto function = dynamic_cast<NamedFunction *>(compiler->functions[index].get());
+        auto function = dynamic_cast<NamedFunctionReference *>(compiler->functions[index].get());
         decl->expect(function->prototype());
     } else {
-        auto function = std::make_unique<NamedFunction>();
+        auto function = std::make_unique<NamedFunctionReference>();
         function->decl = decl;
         size_t index = compiler->functions.size();
         declaredIndices.back().insert_or_assign(name, index);
@@ -61,7 +61,7 @@ void LocalContext::define(Token token, FnDefExpr* def) {
     if (name == "_") throw TypeException("function name must not be '_'", def->segment());
     if (auto it = declaredIndices.back().find(name); it != declaredIndices.back().end()) {
         size_t index = it->second;
-        auto function = dynamic_cast<NamedFunction*>(compiler->functions[index].get());
+        auto function = dynamic_cast<NamedFunctionReference*>(compiler->functions[index].get());
         function->decl->expect(def->typeCache);
         function->def = def;
         declaredIndices.back().erase(it);
@@ -73,7 +73,7 @@ void LocalContext::define(Token token, FnDefExpr* def) {
 }
 
 void LocalContext::lambda(LambdaExpr* lambda) const {
-    auto function = std::make_unique<LambdaFunction>();
+    auto function = std::make_unique<LambdaFunctionReference>();
     function->lambda = lambda;
     size_t index = compiler->functions.size();
     compiler->functions.emplace_back(std::move(function));
@@ -81,7 +81,7 @@ void LocalContext::lambda(LambdaExpr* lambda) const {
 }
 
 void LocalContext::defineExternal(std::string_view name, TypeReference const& prototype) {
-    auto function = std::make_unique<ExternalFunction>();
+    auto function = std::make_unique<ExternalFunctionReference>();
     function->type = prototype;
     size_t index = compiler->functions.size();
     definedIndices.back().insert_or_assign(name, index);
@@ -102,7 +102,7 @@ LocalContext::LookupResult LocalContext::lookup(Token token, bool local) const {
     for (auto it = declaredIndices.rbegin(); it != declaredIndices.rend(); ++it) {
         if (auto lookup = it->find(name); lookup != it->end()) {
             size_t index = lookup->second;
-            auto function = dynamic_cast<NamedFunction*>(compiler->functions[index].get());
+            auto function = dynamic_cast<NamedFunctionReference*>(compiler->functions[index].get());
             if (function->decl->parameters->prototype->R == nullptr)
                 throw TypeException("recursive function without specified return type", function->decl->segment());
             return {function->decl->parameters->prototype, index, LookupResult::Scope::FUNCTION};

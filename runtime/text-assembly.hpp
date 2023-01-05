@@ -9,7 +9,6 @@ namespace Porkchop {
 struct TextAssembly : Assembly {
     std::string original;
     std::vector<std::string_view> lines;
-    bool initialized = false;
 
     explicit TextAssembly(std::string original) : original(std::move(original)) {
         parse();
@@ -28,10 +27,6 @@ struct TextAssembly : Assembly {
                 parser.processLabels();
                 parser.processInstructions();
                 functions.emplace_back(std::move(parser.instructions));
-                if (!initialized) {
-                    externalFunctions();
-                    initialized = true;
-                }
             } else {
                 global.emplace_back(*it);
             }
