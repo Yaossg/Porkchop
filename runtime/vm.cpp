@@ -63,10 +63,20 @@ void VM::markAll() {
     }
 }
 
+void VM::init(int argi, int argc, const char* argv[]) {
+    _args = newObject<ObjectList>(std::vector<$union>{}, std::make_shared<ListType>(ScalarTypes::STRING));
+    for (; argi < argc; ++argi) {
+        _args->add(newObject<String>(argv[argi]));
+    }
+    if (getenv("PORKCHOP_IO_DISABLE")) {
+        disableIO = true;
+    }
+}
+
 $union Func::call(Assembly *assembly, VM* vm) const try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
-        auto frame = std::make_unique<Frame>(vm, assembly, std::get<Instructions>(f), captures);
+        auto frame = std::make_unique<Frame>(vm, assembly, &std::get<Instructions>(f), captures);
         frame->init();
         if (frame->code() == Opcode::YIELD) {
             return vm->newObject<Coroutine>(prototype->R, std::move(frame));

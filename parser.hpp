@@ -13,12 +13,10 @@ struct Parser {
     std::vector<const ReturnExpr*> returns;
     std::vector<const YieldReturnExpr*> yieldReturns;
     std::vector<const YieldBreakExpr*> yieldBreaks;
-    LocalContext context;
+    LocalContext& context;
 
-    Parser(Compiler* compiler, std::vector<Token> const& tokens): Parser(compiler, tokens.cbegin(), tokens.cend(), nullptr) {}
-
-    Parser(Compiler* compiler, std::vector<Token>::const_iterator p, const std::vector<Token>::const_iterator q, LocalContext* parent):
-            compiler(compiler), p(p), q(q), context(this->compiler, parent) {}
+    Parser(Compiler* compiler, std::vector<Token>::const_iterator p, const std::vector<Token>::const_iterator q, LocalContext& context):
+            compiler(compiler), p(p), q(q), context(context) {}
 
     Token next() {
         if (p != q) [[likely]]
@@ -75,6 +73,14 @@ struct Parser {
         auto hook = std::move(hooks.back());
         hooks.pop_back();
         return hook;
+    }
+
+    template<std::derived_from<Expr> E, typename... Args>
+        requires std::constructible_from<E, Compiler&, Args...>
+    auto make(Args&&... args) {
+        auto expr = std::make_unique<E>(*compiler, std::forward<Args>(args)...);
+        expr->initialize();
+        return expr;
     }
 };
 

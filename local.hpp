@@ -10,23 +10,23 @@ struct FnDefExpr;
 struct LambdaExpr;
 
 struct LocalContext {
-    std::vector<std::unordered_map<std::string_view, size_t>> localIndices{{}};
+    std::vector<std::unordered_map<std::string, size_t>> localIndices{{}};
     std::vector<TypeReference> localTypes;
 
-    std::vector<std::unordered_map<std::string_view, size_t>> declaredIndices{{}};
-    std::vector<std::unordered_map<std::string_view, size_t>> definedIndices{{}};
+    std::vector<std::unordered_map<std::string, size_t>> declaredIndices{{}};
+    std::vector<std::unordered_map<std::string, size_t>> definedIndices{{}};
 
-    Compiler* compiler;
+    Continuum* continuum;
     LocalContext* parent;
 
-    explicit LocalContext(Compiler* compiler, LocalContext* parent);
+    explicit LocalContext(Continuum* continuum, LocalContext* parent);
 
     void push();
     void pop();
-    void local(Token token, TypeReference const& type);
-    void declare(Token token, FnDeclExpr* decl);
-    void define(Token token, FnDefExpr* def);
-    void defineExternal(std::string_view name, TypeReference const& prototype);
+    void local(std::string_view name, TypeReference const& type);
+    void declare(std::string_view name, FnDeclExpr* decl);
+    void define(std::string_view name, FnDefExpr* def);
+    void defineExternal(std::string_view name, std::shared_ptr<FuncType> const& prototype);
     void lambda(LambdaExpr* lambda) const;
 
     struct LookupResult {
@@ -37,7 +37,7 @@ struct LocalContext {
         } scope;
     };
 
-    [[nodiscard]] LookupResult lookup(Token token, bool local = true) const;
+    [[nodiscard]] LookupResult lookup(Compiler& compiler, Token token, bool local = true) const;
 
     struct Guard {
         LocalContext& context;
@@ -48,15 +48,6 @@ struct LocalContext {
             context.pop();
         }
     };
-
-    template<std::derived_from<Expr> E, typename... Args>
-        requires std::constructible_from<E, Compiler&, Args...>
-    auto make(Args&&... args) {
-        auto expr = std::make_unique<E>(*compiler, std::forward<Args>(args)...);
-        expr->initialize();
-        return expr;
-    }
-
 };
 
 }

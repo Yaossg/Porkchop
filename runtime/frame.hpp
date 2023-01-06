@@ -12,12 +12,12 @@ namespace Porkchop {
 struct Frame {
     VM* vm;
     Assembly *assembly;
-    Instructions& instructions;
+    Instructions* instructions;
     std::vector<$union> stack;
     std::vector<bool> companion;
     size_t pc = 0;
 
-    Frame(VM* vm, Assembly* assembly, Instructions& instructions, std::vector<$union> captures)
+    Frame(VM* vm, Assembly* assembly, Instructions* instructions, std::vector<$union> captures = {})
             : vm(vm), assembly(assembly), instructions(instructions), stack(std::move(captures)) {}
 
     void pushToVM() {
@@ -615,18 +615,18 @@ struct Frame {
     }
 
     Opcode code() {
-        return instructions[pc].first;
+        return instructions->at(pc).first;
     }
 
     void init() {
-        for (; code() == Opcode::LOCAL; ++pc) {
-            local(std::get<TypeReference>(instructions[pc].second));
+        for (pc = 0; code() == Opcode::LOCAL; ++pc) {
+            local(std::get<TypeReference>(instructions->at(pc).second));
         }
     }
 
     $union loop() {
-        for (pushToVM(); pc < instructions.size(); ++pc) {
-            switch (auto&& [opcode, args] = instructions[pc]; opcode) {
+        for (pushToVM(); pc < instructions->size(); ++pc) {
+            switch (auto&& [opcode, args] = instructions->at(pc); opcode) {
                 case Opcode::NOP:
                     break;
                 case Opcode::DUP:

@@ -5,42 +5,24 @@
 
 namespace Porkchop::Externals {
 
-static FILE* out = stdout;
-static FILE* in = stdin;
-static bool disableIO = false;
-
-static List* _args;
-
-std::string& as_string($union value) {
+const std::string& as_string($union value) {
     return dynamic_cast<String*>(value.$object)->value;
 }
 
-void init(VM* vm, int argc, const char *argv[]) {
-    _args = vm->newObject<ObjectList>(std::vector<$union>{}, std::make_shared<ListType>(ScalarTypes::STRING));
-    for (size_t i = 3; i < argc; ++i) {
-        _args->add(vm->newObject<String>(argv[i]));
-    }
-    if (getenv("PORKCHOP_IO_DISABLE")) {
-        disableIO = true;
-    }
-}
-
 $union print(VM* vm, const std::vector<$union> &args) {
-    fputs(as_string(args[0]).c_str(), out);
+    fputs(as_string(args[0]).c_str(), vm->out);
     return nullptr;
 }
 
 $union println(VM* vm, const std::vector<$union> &args) {
     print(vm, args);
-    fputc('\n', out);
-    fflush(out);
+    fputc('\n', vm->out);
+    fflush(vm->out);
     return nullptr;
 }
 
 $union readLine(VM* vm, const std::vector<$union> &args) {
-    char line[1024];
-    fgets(line, sizeof line, in);
-    return vm->newObject<String>(line);
+    return vm->newObject<String>(Porkchop::readLine(vm->in));
 }
 
 $union parseInt(VM* vm, const std::vector<$union> &args) {
@@ -53,7 +35,7 @@ $union parseFloat(VM* vm, const std::vector<$union> &args) {
 
 $union exit(VM* vm, const std::vector<$union> &args) {
     auto ret = args[0];
-    std::exit(ret.$int);
+    std::exit((int) ret.$int);
 }
 
 $union millis(VM* vm, const std::vector<$union> &args) {
@@ -65,30 +47,30 @@ $union nanos(VM* vm, const std::vector<$union> &args) {
 }
 
 $union getargs(VM* vm, const std::vector<$union> &args) {
-    return _args;
+    return vm->_args;
 }
 
 $union output(VM* vm, const std::vector<$union> &args) {
-    if (disableIO || !(out = fopen(as_string(args[0]).c_str(), "w"))) {
+    if (vm->disableIO || !(vm->out = fopen(as_string(args[0]).c_str(), "w"))) {
         throw Exception("failed to reopen output stream");
     }
     return nullptr;
 }
 
 $union input(VM* vm, const std::vector<$union> &args) {
-    if (disableIO || !(in = fopen(as_string(args[0]).c_str(), "r"))) {
+    if (vm->disableIO || !(vm->in = fopen(as_string(args[0]).c_str(), "r"))) {
         throw Exception("failed to reopen input stream");
     }
     return nullptr;
 }
 
 $union flush(VM* vm, const std::vector<$union> &args) {
-    fflush(out);
+    fflush(vm->out);
     return nullptr;
 }
 
 $union eof(VM* vm, const std::vector<$union> &args) {
-    return (bool) feof(in);
+    return (bool) feof(vm->in);
 }
 
 $union typename_(VM* vm, const std::vector<$union> &args) {

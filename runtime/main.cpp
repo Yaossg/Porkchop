@@ -2,11 +2,12 @@
 #include "text-assembly.hpp"
 #include "bin-assembly.hpp"
 
-void proc(int argc, const char *argv[]) {
+int main(int argc, const char* argv[]) {
     Porkchop::forceUTF8();
-    if (argc < 3) {
+    const int argi = 3;
+    if (argc < argi) {
         fprintf(stderr, "Fatal: Too few arguments, input file and its type expected\n");
-        fprintf(stderr, "Usage: PorkchopRuntime <input-type> <input-file> [args...]\n");
+        fprintf(stderr, "Usage: PorkchopRuntime <type> <input> [args...]\n");
         std::exit(10);
     }
     const char* input_type = argv[1];
@@ -28,9 +29,7 @@ void proc(int argc, const char *argv[]) {
     } else {
         assembly = std::make_unique<Porkchop::BinAssembly>(Porkchop::readBin(input_file));
     }
-    Porkchop::execute(assembly.get(), argc, argv);
-}
-
-int main(int argc, const char* argv[]) {
-    Porkchop::catching(proc, argc, argv);
+    Porkchop::VM vm;
+    vm.init(argi, argc, argv);
+    return Porkchop::execute(&vm, assembly.get());
 }

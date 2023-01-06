@@ -35,14 +35,14 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
         case Expr::Level::ASSIGNMENT: {
             switch (Token token = peek(); token.type) {
                 case TokenType::KW_BREAK:  {
-                    auto expr = context.make<BreakExpr>(next());
+                    auto expr = make<BreakExpr>(next());
                     if (hooks.empty()) throw ParserException("wild break", token);
                     hooks.back()->breaks.push_back(expr.get());
                     return expr;
                 }
                 case TokenType::KW_RETURN: {
                     next();
-                    auto expr = context.make<ReturnExpr>(token, parseExpression(level));
+                    auto expr = make<ReturnExpr>(token, parseExpression(level));
                     returns.push_back(expr.get());
                     return expr;
                 }
@@ -50,11 +50,11 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     next();
                     Token token2 = next();
                     if (token2.type == TokenType::KW_RETURN) {
-                        auto expr = context.make<YieldReturnExpr>(token, token2, parseExpression(level));
+                        auto expr = make<YieldReturnExpr>(token, token2, parseExpression(level));
                         yieldReturns.push_back(expr.get());
                         return expr;
                     } else if(token2.type == TokenType::KW_BREAK) {
-                        auto expr = context.make<YieldBreakExpr>(token, token2);
+                        auto expr = make<YieldBreakExpr>(token, token2);
                         yieldBreaks.push_back(expr.get());
                         return expr;
                     } else {
@@ -79,7 +79,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                             next();
                             auto rhs = parseExpression(level);
                             if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(lhs))) {
-                                return context.make<AssignExpr>(token, std::move(load), std::move(rhs));
+                                return make<AssignExpr>(token, std::move(load), std::move(rhs));
                             } else {
                                 throw ParserException("assignable expression is expected", token);
                             }
@@ -98,17 +98,17 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 switch (level) {
                     case Expr::Level::LAND:
                     case Expr::Level::LOR:
-                        lhs = context.make<LogicalExpr>(token, std::move(lhs), std::move(rhs));
+                        lhs = make<LogicalExpr>(token, std::move(lhs), std::move(rhs));
                         break;
                     case Expr::Level::COMPARISON:
                     case Expr::Level::EQUALITY:
-                        lhs = context.make<CompareExpr>(token, std::move(lhs), std::move(rhs));
+                        lhs = make<CompareExpr>(token, std::move(lhs), std::move(rhs));
                         break;
                     [[likely]] default:
                         if (token.type == TokenType::KW_IN) {
-                            lhs = context.make<InExpr>(token, std::move(lhs), std::move(rhs));
+                            lhs = make<InExpr>(token, std::move(lhs), std::move(rhs));
                         } else {
-                            lhs = context.make<InfixExpr>(token, std::move(lhs), std::move(rhs));
+                            lhs = make<InfixExpr>(token, std::move(lhs), std::move(rhs));
                         }
                         break;
                 }
@@ -124,10 +124,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     if (auto number = dynamic_cast<IntConstExpr*>(rhs.get())) {
                         auto token2 = number->token;
                         if (!number->merged && token.line == token2.line && token.column + token.width == token2.column) {
-                            return context.make<IntConstExpr>(Token{token.line, token.column, token.width + token2.width, token2.type}, true);
+                            return make<IntConstExpr>(Token{token.line, token.column, token.width + token2.width, token2.type}, true);
                         }
                     }
-                    return context.make<PrefixExpr>(token, std::move(rhs));
+                    return make<PrefixExpr>(token, std::move(rhs));
                 }
                 case TokenType::OP_NOT:
                 case TokenType::OP_INV:
@@ -138,14 +138,14 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::OP_SHR: {
                     next();
                     auto rhs = parseExpression(level);
-                    return context.make<PrefixExpr>(token, std::move(rhs));
+                    return make<PrefixExpr>(token, std::move(rhs));
                 }
                 case TokenType::OP_INC:
                 case TokenType::OP_DEC: {
                     next();
                     auto rhs = parseExpression(level);
                     if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(rhs))) {
-                        return context.make<StatefulPrefixExpr>(token, std::move(load));
+                        return make<StatefulPrefixExpr>(token, std::move(load));
                     } else {
                         throw ParserException("assignable expression is expected", token);
                     }
@@ -164,39 +164,39 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         auto token1 = next();
                         auto expr = parseExpressions(TokenType::RPAREN);
                         auto token2 = next();
-                        lhs = context.make<InvokeExpr>(token1, token2, std::move(lhs), std::move(expr));
+                        lhs = make<InvokeExpr>(token1, token2, std::move(lhs), std::move(expr));
                         break;
                     }
                     case TokenType::LBRACKET: {
                         auto token1 = next();
                         auto rhs = parseExpression();
                         auto token2 = expect(TokenType::RBRACKET, "missing ']' to match '['");
-                        lhs = context.make<AccessExpr>(token1, token2, std::move(lhs), std::move(rhs));
+                        lhs = make<AccessExpr>(token1, token2, std::move(lhs), std::move(rhs));
                         break;
                     }
                     case TokenType::OP_DOT: {
                         next();
                         auto id = parseId(true);
-                        lhs = context.make<DotExpr>(std::move(lhs), std::move(id));
+                        lhs = make<DotExpr>(std::move(lhs), std::move(id));
                         break;
                     }
                     case TokenType::KW_AS: {
                         auto token = next();
                         auto type = parseType();
-                        lhs = context.make<AsExpr>(token, rewind(), std::move(lhs), std::move(type));
+                        lhs = make<AsExpr>(token, rewind(), std::move(lhs), std::move(type));
                         break;
                     }
                     case TokenType::KW_IS: {
                         auto token = next();
                         auto type = parseType();
-                        lhs = context.make<IsExpr>(token, rewind(), std::move(lhs), std::move(type));
+                        lhs = make<IsExpr>(token, rewind(), std::move(lhs), std::move(type));
                         break;
                     }
                     case TokenType::OP_INC:
                     case TokenType::OP_DEC: {
                         auto token = next();
                         if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(lhs))) {
-                            lhs = context.make<StatefulPostfixExpr>(token, std::move(load));
+                            lhs = make<StatefulPostfixExpr>(token, std::move(load));
                         } else {
                             throw ParserException("id-expression or access expression is expected", token);
                         }
@@ -215,11 +215,11 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     auto token2 = next();
                     switch (expr.size()) {
                         case 0:
-                            return context.make<ClauseExpr>(token, token2);
+                            return make<ClauseExpr>(token, token2);
                         case 1:
                             return std::move(expr.front());
                         default:
-                            return context.make<TupleExpr>(token, token2, std::move(expr));
+                            return make<TupleExpr>(token, token2, std::move(expr));
                     }
                 }
                 case TokenType::LBRACKET: {
@@ -229,7 +229,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     if (expr.empty()) {
                         throw ParserException("use default([T]) to create empty list", range(token, token2));
                     }
-                    return context.make<ListExpr>(token, token2, std::move(expr));
+                    return make<ListExpr>(token, token2, std::move(expr));
                 }
                 case TokenType::AT_BRACKET: {
                     next();
@@ -261,9 +261,9 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         for (auto&& [key, value] : elements) {
                             keys.push_back(std::move(key));
                         }
-                        return context.make<SetExpr>(token, token2, std::move(keys));
+                        return make<SetExpr>(token, token2, std::move(keys));
                     } else if (values == elements.size()) {
-                        return context.make<DictExpr>(token, token2, std::move(elements));
+                        return make<DictExpr>(token, token2, std::move(elements));
                     } else {
                         throw ParserException("missing values for some keys to create dict", range(token, token2));
                     }
@@ -276,33 +276,33 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
                 case TokenType::KW_FALSE:
                 case TokenType::KW_TRUE:
-                    return context.make<BoolConstExpr>(next());
+                    return make<BoolConstExpr>(next());
                 case TokenType::CHARACTER_LITERAL:
-                    return context.make<CharConstExpr>(next());
+                    return make<CharConstExpr>(next());
                 case TokenType::STRING_QQ:
-                    return context.make<StringConstExpr>(next());
+                    return make<StringConstExpr>(next());
                 case TokenType::BINARY_INTEGER:
                 case TokenType::OCTAL_INTEGER:
                 case TokenType::DECIMAL_INTEGER:
                 case TokenType::HEXADECIMAL_INTEGER:
                 case TokenType::KW_LINE:
-                    return context.make<IntConstExpr>(next());
+                    return make<IntConstExpr>(next());
                 case TokenType::FLOATING_POINT:
                 case TokenType::KW_NAN:
                 case TokenType::KW_INF:
-                    return context.make<FloatConstExpr>(next());
+                    return make<FloatConstExpr>(next());
 
                 case TokenType::STRING_QD: {
                     Token token1 = next(), token2;
                     std::vector<std::unique_ptr<StringConstExpr>> literals;
                     std::vector<ExprHandle> elements;
-                    literals.push_back(context.make<StringConstExpr>(token1));
+                    literals.push_back(make<StringConstExpr>(token1));
                     do {
                         elements.push_back(parseExpression(Expr::Level::PRIMARY));
                         token2 = next();
-                        literals.push_back(context.make<StringConstExpr>(token2));
+                        literals.push_back(make<StringConstExpr>(token2));
                     } while (token2.type != TokenType::STRING_Q);
-                    return context.make<InterpolationExpr>(token1, token2, std::move(literals), std::move(elements));
+                    return make<InterpolationExpr>(token1, token2, std::move(literals), std::move(elements));
                 }
 
                 case TokenType::KW_DEFAULT: {
@@ -310,7 +310,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     expect(TokenType::LPAREN, "'(' is expected");
                     auto type = parseType();
                     auto token2 = expect(TokenType::RPAREN, "missing ')' to match '('");
-                    return context.make<DefaultExpr>(token, token2, type);
+                    return make<DefaultExpr>(token, token2, type);
                 }
                 case TokenType::KW_WHILE:
                     return parseWhile();
@@ -359,7 +359,7 @@ std::unique_ptr<ClauseExpr> Parser::parseClause() {
                 }
         }
     }
-    return context.make<ClauseExpr>(token, rewind(), std::move(rhs));
+    return make<ClauseExpr>(token, rewind(), std::move(rhs));
 }
 
 std::vector<ExprHandle> Parser::parseExpressions(TokenType stop) {
@@ -382,9 +382,9 @@ ExprHandle Parser::parseIf() {
     if (peek().type == TokenType::KW_ELSE) {
         next();
         auto rhs = peek().type == TokenType::KW_IF ? parseIf() : parseClause();
-        return context.make<IfElseExpr>(token, std::move(cond), std::move(clause), std::move(rhs));
+        return make<IfElseExpr>(token, std::move(cond), std::move(clause), std::move(rhs));
     }
-    return context.make<IfElseExpr>(token, std::move(cond), std::move(clause), context.make<ClauseExpr>(rewind(), rewind()));
+    return make<IfElseExpr>(token, std::move(cond), std::move(clause), make<ClauseExpr>(rewind(), rewind()));
 }
 
 ExprHandle Parser::parseWhile() {
@@ -393,7 +393,7 @@ ExprHandle Parser::parseWhile() {
     LocalContext::Guard guard(context);
     auto cond = parseExpression();
     auto clause = parseClause();
-    return context.make<WhileExpr>(token, std::move(cond), std::move(clause), popLoop());
+    return make<WhileExpr>(token, std::move(cond), std::move(clause), popLoop());
 }
 
 ExprHandle Parser::parseFor() {
@@ -407,7 +407,7 @@ ExprHandle Parser::parseFor() {
         declarator->infer(element);
         declarator->declare(context);
         auto clause = parseClause();
-        return context.make<ForExpr>(token, std::move(declarator), std::move(initializer), std::move(clause), popLoop());
+        return make<ForExpr>(token, std::move(declarator), std::move(initializer), std::move(clause), popLoop());
     } else {
         initializer->expect("iterable type");
     }
@@ -489,26 +489,26 @@ ExprHandle Parser::parseFn() {
     auto token = next();
     IdExprHandle name = parseId(false);
     auto parameters = parseParameters();
-    auto R = optionalType();
+    parameters->prototype->R = optionalType();
     if (auto type = peek().type; type == TokenType::OP_ASSIGN || type == TokenType::KW_YIELD) {
-        auto def = context.make<FnDefExpr>(token, rewind(), std::move(name), std::move(parameters));
+        auto def = make<FnDefExpr>(token, rewind(), std::move(name), std::move(parameters));
         next();
         bool yield = type == TokenType::KW_YIELD;
-        context.declare(def->name->token, def.get());
-        Parser child(compiler, p, q, &context);
-        def->parameters->declare(child.context);
+        context.declare(compiler->of(def->name->token), def.get());
+        LocalContext subcontext(compiler->continuum, &context);
+        Parser child(compiler, p, q, subcontext);
+        def->parameters->declare(compiler, child.context);
         auto clause = child.parseFnBody(def->parameters->prototype, yield);
         p = child.p;
         def->definition = std::make_unique<FunctionDefinition>(yield, std::move(clause), std::move(child.context.localTypes));
-        context.define(def->name->token, def.get());
+        context.define(compiler->of(def->name->token), def.get());
         return def;
     } else {
-        if (R == nullptr) {
+        if (parameters->prototype->R == nullptr) {
             throw ParserException("return type of declared function is missing", rewind());
         }
-        parameters->prototype->R = std::move(R);
-        auto decl = context.make<FnDeclExpr>(token, rewind(), std::move(name), std::move(parameters));
-        context.declare(decl->name->token, decl.get());
+        auto decl = make<FnDeclExpr>(token, rewind(), std::move(name), std::move(parameters));
+        context.declare(compiler->of(decl->name->token), decl.get());
         return decl;
     }
 }
@@ -531,15 +531,16 @@ ExprHandle Parser::parseLambda() {
     }
     next();
     bool yield = type == TokenType::KW_YIELD;
-    Parser child(compiler, p, q, &context);
+    LocalContext subcontext(compiler->continuum, &context);
+    Parser child(compiler, p, q, subcontext);
     for (auto&& capture : captures) {
-        child.context.local(capture->token, capture->typeCache);
+        child.context.local(compiler->of(capture->token), capture->typeCache);
     }
-    parameters->declare(child.context);
+    parameters->declare(compiler, child.context);
     auto clause = child.parseFnBody(parameters->prototype, yield);
     p = child.p;
-    auto lambda = context.make<LambdaExpr>(token, std::move(captures), std::move(parameters),
-                                           std::make_unique<FunctionDefinition>(yield, std::move(clause), std::move(child.context.localTypes)));
+    auto lambda = make<LambdaExpr>(token, std::move(captures), std::move(parameters),
+                                   std::make_unique<FunctionDefinition>(yield, std::move(clause), std::move(child.context.localTypes)));
     context.lambda(lambda.get());
     return lambda;
 }
@@ -551,7 +552,7 @@ ExprHandle Parser::parseLet() {
     auto initializer = parseExpression();
     declarator->infer(initializer->typeCache);
     declarator->declare(context);
-    return context.make<LetExpr>(token, std::move(declarator), std::move(initializer));
+    return make<LetExpr>(token, std::move(declarator), std::move(initializer));
 }
 
 TypeReference Parser::parseType() {
@@ -687,7 +688,7 @@ std::unique_ptr<SimpleDeclarator> Parser::parseSimpleDeclarator() {
             throw ParserException("the type of '_' must be none", segment);
         }
     }
-    return std::make_unique<SimpleDeclarator>(segment, std::move(id), std::move(type));
+    return std::make_unique<SimpleDeclarator>(*compiler, segment, std::move(id), std::move(type));
 }
 
 DeclaratorHandle Parser::parseDeclarator() {
@@ -709,7 +710,7 @@ DeclaratorHandle Parser::parseDeclarator() {
             case 1:
                 return std::move(elements.front());
             default:
-                return std::make_unique<TupleDeclarator>(segment, std::move(elements));
+                return std::make_unique<TupleDeclarator>(*compiler, segment, std::move(elements));
         }
     } else {
         return parseSimpleDeclarator();

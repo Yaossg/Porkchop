@@ -1,40 +1,28 @@
 #pragma once
 
 #include <memory>
-#include <vector>
-#include <string>
+
+#include "source.hpp"
+#include "continuum.hpp"
 
 namespace Porkchop {
 
-struct Type;
-using TypeReference = std::shared_ptr<Type>;
-struct Expr;
-struct IdExpr;
-using ExprHandle = std::unique_ptr<Expr>;
-using IdExprHandle = std::unique_ptr<IdExpr>;
 struct Token;
-struct FunctionReference;
 struct Assembler;
 struct FunctionDefinition;
 
 struct Compiler {
-    std::string original;
-    std::vector<std::string_view> lines;
-    std::vector<Token> tokens;
+    Continuum* continuum;
+    Source source;
     std::unique_ptr<FunctionDefinition> definition;
-    std::vector<std::unique_ptr<FunctionReference>> functions;
 
-    size_t nextLabelIndex = 0;
-
-    explicit Compiler(std::string original);
-
-    void tokenize();
+    explicit Compiler(Continuum* continuum, Source source);
 
     [[nodiscard]] std::string_view of(Token token) const noexcept;
 
     void parse();
 
-    void compile(Assembler* assembler);
+    void compile(Assembler* assembler) const;
 
     [[nodiscard]] std::string descriptor() const;
 };

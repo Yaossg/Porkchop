@@ -37,6 +37,16 @@ struct Assembler {
         endFunction();
     }
 
+    void newMainFunction(Continuum* continuum, FunctionDefinition* def) {
+        beginFunction();
+        for (; continuum->localUntil < def->locals.size(); ++continuum->localUntil) {
+            typed(Opcode::LOCAL, def->locals[continuum->localUntil]);
+        }
+        def->clause->walkBytecode(this);
+        opcode(Opcode::RETURN);
+        endFunction();
+    }
+
     virtual void write(FILE* file) = 0;
 };
 

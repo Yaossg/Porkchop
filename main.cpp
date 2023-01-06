@@ -75,7 +75,10 @@ int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     auto args = parseArgs(argc, argv);
     auto original = Porkchop::readText(args["input"].c_str());
-    Porkchop::Compiler compiler(std::move(original));
+    Porkchop::Source source;
+    Porkchop::tokenize(source, original);
+    Porkchop::Continuum continuum;
+    Porkchop::Compiler compiler(&continuum, std::move(source));
     Porkchop::parse(compiler);
     auto const& output_type = args["type"];
     OutputFile output_file(args["output"], output_type == "bin-asm");

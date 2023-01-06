@@ -8,7 +8,6 @@
 #include <algorithm>
 
 #include "../type.hpp"
-#include "../util.hpp"
 
 
 namespace Porkchop {
@@ -16,6 +15,7 @@ namespace Porkchop {
 struct VM;
 struct Frame;
 struct Assembly;
+struct List;
 
 struct Hasher {
     IdentityKind kind;
@@ -149,6 +149,13 @@ struct VM {
         sweep();
         maxObjects = std::max(numObjects * 2, 1024);
     }
+
+    void init(int argi, int argc, const char *argv[]);
+
+    FILE* out = stdout;
+    FILE* in = stdin;
+    bool disableIO = false;
+    List* _args;
 
 private:
     Object* firstObject = nullptr;

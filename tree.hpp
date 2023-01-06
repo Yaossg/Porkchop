@@ -1,11 +1,13 @@
 #pragma once
 
-#include "token.hpp"
 #include "local.hpp"
-#include "type.hpp"
 
 namespace Porkchop {
 
+struct Expr;
+struct IdExpr;
+using ExprHandle = std::unique_ptr<Expr>;
+using IdExprHandle = std::unique_ptr<IdExpr>;
 struct Declarator;
 using DeclaratorHandle = std::unique_ptr<Declarator>;
 
@@ -152,7 +154,7 @@ struct IdExpr : AssignableExpr {
     }
 
     void initLookup(LocalContext& context) {
-        lookup = context.lookup(token);
+        lookup = context.lookup(compiler, token);
     }
 
     [[nodiscard]] TypeReference evalType() const override;
@@ -671,9 +673,9 @@ struct ParameterList : Descriptor {
         return ret;
     }
 
-    void declare(LocalContext& context) {
+    void declare(Compiler* compiler, LocalContext& context) {
         for (size_t i = 0; i < identifiers.size(); ++i) {
-            context.local(identifiers[i]->token, prototype->P[i]);
+            context.local(compiler->of(identifiers[i]->token), prototype->P[i]);
         }
     }
 };
@@ -762,10 +764,11 @@ struct LambdaExpr : FnExprBase {
 };
 
 struct Declarator : Descriptor {
+    Compiler& compiler;
     Segment segment;
     TypeReference typeCache;
 
-    explicit Declarator(Segment segment): segment(segment) {}
+    explicit Declarator(Compiler& compiler, Segment segment): compiler(compiler), segment(segment) {}
 
     virtual void infer(TypeReference type) = 0;
     virtual void declare(LocalContext& context) const = 0;
@@ -776,7 +779,7 @@ struct SimpleDeclarator : Declarator {
     IdExprHandle name;
     TypeReference designated;
 
-    SimpleDeclarator(Segment segment, IdExprHandle name, TypeReference designated): Declarator(segment), name(std::move(name)), designated(std::move(designated)) {}
+    SimpleDeclarator(Compiler& compiler, Segment segment, IdExprHandle name, TypeReference designated): Declarator(compiler, segment), name(std::move(name)), designated(std::move(designated)) {}
 
     [[nodiscard]] std::string_view descriptor() const noexcept override { return ":"; }
     [[nodiscard]] std::vector<const Descriptor*> children() const override { return {name.get(), designated.get()}; }
@@ -789,7 +792,7 @@ struct SimpleDeclarator : Declarator {
 struct TupleDeclarator : Declarator  {
     std::vector<DeclaratorHandle> elements;
 
-    TupleDeclarator(Segment segment, std::vector<DeclaratorHandle> elements): Declarator(segment), elements(std::move(elements)) {}
+    TupleDeclarator(Compiler& compiler, Segment segment, std::vector<DeclaratorHandle> elements): Declarator(compiler, segment), elements(std::move(elements)) {}
 
     [[nodiscard]] std::string_view descriptor() const noexcept override { return "()"; }
     [[nodiscard]] std::vector<const Descriptor*> children() const override {

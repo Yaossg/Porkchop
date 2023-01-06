@@ -2,6 +2,7 @@
 #include "tree.hpp"
 #include "assembler.hpp"
 #include "diagnostics.hpp"
+#include "lexer.hpp"
 
 namespace Porkchop {
 
@@ -57,8 +58,7 @@ void BoolConstExpr::walkBytecode(Assembler* assembler) const {
 }
 
 CharConstExpr::CharConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
-    char32_t parseChar(Compiler& compiler, Token token);
-    parsed = parseChar(compiler, token);
+    parsed = parseChar(compiler.source, token);
 }
 
 TypeReference CharConstExpr::evalType() const {
@@ -74,8 +74,7 @@ $union CharConstExpr::evalConst() const {
 }
 
 StringConstExpr::StringConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
-    std::string parseString(Compiler& compiler, Token token);
-    parsed = parseString(compiler, token);
+    parsed = parseString(compiler.source, token);
 }
 
 TypeReference StringConstExpr::evalType() const {
@@ -95,8 +94,7 @@ IntConstExpr::IntConstExpr(Compiler &compiler, Token token, bool merged) : Const
         case TokenType::OCTAL_INTEGER:
         case TokenType::DECIMAL_INTEGER:
         case TokenType::HEXADECIMAL_INTEGER:
-            int64_t parseInt(Compiler& compiler, Token token);
-            parsed = parseInt(compiler, token);
+            parsed = parseInt(compiler.source, token);
             break;
         default:
             unreachable();
@@ -116,8 +114,7 @@ void IntConstExpr::walkBytecode(Assembler* assembler) const {
 }
 
 FloatConstExpr::FloatConstExpr(Compiler &compiler, Token token) : ConstExpr(compiler, token) {
-    double parseFloat(Compiler& compiler, Token token);
-    parsed = parseFloat(compiler, token);
+    parsed = parseFloat(compiler.source, token);
 }
 
 TypeReference FloatConstExpr::evalType() const {
@@ -1131,8 +1128,8 @@ void IfElseExpr::walkBytecode(Assembler* assembler) const {
 }
 
 void IfElseExpr::walkBytecode(Expr const* cond, Expr const* lhs, Expr const* rhs, Compiler& compiler, Assembler* assembler) {
-    size_t A = compiler.nextLabelIndex++;
-    size_t B = compiler.nextLabelIndex++;
+    size_t A = compiler.continuum->labelUntil++;
+    size_t B = compiler.continuum->labelUntil++;
     cond->walkBytecode(assembler);
     assembler->labeled(Opcode::JMP0, A);
     lhs->walkBytecode(assembler);
@@ -1163,8 +1160,8 @@ TypeReference WhileExpr::evalType() const {
 }
 
 void WhileExpr::walkBytecode(Assembler* assembler) const {
-    size_t A = compiler.nextLabelIndex++;
-    size_t B = compiler.nextLabelIndex++;
+    size_t A = compiler.continuum->labelUntil++;
+    size_t B = compiler.continuum->labelUntil++;
     breakpoint = B;
     assembler->label(A);
     cond->walkBytecode(assembler);
@@ -1217,7 +1214,7 @@ void SimpleDeclarator::infer(TypeReference type) {
 }
 
 void SimpleDeclarator::declare(LocalContext &context) const {
-    context.local(name->token, designated);
+    context.local(compiler.of(name->token), designated);
     name->initLookup(context);
 }
 
@@ -1270,8 +1267,8 @@ TypeReference ForExpr::evalType() const {
 }
 
 void ForExpr::walkBytecode(Assembler *assembler) const {
-    size_t A = compiler.nextLabelIndex++;
-    size_t B = compiler.nextLabelIndex++;
+    size_t A = compiler.continuum->labelUntil++;
+    size_t B = compiler.continuum->labelUntil++;
     breakpoint = B;
     initializer->walkBytecode(assembler);
     assembler->opcode(Opcode::ITER);

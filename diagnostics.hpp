@@ -1,15 +1,21 @@
 #pragma once
 
-#include "compiler.hpp"
+#include <stdexcept>
+#include <memory>
+
+#include "source.hpp"
 #include "token.hpp"
 
 namespace Porkchop {
+
+struct Type;
+using TypeReference = std::shared_ptr<Type>;
 
 struct SegmentException : std::logic_error {
     Segment segment;
     SegmentException(std::string const& message, Segment segment): std::logic_error(message), segment(segment) {}
 
-    [[nodiscard]] std::string message(Compiler const& compiler) const;
+    [[nodiscard]] std::string message(Source const& source) const;
 };
 
 using TokenException = SegmentException;

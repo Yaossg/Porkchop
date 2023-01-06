@@ -20,7 +20,7 @@ size_t getUnicodeWidth(std::string_view view, size_t line, size_t column) {
     return width;
 }
 
-std::string SegmentException::message(const Compiler &compiler) const {
+std::string SegmentException::message(Source const& source) const {
     std::string result;
     result += "Compilation Error: ";
     result += std::logic_error::what();
@@ -41,7 +41,7 @@ std::string SegmentException::message(const Compiler &compiler) const {
     int digits = digits10(segment.line2 + 1);
     for (size_t line = segment.line1; line <= segment.line2; ++line) {
         auto lineNo = std::to_string(line + 1);
-        auto code = compiler.lines.at(line);
+        auto code = source.lines.at(line);
         result += "   ";
         result += lineNo;
         result += std::string(digits - lineNo.length() + 1, ' ');
@@ -50,17 +50,19 @@ std::string SegmentException::message(const Compiler &compiler) const {
         result += "\n   ";
         result += std::string(digits + 1, ' ');
         result += " | ";
-        size_t column1 = line == segment.line1 ? segment.column1 : code.find_first_not_of(' ');
-        size_t column2 = line == segment.line2 ? segment.column2 : code.length();
-        size_t width1 = getUnicodeWidth(code.substr(0, column1), line, 0);
-        result += std::string(width1, ' ');
-        size_t width2 = getUnicodeWidth(code.substr(column1, column2 - column1), line, column1);
-        if (line == segment.line1) {
-            result += '^';
-            if (width2 > 1)
-                result += std::string(width2 - 1, '~');
-        } else {
-            result += std::string(width2, '~');
+        if (size_t head = code.find_first_not_of(' '); head != std::string::npos) {
+            size_t column1 = line == segment.line1 ? segment.column1 : head;
+            size_t column2 = line == segment.line2 ? segment.column2 : code.length();
+            size_t width1 = getUnicodeWidth(code.substr(0, column1), line, 0);
+            result += std::string(width1, ' ');
+            size_t width2 = getUnicodeWidth(code.substr(column1, column2 - column1), line, column1);
+            if (line == segment.line1) {
+                result += '^';
+                if (width2 > 1)
+                    result += std::string(width2 - 1, '~');
+            } else {
+                result += std::string(width2, '~');
+            }
         }
         result += '\n';
     }

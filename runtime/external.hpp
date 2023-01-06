@@ -14,7 +14,6 @@ using ExternalFunctionR = std::function<$union(VM*, std::vector<$union> const &)
 
 namespace Externals {
 
-void init(VM* vm, int argc, const char* argv[]);
 $union print(VM* vm, std::vector<$union> const &args);
 $union println(VM* vm, std::vector<$union> const &args);
 $union readLine(VM* vm, std::vector<$union> const &args);

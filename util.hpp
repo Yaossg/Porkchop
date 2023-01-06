@@ -19,7 +19,7 @@ inline std::string readText(const char* filename) {
     }
     std::string content;
     do {
-        char line[1024];
+        char line[256];
         memset(line, 0, sizeof line);
         fgets(line, sizeof line, input_file);
         content += line;
@@ -43,6 +43,16 @@ inline std::vector<uint8_t> readBin(const char* filename) {
     return fileBuffer;
 }
 
+inline std::string readLine(FILE* file) {
+    std::string line;
+    do {
+        char buf[256];
+        fgets(buf, sizeof buf, file);
+        line += buf;
+    } while (!line.ends_with('\n'));
+    line.pop_back();
+    return line;
+}
 
 inline void forceUTF8() {
 #ifdef _WIN32
