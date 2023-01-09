@@ -33,6 +33,7 @@ $union toBytes(VM* vm, std::vector<$union> const &args);
 $union toChars(VM* vm, std::vector<$union> const &args);
 $union fromBytes(VM* vm, std::vector<$union> const &args);
 $union fromChars(VM* vm, std::vector<$union> const &args);
+$union eval(VM* vm, std::vector<$union> const &args);
 
 }
 

@@ -6,7 +6,7 @@ int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     const int argi = 1;
     Porkchop::Continuum continuum;
-    Porkchop::Interpretation interpretation;
+    Porkchop::Interpretation interpretation(&continuum);
     Porkchop::VM vm;
     vm.init(argi, argc, argv);
     auto frame = std::make_unique<Porkchop::Frame>(&vm, &interpretation, nullptr);
@@ -84,7 +84,7 @@ int main(int argc, const char* argv[]) try {
         }
         Porkchop::Compiler compiler(&continuum, std::move(source));
         try {
-            compiler.parse(true);
+            compiler.parse(Porkchop::Compiler::Mode::SHELL);
             continuum.context->checkDeclared();
         } catch (Porkchop::Error& e) {
             e.report(&compiler.source, false);
@@ -93,9 +93,9 @@ int main(int argc, const char* argv[]) try {
         compiler.compile(&interpretation);
         try {
             frame->instructions = &std::get<Porkchop::Instructions>(interpretation.functions.back());
+            auto type = compiler.continuum->functions.back()->prototype()->R;
             frame->init();
             auto ret = frame->loop();
-            auto type = compiler.continuum->functions.back()->prototype()->R;
             if (!Porkchop::isNone(type)) {
                 auto sf = Porkchop::stringifier(type);
                 fputs(sf(ret).c_str(), stdout);

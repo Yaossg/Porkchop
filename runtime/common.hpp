@@ -4,10 +4,10 @@
 
 namespace Porkchop {
 
-inline int execute(VM* vm, Assembly* assembly) try {
+inline $union execute(VM* vm, Assembly* assembly) try {
     auto frame = std::make_unique<Frame>(vm, assembly, &std::get<Instructions>(assembly->functions.back()));
     frame->init();
-    return (int) frame->loop().$int;
+    return frame->loop();
 } catch (Exception& e) {
     e.append("at func " + std::to_string(assembly->functions.size() - 1));
     fprintf(stderr, "Runtime exception occurred: \n");

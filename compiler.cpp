@@ -11,7 +11,7 @@ std::string_view Compiler::of(Token token) const noexcept {
     return source.of(token);
 }
 
-void Compiler::parse(bool free) {
+void Compiler::parse(Mode mode) {
     if (source.tokens.empty())
         Error().with(ErrorMessage().fatal().text("no token to compile")).raise();
     if (!source.greedy.empty()) {
@@ -30,7 +30,9 @@ void Compiler::parse(bool free) {
         }
         error.raise();
     }
-    Parser parser(this, source.tokens.begin(), source.tokens.end(), *continuum->context);
+    LocalContext subcontext(continuum, continuum->context.get());
+    subcontext.local("context", ScalarTypes::ANY);
+    Parser parser(this, source.tokens.begin(), source.tokens.end(), mode == Mode::EVAL ? subcontext : *continuum->context);
     auto F = std::make_shared<FuncType>(std::vector<TypeReference>{}, nullptr);
     auto tree = parser.parseFnBody(F, false, source.tokens.front());
     if (auto token = parser.next(); token.type != TokenType::LINEBREAK)
@@ -38,12 +40,16 @@ void Compiler::parse(bool free) {
     if (parser.remains())
         raise("unterminated tokens", parser.peek());
     definition = std::make_unique<FunctionDefinition>(false, std::move(tree), parser.context.localTypes);
-    auto main = std::make_unique<MainFunctionReference>(continuum, definition.get(), std::move(F));
-    if (auto R = main->prototype()->R; !free && !isNone(R) && !isInt(R)) {
-        parser.raiseReturns(definition->clause.get(),
-                            ErrorMessage().error(source.tokens.front()).text("main clause should return either").type(ScalarTypes::NONE).text("or").type(ScalarTypes::INT));
+    if (mode == Mode::EVAL) {
+        continuum->functions.push_back(std::make_unique<EvalFunctionReference>(definition.get(), std::move(F)));
+    } else {
+        auto main = std::make_unique<MainFunctionReference>(continuum, definition.get(), std::move(F));
+        if (auto R = main->prototype()->R; mode == Mode::MAIN && !isNone(R) && !isInt(R)) {
+            parser.raiseReturns(definition->clause.get(),
+                                ErrorMessage().error(source.tokens.front()).text("main clause should return either").type(ScalarTypes::NONE).text("or").type(ScalarTypes::INT));
+        }
+        continuum->functions.push_back(std::move(main));
     }
-    continuum->functions.push_back(std::move(main));
 }
 
 void Compiler::compile(Assembler* assembler) const {

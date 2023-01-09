@@ -8,9 +8,36 @@
 namespace Porkchop {
 
 struct Interpretation : Assembler, Assembly {
-    bool initialized = false;
     Instructions instructions;
     std::unordered_map<size_t, size_t> labels;
+
+    explicit Interpretation(Continuum* continuum) {
+        functions.back() = [continuum, this](VM* vm, std::vector<$union> const &args) -> $union {
+            Source source;
+            try {
+                source.append(dynamic_cast<String*>(args[1].$object)->value);
+            } catch (Error& e) {
+                e.report(&source, true);
+                throw Exception("failed to compile script in eval");
+            }
+            Compiler compiler(continuum, std::move(source));
+            try {
+                compiler.parse(Compiler::Mode::EVAL);
+            } catch (Error& e) {
+                e.report(&compiler.source, true);
+                throw Exception("failed to compile script in eval");
+            }
+            compiler.compile(this);
+            auto frame = std::make_unique<Frame>(vm, this, &std::get<Instructions>(functions.back()));
+            auto type = continuum->functions.back()->prototype()->R;
+            frame->init();
+            frame->stack.front() = args[0];
+            auto ret = frame->loop();
+            if (isValueBased(type))
+                ret = vm->newObject<AnyScalar>(ret, dynamic_cast<ScalarType*>(type.get())->S);
+            return ret;
+        };
+    }
 
     void const_(bool b) override {
         instructions.emplace_back(Opcode::CONST, b);

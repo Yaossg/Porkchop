@@ -14,7 +14,7 @@ inline void tokenize(Source& source, std::string original) try {
 }
 
 inline void parse(Compiler& compiler) try {
-    compiler.parse(false);
+    compiler.parse(Compiler::Mode::MAIN);
 } catch (Porkchop::Error& e) {
     e.report(&compiler.source, true);
     std::exit(-1);

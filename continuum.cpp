@@ -30,6 +30,7 @@ Continuum::Continuum() {
     context->defineExternal("toChars", std::make_shared<FuncType>(std::vector{ScalarTypes::STRING}, std::make_shared<ListType>(ScalarTypes::CHAR)));
     context->defineExternal("fromBytes", std::make_shared<FuncType>(std::vector<TypeReference>{std::make_shared<ListType>(ScalarTypes::BYTE)}, ScalarTypes::STRING));
     context->defineExternal("fromChars", std::make_shared<FuncType>(std::vector<TypeReference>{std::make_shared<ListType>(ScalarTypes::CHAR)}, ScalarTypes::STRING));
+    context->defineExternal("eval", std::make_shared<FuncType>(std::vector{ScalarTypes::ANY, ScalarTypes::STRING}, ScalarTypes::ANY));
 }
 
 

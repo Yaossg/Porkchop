@@ -16,11 +16,15 @@ struct Compiler {
     Source source;
     std::unique_ptr<FunctionDefinition> definition;
 
+    enum class Mode {
+        MAIN, SHELL, EVAL
+    };
+
     explicit Compiler(Continuum* continuum, Source source);
 
     [[nodiscard]] std::string_view of(Token token) const noexcept;
 
-    void parse(bool free);
+    void parse(Mode mode);
 
     void compile(Assembler* assembler) const;
 

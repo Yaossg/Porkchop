@@ -42,6 +42,7 @@ struct Assembly {
         functions.emplace_back(Externals::toChars);
         functions.emplace_back(Externals::fromBytes);
         functions.emplace_back(Externals::fromChars);
+        functions.emplace_back(Externals::eval);
     }
 };
 

@@ -36,5 +36,5 @@ int main(int argc, const char* argv[]) {
     }
     Porkchop::VM vm;
     vm.init(argi, argc, argv);
-    return Porkchop::execute(&vm, assembly.get());
+    return (int) Porkchop::execute(&vm, assembly.get()).$int;
 }

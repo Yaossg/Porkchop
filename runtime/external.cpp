@@ -119,5 +119,9 @@ $union fromChars(VM* vm, std::vector<$union> const &args) {
     return vm->newObject<String>(std::move(string));
 }
 
+$union eval(VM* vm, std::vector<$union> const &args) {
+    throw Exception("use interpreter instead of runtime for implementation of eval()");
+}
+
 
 }

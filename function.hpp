@@ -81,4 +81,17 @@ struct MainFunctionReference : FunctionReference {
     }
 };
 
+struct EvalFunctionReference : FunctionReference {
+    FunctionDefinition* definition;
+
+    EvalFunctionReference(FunctionDefinition* definition, std::shared_ptr<FuncType> prototype)
+            : definition(definition) {
+        typeCache = std::move(prototype);
+    }
+
+    void assemble(Assembler* assembler) const override {
+        assembler->newFunction(definition);
+    }
+};
+
 }

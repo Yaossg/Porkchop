@@ -18,9 +18,9 @@ int main(int argc, const char* argv[]) {
     Porkchop::Continuum continuum;
     Porkchop::Compiler compiler(&continuum, std::move(source));
     Porkchop::parse(compiler);
-    Porkchop::Interpretation interpretation;
+    Porkchop::Interpretation interpretation(&continuum);
     compiler.compile(&interpretation);
     Porkchop::VM vm;
     vm.init(argi, argc, argv);
-    return Porkchop::execute(&vm, &interpretation);
+    return (int) Porkchop::execute(&vm, &interpretation).$int;
 }
