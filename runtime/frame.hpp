@@ -339,24 +339,18 @@ struct Frame {
     void shl() {
         auto value2 = ipop();
         auto value1 = ipop();
-        if (value2 < 0)
-            throw Exception("shift a negative");
         push(value1 << value2);
     }
 
     void shr() {
         auto value2 = ipop();
         auto value1 = ipop();
-        if (value2 < 0)
-            throw Exception("shift a negative");
         push(value1 >> value2);
     }
 
     void ushr() {
         auto value2 = ipop();
         auto value1 = pop().$size;
-        if (value2 < 0)
-            throw Exception("shift a negative");
         push(int64_t(value1 >> value2));
     }
 

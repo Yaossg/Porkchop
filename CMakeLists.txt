@@ -38,6 +38,8 @@ add_executable(PorkchopRuntime
         descriptor.hpp
         runtime/common.hpp
         unicode/unicode.hpp unicode/unicode.cpp
+        unicode/unicode-id.cpp unicode/unicode-width.cpp
+        diagnostics.hpp diagnostics.cpp
         runtime/main.cpp
 )
 

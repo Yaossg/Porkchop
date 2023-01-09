@@ -55,6 +55,7 @@ std::string Stringifier::operator()($union value) const {
 }
 
 void VM::markAll() {
+    _args->mark();
     for (auto&& frame : frames) {
         frame->markAll();
     }

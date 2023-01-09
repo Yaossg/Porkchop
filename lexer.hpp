@@ -16,7 +16,7 @@ struct LineTokenizer {
                   std::string_view view):
             context(context),
             o(view.begin()), p(o), q(p), r(view.end()),
-            line(context.lineNo++)
+            line(context.lines.size() - 1)
             { tokenize(); }
 
     [[nodiscard]] size_t column() const noexcept {
@@ -58,7 +58,7 @@ struct LineTokenizer {
 
     void addLBrace(Source::BraceType braceType);
     Source::BraceType addRBrace();
-    void raise(const char* msg) const;
+    [[noreturn]] void raise(const char* msg) const;
     void tokenize();
     void addId();
     void addPunct();

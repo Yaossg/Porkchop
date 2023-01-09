@@ -36,7 +36,12 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
             switch (Token token = peek(); token.type) {
                 case TokenType::KW_BREAK:  {
                     auto expr = make<BreakExpr>(next());
-                    if (hooks.empty()) throw ParserException("wild break", token);
+                    if (hooks.empty()) {
+                        Error().with(
+                                ErrorMessage().error(token)
+                                .text("wild").quote("break")
+                                ).raise();
+                    }
                     hooks.back()->breaks.push_back(expr.get());
                     return expr;
                 }
@@ -58,7 +63,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         yieldBreaks.push_back(expr.get());
                         return expr;
                     } else {
-                        throw ParserException("either yield return or yield break is expected", token);
+                        Error().with(
+                                ErrorMessage().error(token)
+                                .text("either").quote("yield return").text("or").quote("yield break").text("is expected")
+                                ).raise();
                     }
                 }
                 default: {
@@ -81,7 +89,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                             if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(lhs))) {
                                 return make<AssignExpr>(token, std::move(load), std::move(rhs));
                             } else {
-                                throw ParserException("assignable expression is expected", token);
+                                raise("assignable expression is expected", token);
                             }
                         }
                     }
@@ -147,7 +155,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(rhs))) {
                         return make<StatefulPrefixExpr>(token, std::move(load));
                     } else {
-                        throw ParserException("assignable expression is expected", token);
+                        raise("assignable expression is expected", token);
                     }
                 }
                 default: {
@@ -170,7 +178,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     case TokenType::LBRACKET: {
                         auto token1 = next();
                         auto rhs = parseExpression();
-                        auto token2 = expect(TokenType::RBRACKET, "missing ']' to match '['");
+                        auto token2 = expect(TokenType::RBRACKET, "]");
                         lhs = make<AccessExpr>(token1, token2, std::move(lhs), std::move(rhs));
                         break;
                     }
@@ -198,7 +206,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(lhs))) {
                             lhs = make<StatefulPostfixExpr>(token, std::move(load));
                         } else {
-                            throw ParserException("id-expression or access expression is expected", token);
+                            raise("assignable expression is expected", token);
                         }
                         break;
                     }
@@ -227,45 +235,52 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     auto expr = parseExpressions(TokenType::RBRACKET);
                     auto token2 = next();
                     if (expr.empty()) {
-                        throw ParserException("use default([T]) to create empty list", range(token, token2));
+                        Error().with(
+                                ErrorMessage().error(range(token, token2))
+                                .text("use").quote("default([T])").text("to create an empty list")
+                                ).raise();
                     }
                     return make<ListExpr>(token, token2, std::move(expr));
                 }
                 case TokenType::AT_BRACKET: {
                     next();
-                    std::vector<std::pair<ExprHandle, ExprHandle>> elements;
-                    size_t values = 0;
+                    std::vector<ExprHandle> keys, values;
+                    size_t count = 0;
                     while (true) {
                         if (peek().type == TokenType::RBRACKET) break;
-                        auto key = parseExpression();
+                        keys.emplace_back(parseExpression());
                         ExprHandle value;
                         if (peek().type == TokenType::OP_COLON) {
                             next();
-                            value = parseExpression();
-                            ++values;
+                            values.emplace_back(parseExpression());
+                            ++count;
                         } else {
-                            value = nullptr;
+                            values.emplace_back(nullptr);
                         }
-                        elements.emplace_back(std::move(key), std::move(value));
                         if (peek().type == TokenType::RBRACKET) break;
                         expectComma();
                     }
-                    optionalComma(elements.size());
+                    optionalComma(keys.size());
                     auto token2 = next();
-                    if (elements.empty()) {
-                        throw ParserException("use default(@[T]) or default(@[K: V]) to create empty set or dict", range(token, token2));
+                    if (keys.empty()) {
+                        Error().with(
+                                ErrorMessage().error(range(token, token2))
+                                .text("use").quote("default([T])").text("or").quote("default(@[K: V])").text("to create an empty set or dict")
+                                ).raise();
                     }
-                    if (values == 0) {
-                        std::vector<ExprHandle> keys;
-                        keys.reserve(elements.size());
-                        for (auto&& [key, value] : elements) {
-                            keys.push_back(std::move(key));
-                        }
+                    if (count == 0) {
                         return make<SetExpr>(token, token2, std::move(keys));
-                    } else if (values == elements.size()) {
-                        return make<DictExpr>(token, token2, std::move(elements));
+                    } else if (count == keys.size()) {
+                        return make<DictExpr>(token, token2, std::move(keys), std::move(values));
                     } else {
-                        throw ParserException("missing values for some keys to create dict", range(token, token2));
+                        Error error;
+                        error.with(ErrorMessage().error(range(token, token2)).text("missing some values for some keys to create a dict"));
+                        for (size_t i = 0; i < keys.size(); ++i) {
+                            if (values[i] == nullptr) {
+                                error.with(ErrorMessage().note(keys[i]->segment()).text("missing value for this key"));
+                            }
+                        }
+                        error.raise();
                     }
                 }
                 case TokenType::LBRACE:
@@ -307,9 +322,9 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
 
                 case TokenType::KW_DEFAULT: {
                     next();
-                    expect(TokenType::LPAREN, "'(' is expected");
+                    expect(TokenType::LPAREN, "(");
                     auto type = parseType();
-                    auto token2 = expect(TokenType::RPAREN, "missing ')' to match '('");
+                    auto token2 = expect(TokenType::RPAREN, ")");
                     return make<DefaultExpr>(token, token2, type);
                 }
                 case TokenType::KW_WHILE:
@@ -326,7 +341,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     return parseLet();
 
                 case TokenType::KW_ELSE:
-                    throw ParserException("stray 'else'", next());
+                    Error().with(
+                            ErrorMessage().error(next())
+                            .text("stray").quote("else")
+                            ).raise();
 
                 case TokenType::KW_BREAK:
                 case TokenType::KW_RETURN:
@@ -334,16 +352,16 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     return parseExpression();
 
                 case TokenType::LINEBREAK:
-                    throw ParserException("unexpected linebreak", next());
+                    raise("unexpected linebreak", next());
                 default:
-                    throw ParserException("unexpected token", next());
+                    raise("unexpected token", next());
             }
         }
     }
 }
 
 std::unique_ptr<ClauseExpr> Parser::parseClause() {
-    auto token = expect(TokenType::LBRACE, "'{' is expected");
+    auto token = expect(TokenType::LBRACE, "{");
     LocalContext::Guard guard(context);
     std::vector<ExprHandle> rhs;
     bool flag = true;
@@ -353,7 +371,7 @@ std::unique_ptr<ClauseExpr> Parser::parseClause() {
             case TokenType::RBRACE:
             case TokenType::LINEBREAK:
                 switch (peek().type) {
-                    default: throw ParserException("a linebreak is expected between expressions", peek());
+                    default: raise("a linebreak is expected between expressions", peek());
                     case TokenType::RBRACE: flag = false;
                     case TokenType::LINEBREAK: next(); continue;
                 }
@@ -399,7 +417,7 @@ ExprHandle Parser::parseWhile() {
 ExprHandle Parser::parseFor() {
     auto token = next();
     auto declarator = parseDeclarator();
-    expect(TokenType::KW_IN, "'in' is expected");
+    expect(TokenType::KW_IN, "in");
     pushLoop();
     LocalContext::Guard guard(context);
     auto initializer = parseExpression();
@@ -414,7 +432,7 @@ ExprHandle Parser::parseFor() {
 }
 
 std::unique_ptr<ParameterList> Parser::parseParameters() {
-    expect(TokenType::LPAREN, "'(' is expected");
+    expect(TokenType::LPAREN, "(");
     std::vector<IdExprHandle> identifiers;
     std::vector<TypeReference> P;
     while (true) {
@@ -423,7 +441,7 @@ std::unique_ptr<ParameterList> Parser::parseParameters() {
         identifiers.push_back(std::move(declarator->name));
         P.push_back(declarator->designated);
         if (declarator->designated == nullptr) {
-            throw ParserException("missing type for the parameter", declarator->segment);
+            raise("missing type for the parameter", declarator->segment);
         }
         if (peek().type == TokenType::RPAREN) break;
         expectComma();
@@ -433,54 +451,82 @@ std::unique_ptr<ParameterList> Parser::parseParameters() {
     return std::make_unique<ParameterList>(std::move(identifiers), std::make_shared<FuncType>(std::move(P),nullptr));
 }
 
-ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield) {
+ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield, Segment decl) {
     ExprHandle clause;
     TypeReference type0;
     if (yield) {
         clause = parseClause();
         if (!returns.empty()) {
-            throw ParserException("return in yielding function", returns[0]->segment());
+            Error error;
+            for (auto&& return_ : returns) {
+                error.with(ErrorMessage().error(return_->segment()).quote("return").text("within yielding function"));
+            }
+            error.with(ErrorMessage().note(decl).text("declared here"));
+            error.raise();
         }
         if (F->R && !dynamic_cast<IterType*>(F->R.get())) {
-            throw ParserException("yielding function must return iter type", clause->segment());
+            raise("yielding function must return iter type", decl);
         }
         if (yieldReturns.empty()) {
             if (F->R) {
                 return clause;
             } else {
-                throw ParserException("return type of yielding function cannot be deduced without a yield return", clause->segment());
+                Error error;
+                error.with(ErrorMessage().error(clause->segment()).text("return type of yielding function cannot be deduced without a yield return"));
+                error.with(ErrorMessage().note(decl).text("declared here"));
+                error.raise();
             }
         } else {
             type0 = yieldReturns[0]->rhs->typeCache;
             for (size_t i = 1; i < yieldReturns.size(); ++i) {
-                yieldReturns[i]->rhs->match(type0, "returns");
+                if (!type0->equals(yieldReturns[i]->typeCache)) {
+                    Error error;
+                    error.with(ErrorMessage().error(decl).text("multiple yield returns conflict in type"));
+                    for (auto&& return_ : yieldReturns) {
+                        error.with(ErrorMessage().note(return_->segment()).text("this one yield returns").type(return_->rhs->typeCache));
+                    }
+                    error.raise();
+                }
             }
             type0 = std::make_shared<IterType>(type0);
         }
     } else {
         clause = parseExpression();
         if (!yieldReturns.empty()) {
-            throw ParserException("yield return in non-yielding function", yieldReturns[0]->segment());
+            Error error;
+            for (auto&& return_ : yieldReturns) {
+                error.with(ErrorMessage().error(return_->segment()).quote("yield return").text("within non-yielding function"));
+            }
+            error.with(ErrorMessage().note(decl).text("declared here"));
+            error.raise();
         }
         if (!yieldBreaks.empty()) {
-            throw ParserException("yield break in non-yielding function", yieldBreaks[0]->segment());
+            Error error;
+            for (auto&& break_ : yieldBreaks) {
+                error.with(ErrorMessage().error(break_->segment()).quote("yield break").text("within non-yielding function"));
+            }
+            error.with(ErrorMessage().note(decl).text("declared here"));
+            error.raise();
         }
         if (returns.empty()) {
             type0 = clause->typeCache;
         } else {
-            type0 = returns[0]->rhs->typeCache;
-            for (size_t i = 1; i < returns.size(); ++i) {
-                returns[i]->rhs->match(type0, "returns");
-            }
-            if (!isNever(clause->typeCache)) {
-                clause->match(type0, "returns and expression body");
+            type0 = isNever(clause->typeCache) ? returns[0]->rhs->typeCache : clause->typeCache;
+            for (auto&& i : returns) {
+                if (!type0->equals(i->typeCache)) {
+                    raiseReturns(clause.get(), ErrorMessage().error(decl).text("multiple returns conflict in type"));
+                }
             }
         }
     }
     if (F->R == nullptr) {
         F->R = type0;
-    } else {
-        assignable(type0, F->R, clause->segment());
+    } else if (!F->R->assignableFrom(type0)){
+        Error error;
+        error.with(ErrorMessage().error(clause->segment()).text("actual return type of the function is not assignable to specified one"));
+        error.with(ErrorMessage().note().type(type0).text("is not assignable to").type(F->R));
+        error.with(ErrorMessage().note(decl).text("declared here"));
+        error.raise();
     }
     return clause;
 }
@@ -492,20 +538,20 @@ ExprHandle Parser::parseFn() {
     parameters->prototype->R = optionalType();
     if (auto type = peek().type; type == TokenType::OP_ASSIGN || type == TokenType::KW_YIELD) {
         auto def = make<FnDefExpr>(token, rewind(), std::move(name), std::move(parameters));
-        next();
+        auto token2 = next();
         bool yield = type == TokenType::KW_YIELD;
         context.declare(compiler->of(def->name->token), def.get());
         LocalContext subcontext(compiler->continuum, &context);
         Parser child(compiler, p, q, subcontext);
         def->parameters->declare(compiler, child.context);
-        auto clause = child.parseFnBody(def->parameters->prototype, yield);
+        auto clause = child.parseFnBody(def->parameters->prototype, yield, range(token, token2));
         p = child.p;
         def->definition = std::make_unique<FunctionDefinition>(yield, std::move(clause), std::move(child.context.localTypes));
         context.define(compiler->of(def->name->token), def.get());
         return def;
     } else {
         if (parameters->prototype->R == nullptr) {
-            throw ParserException("return type of declared function is missing", rewind());
+            raise("return type of declared function is missing", rewind());
         }
         auto decl = make<FnDeclExpr>(token, rewind(), std::move(name), std::move(parameters));
         context.declare(compiler->of(decl->name->token), decl.get());
@@ -527,9 +573,9 @@ ExprHandle Parser::parseLambda() {
     auto R = optionalType();
     auto type = peek().type;
     if (type != TokenType::OP_ASSIGN && type != TokenType::KW_YIELD) {
-        throw ParserException("lambda body is expected", next());
+        raise("lambda body is expected", next());
     }
-    next();
+    auto token2 = next();
     bool yield = type == TokenType::KW_YIELD;
     LocalContext subcontext(compiler->continuum, &context);
     Parser child(compiler, p, q, subcontext);
@@ -537,7 +583,7 @@ ExprHandle Parser::parseLambda() {
         child.context.local(compiler->of(capture->token), capture->typeCache);
     }
     parameters->declare(compiler, child.context);
-    auto clause = child.parseFnBody(parameters->prototype, yield);
+    auto clause = child.parseFnBody(parameters->prototype, yield, range(token, token2));
     p = child.p;
     auto lambda = make<LambdaExpr>(token, std::move(captures), std::move(parameters),
                                    std::make_unique<FunctionDefinition>(yield, std::move(clause), std::move(child.context.localTypes)));
@@ -548,7 +594,7 @@ ExprHandle Parser::parseLambda() {
 ExprHandle Parser::parseLet() {
     auto token = next();
     auto declarator = parseDeclarator();
-    expect(TokenType::OP_ASSIGN, "'=' is expected before initializer");
+    expect(TokenType::OP_ASSIGN, "=");
     auto initializer = parseExpression();
     declarator->infer(initializer->typeCache);
     declarator->declare(context);
@@ -563,66 +609,74 @@ TypeReference Parser::parseType() {
                 return std::make_shared<ScalarType>(it->second);
             }
             if (id == "typeof") {
-                expect(TokenType::LPAREN, "'(' is expected");
+                expect(TokenType::LPAREN, "(");
                 auto expr = parseExpression();
-                expect(TokenType::RPAREN, "missing ')' to match '('");
+                expect(TokenType::RPAREN, ")");
                 return expr->typeCache;
             }
             if (id == "elementof") {
-                expect(TokenType::LPAREN, "'(' is expected");
+                expect(TokenType::LPAREN, "(");
                 auto type = parseType();
                 if (auto tuple = dynamic_cast<TupleType*>(type.get())) {
                     expectComma();
                     auto expr = parseExpression();
-                    expect(TokenType::RPAREN, "missing ')' to match '('");
+                    expect(TokenType::RPAREN, ")");
                     expr->expect(ScalarTypes::INT);
                     auto index = expr->evalConst().$int;
                     if (0 <= index && index < tuple->E.size()) {
                         return tuple->E[index];
                     } else {
-                        throw TypeException("index out of bound", expr->segment());
+                        Error error;
+                        error.with(ErrorMessage().error(expr->segment()).text("index out of bound"));
+                        error.with(ErrorMessage().note().text("it evaluates to").num(index));
+                        error.with(ErrorMessage().note().text("type of this tuple is").type(type));
+                        error.raise();
                     }
                 } else {
-                    expect(TokenType::RPAREN, "missing ')' to match '('");
+                    expect(TokenType::RPAREN, ")");
                     if (auto element = elementof(type)) {
                         return element;
                     }
-                    throw TypeException("elementof expect a tuple, list, set, dict, or iter type", token);
+                    Error error;
+                    error.with(ErrorMessage().error(token).text("elementof expect a tuple, list, set, dict, or iter type").text("but got").type(type));
+                    error.raise();
                 }
             }
             if (id == "returnof") {
-                expect(TokenType::LPAREN, "'(' is expected");
+                expect(TokenType::LPAREN, "(");
                 auto type = parseType();
-                expect(TokenType::RPAREN, "missing ')' to match '('");
+                expect(TokenType::RPAREN, ")");
                 if (auto func = dynamic_cast<FuncType*>(type.get())) {
                     return func->R;
-                } else {
-                    throw TypeException("returnof expect a func type", token);
                 }
+                Error error;
+                error.with(ErrorMessage().error(token).text("elementof expect a func type but got").type(type));
+                error.raise();
             }
             if (id == "parametersof") {
-                expect(TokenType::LPAREN, "'(' is expected");
+                expect(TokenType::LPAREN, "(");
                 auto type = parseType();
-                expect(TokenType::RPAREN, "missing ')' to match '('");
+                expect(TokenType::RPAREN, ")");
                 if (auto func = dynamic_cast<FuncType*>(type.get())) {
                     return std::make_shared<TupleType>(func->P);
-                } else {
-                    throw TypeException("parametersof expect a func type", token);
                 }
+                Error error;
+                error.with(ErrorMessage().error(token).text("elementof expect a func type but got").type(type));
+                error.raise();
             }
         }
         default:
-            throw ParserException("type is expected", token);
+            raise("a type is expected", token);
         case TokenType::LBRACKET: {
             auto E = parseType();
             neverGonnaGiveYouUp(E, "as a list element", rewind());
-            expect(TokenType::RBRACKET, "missing ']' to match '['");
+            expect(TokenType::RBRACKET, "]");
             return std::make_shared<ListType>(E);
         }
         case TokenType::AT_BRACKET: {
             auto K = parseType();
             auto V = optionalType();
-            expect(TokenType::RBRACKET, "missing ']' to match '@['");
+            expect(TokenType::RBRACKET, "]");
             if (V) {
                 neverGonnaGiveYouUp(K, "as a dict key", rewind());
                 neverGonnaGiveYouUp(V, "as a dict value", rewind());
@@ -666,7 +720,7 @@ TypeReference Parser::parseType() {
 
 IdExprHandle Parser::parseId(bool initialize) {
     auto token = next();
-    if (token.type != TokenType::IDENTIFIER) throw ParserException("id-expression is expected", token);
+    if (token.type != TokenType::IDENTIFIER) raise("id-expression is expected", token);
     auto id = std::make_unique<IdExpr>(*compiler, token);
     if (initialize) {
         id->initLookup(context);
@@ -685,7 +739,10 @@ std::unique_ptr<SimpleDeclarator> Parser::parseSimpleDeclarator() {
     } else {
         neverGonnaGiveYouUp(type, "as a declarator", segment);
         if (underscore && !isNone(type)) {
-            throw ParserException("the type of '_' must be none", segment);
+            Error().with(
+                    ErrorMessage().error(segment)
+                    .text("the type of").quote("_").text("must be none")
+                    ).raise();
         }
     }
     return std::make_unique<SimpleDeclarator>(*compiler, segment, std::move(id), std::move(type));
@@ -706,7 +763,7 @@ DeclaratorHandle Parser::parseDeclarator() {
         auto segment = range(token1, token2);
         switch (elements.size()) {
             case 0:
-                throw ParserException("invalid empty declarator", segment);
+                raise("invalid empty declarator", segment);
             case 1:
                 return std::move(elements.front());
             default:

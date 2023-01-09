@@ -14,7 +14,7 @@ inline int execute(VM* vm, Assembly* assembly) try {
     fprintf(stderr, "%s\n", e.what());
     std::exit(1);
 } catch (std::bad_alloc& e) {
-    fprintf(stderr, "Out of memory\n");
+    fprintf(stderr, "Runtime out of memory\n");
     std::exit(-10);
 } catch (std::exception& e) {
     fprintf(stderr, "Internal Runtime Error: %s\n", e.what());

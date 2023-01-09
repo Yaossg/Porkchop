@@ -1,4 +1,5 @@
 #include "unicode.hpp"
+#include "../diagnostics.hpp"
 
 #include <charconv>
 
@@ -8,25 +9,27 @@ char32_t parseHex(const char *first, const char *last, unsigned int bound, Segme
     unsigned value = 0;
     auto [ptr, ec] = std::from_chars(first, last, value, 16);
     if (ptr != last) {
-        throw ConstException("the escape sequence expect exact " + std::to_string(std::distance(first, last)) + " hex digits", segment);
+        Error().with(
+                ErrorMessage().error(segment)
+                .text("escape sequence expect exact").num(std::distance(first, last)).text("hexadecimal digits")
+                ).raise();
     }
     if (value > bound) {
         ec = std::errc::result_out_of_range;
     }
     if (ec == std::errc{}) {
         if (isSurrogate(value)) {
-            throw ConstException("the hex value represents a surrogate", segment);
+            raise("the hexadecimal value represents a surrogate", segment);
         } else {
             return value;
         }
     }
     switch (ec) {
         case std::errc::invalid_argument:
-            throw ConstException("the hex value is invalid", segment);
+            raise("the hexadecimal value is invalid", segment);
         case std::errc::result_out_of_range:
-            throw ConstException("the hex value is out of valid range", segment);
+            raise("the hexadecimal value is out of valid range", segment);
         default:
-            [[noreturn]] void unreachable();
             unreachable();
     }
 }
@@ -59,15 +62,15 @@ int UnicodeParser::successiveUTF8Length(char8_t byte) const {
         case 4:
             return ones;
         case 1:
-            throw ConstException("unexpected termination of UTF-8 multibyte series", make());
+            raise("unexpected termination of UTF-8 multibyte series");
         default:
-            throw ConstException("UTF-8 series of 5 or more bytes is unsupported yet", make());
+            raise("UTF-8 series of 5 or more bytes is unsupported yet");
     }
 }
 
 void UnicodeParser::requireUTF8Continue(char8_t byte) const {
     if (notUTF8Continue(byte))
-        throw ConstException("unexpected UTF-8 multibyte series termination", make());
+        raise("unexpected UTF-8 multibyte series termination");
 }
 
 char32_t UnicodeParser::parseHexASCII() {
@@ -114,9 +117,9 @@ char32_t UnicodeParser::decodeUnicode() {
         } break;
     }
     if (isSurrogate(result))
-        throw ConstException("the value of UTF-8 series represents a surrogate", make());
+        raise("the value of UTF-8 series represents a surrogate");
     if (result > UNICODE_UPPER_BOUND)
-        throw ConstException("the value of UTF-8 series exceeds upper bound of Unicode", make());
+        raise("the value of UTF-8 series exceeds upper bound of Unicode");
     return result;
 }
 
@@ -148,14 +151,14 @@ char32_t UnicodeParser::unquoteChar(Token token) {
                 break;
             }
             default:
-                throw ConstException("unknown escape sequence", make());
+                raise("unknown escape sequence");
         }
     } else if (ch1 == '\'') {
-        throw ConstException("empty character literal", token);
+        Porkchop::raise("empty character literal", token);
     } else {
         result = decodeUnicode();
     }
-    if (getc() != '\'') throw ConstException("multiple characters in the character literal", token);
+    if (getc() != '\'') Porkchop::raise("multiple characters in the character literal", token);
     return result;
 }
 
@@ -192,7 +195,7 @@ std::string UnicodeParser::unquoteString(bool skip, char stop) {
                             break;
                         }
                         default:
-                            throw ConstException("unknown escape sequence", make());
+                            raise("unknown escape sequence");
                     }
                 } else result += ch1;
                 break;
@@ -227,6 +230,10 @@ std::string UnicodeParser::unquoteString(bool skip, char stop) {
         step();
     }
     return result;
+}
+
+void UnicodeParser::raise(const char *msg) const {
+    Porkchop::raise(msg, make());
 }
 
 }

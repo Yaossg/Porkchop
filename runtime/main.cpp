@@ -1,13 +1,16 @@
 #include "common.hpp"
 #include "text-assembly.hpp"
 #include "bin-assembly.hpp"
+#include "../diagnostics.hpp"
 
 int main(int argc, const char* argv[]) {
     Porkchop::forceUTF8();
     const int argi = 3;
     if (argc < argi) {
-        fprintf(stderr, "Fatal: Too few arguments, input file and its type expected\n");
-        fprintf(stderr, "Usage: PorkchopRuntime <type> <input> [args...]\n");
+        Porkchop::Error error;
+        error.with(Porkchop::ErrorMessage().fatal().text("too few arguments, input file and its type expected"));
+        error.with(Porkchop::ErrorMessage().usage().text("PorkchopRuntime <type> <input> [args...]"));
+        error.report(nullptr, true);
         std::exit(10);
     }
     const char* input_type = argv[1];
@@ -20,7 +23,9 @@ int main(int argc, const char* argv[]) {
     } else if (!strcmp("-b", input_type) || !strcmp("--bin-asm", input_type)) {
         parsedType = InputType::BIN;
     } else {
-        fprintf(stderr, "Fatal: Unknown input type: %s\n", input_type);
+        Porkchop::Error().with(
+                Porkchop::ErrorMessage().fatal().text("unknown input type: ").text(input_type)
+                ).report(nullptr, false);
         std::exit(11);
     }
     std::unique_ptr<Porkchop::Assembly> assembly;

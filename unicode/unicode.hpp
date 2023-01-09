@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../token.hpp"
-#include "../diagnostics.hpp"
+#include "../util.hpp"
 
 namespace Porkchop {
 
@@ -51,7 +51,7 @@ struct UnicodeParser {
             ++column;
             return *q++;
         } else [[unlikely]] {
-            throw ConstException("unexpected termination of literal", make());
+            unreachable();
         }
     }
     [[nodiscard]] char peekc() const noexcept {
@@ -75,6 +75,7 @@ struct UnicodeParser {
     char32_t decodeUnicode();
     char32_t unquoteChar(Token token);
     std::string unquoteString(bool skip, char stop);
+    [[noreturn]] void raise(const char* msg) const;
 };
 
 

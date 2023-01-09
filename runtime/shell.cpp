@@ -3,7 +3,7 @@
 #include "interpretation.hpp"
 
 
-int main(int argc, const char* argv[]) {
+int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     const int argi = 1;
     Porkchop::Continuum continuum;
@@ -11,29 +11,35 @@ int main(int argc, const char* argv[]) {
     Porkchop::VM vm;
     vm.init(argi, argc, argv);
     auto frame = std::make_unique<Porkchop::Frame>(&vm, &interpretation, nullptr);
+    bool newline = false;
     while (true) {
+        if (newline)
+            fputs("\n", stdout);
+        newline = true;
         Porkchop::Source source;
         try {
             do {
-                if (source.lineNo) {
-                    fputs("... ", stdout);
-                } else {
+                if (source.lines.empty()) {
                     fputs(">>> ", stdout);
+                } else {
+                    fputs("... ", stdout);
                 }
                 fflush(stdout);
-                std::string line = Porkchop::readLine(stdin);
-                source.append(std::move(line));
-            } while (!source.braces.empty());
-        } catch (Porkchop::SegmentException& e) {
-            fprintf(stderr, "%s\n", e.message(source).c_str());
+                source.append(Porkchop::readLine(stdin));
+            } while (!source.braces.empty() || source.lines.back().ends_with('\\'));
+        } catch (Porkchop::Error& e) {
+            e.report(&source, false);
             continue;
         }
-        if (source.tokens.empty()) continue;
+        if (source.tokens.empty()) {
+            newline = false;
+            continue;
+        }
         Porkchop::Compiler compiler(&continuum, std::move(source));
         try {
-            compiler.parse();
-        } catch (Porkchop::SegmentException& e) {
-            fprintf(stderr, "%s\n", e.message(compiler.source).c_str());
+            compiler.parse(true);
+        } catch (Porkchop::Error& e) {
+            e.report(&compiler.source, false);
             continue;
         }
         compiler.compile(&interpretation);
@@ -44,19 +50,18 @@ int main(int argc, const char* argv[]) {
             auto type = compiler.continuum->functions.back()->prototype()->R;
             if (!Porkchop::isNone(type)) {
                 auto sf = Porkchop::stringifier(type);
-                puts(sf(ret).c_str());
+                fputs(sf(ret).c_str(), stdout);
             }
-        } catch (Porkchop::Exception& e) {
+        } catch (Porkchop::Exception& e) { // FIXME indeterminate local variable caused by exception
             e.append("at func " + std::to_string(interpretation.functions.size() - 1));
             fprintf(stderr, "Runtime exception occurred: \n");
-            fprintf(stderr, "%s\n", e.what());
-            continue;
-        } catch (std::bad_alloc& e) {
-            fprintf(stderr, "Out of memory\n");
-            std::exit(-10);
-        } catch (std::exception& e) {
-            fprintf(stderr, "Internal Runtime Error: %s\n", e.what());
-            std::exit(-100);
+            fprintf(stderr, "%s", e.what());
         }
     }
+} catch (std::bad_alloc& e) {
+    fprintf(stderr, "Shell out of memory\n");
+    std::exit(-10);
+} catch (std::exception& e) {
+    fprintf(stderr, "Internal Shell Error: %s\n", e.what());
+    std::exit(-100);
 }

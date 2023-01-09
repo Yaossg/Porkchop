@@ -20,28 +20,29 @@ size_t getUnicodeWidth(std::string_view view, size_t line, size_t column) {
     return width;
 }
 
-std::string SegmentException::message(Source const& source) const {
+std::string ErrorMessage::build(Source* source) {
+    if (message.ends_with(' ')) message.pop_back();
+    if (textOnly || source == nullptr) return message + '\n';
     std::string result;
-    result += "Compilation Error: ";
-    result += std::logic_error::what();
-    result += " at line ";
-    result += std::to_string(segment.line1 + 1);
-    result += " column ";
-    result += std::to_string(segment.column1 + 1);
-    if (segment.line1 != segment.line2 || segment.column1 + 1 != segment.column2) {
-        result += " to ";
-        if (segment.line1 != segment.line2) {
-            result += "line ";
-            result += std::to_string(segment.line2 + 1);
-            result += " column ";
-        }
-        result += std::to_string(segment.column2);
-    }
+    result += message;
+//    result += " at line ";
+//    result += std::to_string(segment.line1 + 1);
+//    result += " column ";
+//    result += std::to_string(segment.column1 + 1);
+//    if (segment.line1 != segment.line2 || segment.column1 + 1 != segment.column2) {
+//        result += " to ";
+//        if (segment.line1 != segment.line2) {
+//            result += "line ";
+//            result += std::to_string(segment.line2 + 1);
+//            result += " column ";
+//        }
+//        result += std::to_string(segment.column2);
+//    }
     result += "\n";
     int digits = digits10(segment.line2 + 1);
     for (size_t line = segment.line1; line <= segment.line2; ++line) {
         auto lineNo = std::to_string(line + 1);
-        auto code = source.lines.at(line);
+        auto code = source->lines.at(line);
         result += "   ";
         result += lineNo;
         result += std::string(digits - lineNo.length() + 1, ' ');
@@ -56,29 +57,58 @@ std::string SegmentException::message(Source const& source) const {
             size_t width1 = getUnicodeWidth(code.substr(0, column1), line, 0);
             result += std::string(width1, ' ');
             size_t width2 = getUnicodeWidth(code.substr(column1, column2 - column1), line, column1);
+            std::string underline;
             if (line == segment.line1) {
-                result += '^';
+                underline += '^';
                 if (width2 > 1)
-                    result += std::string(width2 - 1, '~');
+                    underline += std::string(width2 - 1, '~');
             } else {
-                result += std::string(width2, '~');
+                underline += std::string(width2, '~');
             }
+            result += colored(underline);
         }
         result += '\n';
     }
     return result;
 }
 
+void raise(const char *msg, Segment segment) {
+    Error().with(
+            ErrorMessage().error(segment)
+            .text(msg)
+            ).raise();
+}
+
 void neverGonnaGiveYouUp(const TypeReference &type, const char *msg, Segment segment) {
     if (isNever(type)) {
-        throw TypeException(std::string("'never' is never allowed ") + msg, segment);
+        Error().with(
+                ErrorMessage().error(segment)
+                .type(ScalarTypes::NEVER).text("is never allowed ").text(msg)
+                ).raise();
     }
 }
 
-void assignable(TypeReference const& type, TypeReference const& expected, Segment segment) {
-    if (!expected->assignableFrom(type)) {
-        throw TypeException(join("'", type->toString(), "' is not assignable to '", expected->toString(), "'"), segment);
+void Error::report(Source* source, bool newline) {
+    std::string buf;
+    for (auto&& message : messages) {
+        buf += message.build(source);
     }
+    if (!newline)
+        buf.pop_back();
+    fprintf(stderr, "%s", buf.c_str());
+    if (!newline)
+        fflush(stderr);
+}
+
+FILE* open(const char *filename, const char *mode) {
+    FILE* file = fopen(filename, mode);
+    if (file == nullptr) {
+        Error error;
+        error.with(ErrorMessage().fatal().text("failed to open input file: ").text(filename));
+        error.report(nullptr, true);
+        std::exit(20);
+    }
+    return file;
 }
 
 }

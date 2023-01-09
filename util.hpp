@@ -4,6 +4,7 @@
 #include <cstring>
 #include <string>
 #include <memory>
+#include <vector>
 
 namespace Porkchop {
 
@@ -11,12 +12,10 @@ inline bool isInvalidChar(int64_t value) {
     return value < 0 || value > 0x10FFFFLL || 0xD800LL <= value && value <= 0xDFFFLL;
 }
 
+FILE* open(const char* filename, const char* mode);
+
 inline std::string readText(const char* filename) {
-    FILE* input_file = fopen(filename, "r");
-    if (input_file == nullptr) {
-        fprintf(stderr, "Failed to open input file: %s\n", filename);
-        std::exit(20);
-    }
+    FILE* input_file = open(filename, "r");
     std::string content;
     do {
         char line[256];
@@ -29,11 +28,7 @@ inline std::string readText(const char* filename) {
 }
 
 inline std::vector<uint8_t> readBin(const char* filename) {
-    FILE* input_file = fopen(filename, "rb");
-    if (input_file == nullptr) {
-        fprintf(stderr, "Failed to open input file: %s\n", filename);
-        std::exit(20);
-    }
+    FILE* input_file = open(filename, "rb");
     fseek(input_file, 0, SEEK_END);
     size_t size = ftell(input_file);
     fseek(input_file, 0, SEEK_SET);
@@ -78,7 +73,7 @@ inline std::vector<std::string_view> splitLines(std::string_view view) {
             }
         }
     }
-    if (p != q) lines.emplace_back(p, q);
+    lines.emplace_back(p, q);
     return lines;
 }
 

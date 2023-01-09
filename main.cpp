@@ -6,8 +6,10 @@
 std::unordered_map<std::string, std::string> parseArgs(int argc, const char* argv[]) {
     std::unordered_map<std::string, std::string> args;
     if (argc < 2) {
-        fprintf(stderr, "Fatal: Too few arguments, input file expected\n");
-        fprintf(stderr, "Usage: Porkchop <input> [options...]\n");
+        Porkchop::Error error;
+        error.with(Porkchop::ErrorMessage().fatal().text("too few arguments, input file expected"));
+        error.with(Porkchop::ErrorMessage().usage().text("Porkchop <input> [options...]"));
+        error.report(nullptr, true);
         std::exit(10);
     }
     args["input"] = argv[1];
@@ -21,12 +23,16 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
         } else if (!strcmp("-b", argv[i]) || !strcmp("--bin-asm", argv[i])) {
             args["type"] = "bin-asm";
         } else {
-            fprintf(stderr, "Fatal: Unknown flag: %s\n", argv[i]);
+            Porkchop::Error().with(
+                    Porkchop::ErrorMessage().fatal().text("unknown flag: ").text(argv[i])
+                    ).report(nullptr, false);
             std::exit(11);
         }
     }
     if (!args.contains("type")) {
-        fprintf(stderr, "Fatal: Output type is not specified");
+        Porkchop::Error().with(
+                Porkchop::ErrorMessage().fatal().text("output type is not specified")
+                ).report(nullptr, false);
         std::exit(12);
     }
     if (!args.contains("output")) {
@@ -39,18 +45,13 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
 struct OutputFile {
     FILE* file;
 
-    explicit OutputFile(std::string const& filename, bool binary) {
+    explicit OutputFile(std::string const& filename, bool bin) {
         if (filename == "<null>") {
             file = nullptr;
         } else if (filename == "<stdout>") {
             file = stdout;
         } else {
-            FILE* o = fopen(filename.c_str(), binary ? "wb" : "w");
-            if (o == nullptr) {
-                fprintf(stderr, "Failed to open output file: %s\n", filename.c_str());
-                std::exit(21);
-            }
-            file = o;
+            file = Porkchop::open(filename.c_str(), bin ? "wb" : "w");
         }
     }
 
@@ -97,7 +98,7 @@ int main(int argc, const char* argv[]) try {
     }
     puts("Compilation is done successfully");
 } catch (std::bad_alloc& e) {
-    fprintf(stderr, "Out of memory\n");
+    fprintf(stderr, "Compiler out of memory\n");
     std::exit(-10);
 } catch (std::exception& e) {
     fprintf(stderr, "Internal Compiler Error: %s\n", e.what());

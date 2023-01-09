@@ -55,10 +55,6 @@ struct Expr : Descriptor {
 
     [[noreturn]] void expect(const char* expected) const;
 
-    void assignable(TypeReference const& expected) const;
-
-    void match(TypeReference const& expected, const char *msg) const;
-
     void neverGonnaGiveYouUp(const char* msg) const;
 };
 
@@ -508,16 +504,16 @@ struct SetExpr : Expr {
 
 struct DictExpr : Expr {
     Token token1, token2;
-    std::vector<std::pair<ExprHandle, ExprHandle>> elements;
+    std::vector<ExprHandle> keys, values;
 
-    DictExpr(Compiler& compiler, Token token1, Token token2, std::vector<std::pair<ExprHandle, ExprHandle>> elements): Expr(compiler),
-        token1(token1), token2(token2), elements(std::move(elements)) {}
+    DictExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> keys, std::vector<ExprHandle> values): Expr(compiler),
+        token1(token1), token2(token2), keys(std::move(keys)), values(std::move(values)) {}
 
     [[nodiscard]] std::vector<const Descriptor*> children() const override {
         std::vector<const Descriptor*> ret;
-        for (auto&& [e1, e2] : elements) {
-            ret.push_back(e1.get());
-            ret.push_back(e2.get());
+        for (size_t i = 0; i < keys.size(); ++i) {
+            ret.push_back(keys[i].get());
+            ret.push_back(values[i].get());
         }
         return ret;
     }

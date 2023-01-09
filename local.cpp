@@ -16,7 +16,7 @@ void LocalContext::pop() {
     if (!declaredIndices.back().empty() && std::uncaught_exceptions() == 0) {
         size_t index = declaredIndices.back().begin()->second;
         auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
-        throw TypeException("undefined declared function", function->decl->segment());
+        raise("undefined declared function", function->decl->segment());
     }
     localIndices.pop_back();
     declaredIndices.pop_back();
@@ -30,7 +30,12 @@ void LocalContext::local(std::string_view name, const TypeReference& type) {
 }
 
 void LocalContext::declare(std::string_view name, FnDeclExpr* decl) {
-    if (name == "_") throw TypeException("function name must not be '_'", decl->segment());
+    if (name == "_") {
+        Error().with(
+                ErrorMessage().error(decl->segment())
+                .text("function name must not be").quote("_")
+                ).raise();
+    }
     std::string name0(name);
     if (auto it = declaredIndices.back().find(name0); it != declaredIndices.back().end()) {
         if (!decl->parameters->prototype->R) {
@@ -56,7 +61,12 @@ void LocalContext::declare(std::string_view name, FnDeclExpr* decl) {
 }
 
 void LocalContext::define(std::string_view name, FnDefExpr* def) {
-    if (name == "_") throw TypeException("function name must not be '_'", def->segment());
+    if (name == "_") {
+        Error().with(
+                ErrorMessage().error(def->segment())
+                .text("function name must not be").quote("_")
+                ).raise();
+    }
     std::string name0(name);
     if (auto it = declaredIndices.back().find(name0); it != declaredIndices.back().end()) {
         size_t index = it->second;
@@ -99,7 +109,7 @@ LocalContext::LookupResult LocalContext::lookup(Compiler& compiler, Token token,
             size_t index = lookup->second;
             auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
             if (function->decl->parameters->prototype->R == nullptr)
-                throw TypeException("recursive function without specified return type", function->decl->segment());
+                raise("recursive function without specified return type", function->decl->segment());
             return {function->decl->parameters->prototype, index, LookupResult::Scope::FUNCTION};
         }
     }
@@ -109,7 +119,10 @@ LocalContext::LookupResult LocalContext::lookup(Compiler& compiler, Token token,
             return {continuum->functions[index]->prototype(), index, LookupResult::Scope::FUNCTION};
         }
     }
-    return parent ? parent->lookup(compiler, token, false) : throw TypeException("unable to resolve this identifier", token);
+    if (parent) {
+        return parent->lookup(compiler, token, false);
+    }
+    raise("unable to resolve this identifier", token);
 }
 
 }

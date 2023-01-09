@@ -46,7 +46,10 @@ void LineTokenizer::addLBrace(Source::BraceType braceType) {
 Source::BraceType LineTokenizer::addRBrace() {
     add(TokenType::RBRACE);
     if (context.braces.empty()) {
-        throw TokenException("stray '}' without '{' to match", context.tokens.back());
+        Error().with(
+                ErrorMessage().error(context.tokens.back())
+                .text("stray").quote("}").text("without").quote("{").text("to match")
+                ).raise();
     }
     auto type = context.braces.back();
     context.braces.pop_back();
@@ -54,7 +57,7 @@ Source::BraceType LineTokenizer::addRBrace() {
 }
 
 void LineTokenizer::raise(const char *msg) const {
-    throw TokenException(msg, make(TokenType::INVALID));
+    Porkchop::raise(msg, make(TokenType::INVALID));
 }
 
 void LineTokenizer::tokenize() {
@@ -66,7 +69,7 @@ void LineTokenizer::tokenize() {
                 raise("sourcecode of Porkchop is required to be encoded with UTF-8");
             case '\\': {
                 if (remains()) {
-                    raise("stray '\\'");
+                    raise("stray backslash");
                 } else {
                     return;
                 }
@@ -108,6 +111,7 @@ void LineTokenizer::tokenize() {
         }
         step();
     }
+    if (context.tokens.empty()) return;
     if (context.tokens.back().type != TokenType::LINEBREAK)
         add(TokenType::LINEBREAK);
 }
@@ -268,7 +272,7 @@ int64_t parseInt(Source& source, Token token) try {
     }
     return std::stoll(literal, nullptr, base);
 } catch (std::out_of_range& e) {
-    throw ConstException("int literal out of range", token);
+    raise("int literal out of range", token);
 }
 
 double parseFloat(Source& source, Token token) try {
@@ -276,7 +280,7 @@ double parseFloat(Source& source, Token token) try {
     std::erase(literal, '_');
     return std::stod(literal);
 } catch (std::out_of_range& e) {
-    throw ConstException("float literal out of range", token);
+    raise("float literal out of range", token);
 }
 
 char32_t parseChar(Source& source, Token token) {

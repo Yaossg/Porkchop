@@ -19,10 +19,11 @@ struct Parser {
             compiler(compiler), p(p), q(q), context(context) {}
 
     Token next() {
-        if (p != q) [[likely]]
+        if (p != q) [[likely]] {
             return *p++;
-        else [[unlikely]]
-            throw ParserException("unexpected termination of tokens", rewind());
+        } else [[unlikely]] {
+            raise("unexpected termination of tokens", rewind());
+        }
     }
     [[nodiscard]] Token peek() const noexcept {
         return *p;
@@ -40,7 +41,7 @@ struct Parser {
     IdExprHandle parseId(bool initialize);
     ExprHandle parseIf(), parseWhile(), parseFor(), parseFn(), parseLambda(), parseLet();
     TypeReference parseType();
-    ExprHandle parseFnBody(std::shared_ptr<FuncType> const& func, bool yield);
+    ExprHandle parseFnBody(std::shared_ptr<FuncType> const& func, bool yield, Segment decl);
 
     std::unique_ptr<ParameterList> parseParameters();
 
@@ -49,17 +50,22 @@ struct Parser {
 
     Token expect(TokenType type, const char* msg) {
         auto token = next();
-        if (token.type != type)
-            throw ParserException(msg, token);
+        if (token.type != type) {
+            Error().with(ErrorMessage().error(token).quote(msg).text("is expected")).raise();
+        }
         return token;
     }
+
     void expectComma() {
-        expect(TokenType::OP_COMMA, "',' is expected");
+        expect(TokenType::OP_COMMA, ",");
     }
+
     void optionalComma(size_t size) const {
-        if (size == 1 && rewind().type == TokenType::OP_COMMA)
-            throw ParserException("the additional comma is forbidden beside a single element", rewind());
+        if (size == 1 && rewind().type == TokenType::OP_COMMA) {
+            raise("the additional comma is forbidden beside a single element", rewind());
+        }
     }
+
     TypeReference optionalType() {
         if (peek().type != TokenType::OP_COLON) return nullptr;
         next();
@@ -69,10 +75,29 @@ struct Parser {
     void pushLoop() {
         hooks.emplace_back(std::make_shared<LoopHook>());
     }
+
     auto popLoop() {
         auto hook = std::move(hooks.back());
         hooks.pop_back();
         return hook;
+    }
+
+    void raiseReturns(Expr* clause, ErrorMessage msg) {
+        Error error;
+        error.with(std::move(msg));
+        for (auto&& return_ : returns) {
+            error.with(ErrorMessage().note(return_->segment()).text("this one returns").type(return_->rhs->typeCache));
+        }
+        if (!isNever(clause->typeCache)) {
+            auto note = ErrorMessage();
+            if (auto clause0 = dynamic_cast<ClauseExpr*>(clause)) {
+                note.note(clause0->lines.empty() ? clause0->segment() : clause0->lines.back()->segment());
+            } else {
+                note.note(clause->segment());
+            }
+            error.with(note.text("expression evaluates").type(clause->typeCache));
+        }
+        error.raise();
     }
 
     template<std::derived_from<Expr> E, typename... Args>

@@ -20,7 +20,7 @@ struct Compiler {
 
     [[nodiscard]] std::string_view of(Token token) const noexcept;
 
-    void parse();
+    void parse(bool free);
 
     void compile(Assembler* assembler) const;
 
