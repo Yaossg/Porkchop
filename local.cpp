@@ -13,14 +13,18 @@ void LocalContext::push() {
 }
 
 void LocalContext::pop() {
+    checkDeclared();
+    localIndices.pop_back();
+    declaredIndices.pop_back();
+    definedIndices.pop_back();
+}
+
+void LocalContext::checkDeclared() {
     if (!declaredIndices.back().empty() && std::uncaught_exceptions() == 0) {
         size_t index = declaredIndices.back().begin()->second;
         auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
         raise("undefined declared function", function->decl->segment());
     }
-    localIndices.pop_back();
-    declaredIndices.pop_back();
-    definedIndices.pop_back();
 }
 
 void LocalContext::local(std::string_view name, const TypeReference& type) {

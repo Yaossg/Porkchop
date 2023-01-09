@@ -96,8 +96,7 @@ void Error::report(Source* source, bool newline) {
     if (!newline)
         buf.pop_back();
     fprintf(stderr, "%s", buf.c_str());
-    if (!newline)
-        fflush(stderr);
+    fflush(stderr);
 }
 
 FILE* open(const char *filename, const char *mode) {

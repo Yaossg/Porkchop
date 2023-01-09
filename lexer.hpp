@@ -52,10 +52,7 @@ struct LineTokenizer {
         return {.line = line, .column = size_t(p - o), .width = size_t(q - p), .type = type};
     }
 
-    void add(TokenType type) {
-        context.tokens.push_back(make(type));
-    }
-
+    void add(TokenType type);
     void addLBrace(Source::BraceType braceType);
     Source::BraceType addRBrace();
     [[noreturn]] void raise(const char* msg) const;

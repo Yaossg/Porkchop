@@ -9,6 +9,12 @@
 
 namespace Porkchop {
 
+inline std::string render(std::string_view color, std::string_view text) {
+    static const bool disableColor = std::getenv("PORKCHOP_COLOR_DISABLE");
+    if (disableColor) return std::string(text);
+    return join(color, text, "\x1b[m");
+}
+
 struct ErrorMessage {
 
     enum class Kind {
@@ -17,7 +23,7 @@ struct ErrorMessage {
 
     [[nodiscard]] std::string colored(std::string_view text) const {
         static constexpr auto colors = {"\x1b[91m", "\x1b[96m"};
-        return join(std::data(colors)[(int) kind], text, "\x1b[m");
+        return render(std::data(colors)[(int) kind], text);
     }
 
     std::string message;
@@ -78,14 +84,12 @@ struct ErrorMessage {
 
     ErrorMessage& quote(std::string_view text) {
         if (message.ends_with(' ')) message.pop_back();
-        message += join(" '\x1b[97m", text, "\x1b[m' ");
+        message += join(" '", render("\x1b[97m", text), "' ");
         return *this;
     }
 
     ErrorMessage& type(TypeReference const& type) {
-        if (message.ends_with(' ')) message.pop_back();
-        message += join(" '\x1b[97m", type->toString(), "\x1b[m' ");
-        return *this;
+        return quote(type->toString());
     }
 
     std::string build(Source* source);

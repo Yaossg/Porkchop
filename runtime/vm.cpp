@@ -69,9 +69,7 @@ void VM::init(int argi, int argc, const char* argv[]) {
     for (; argi < argc; ++argi) {
         _args->add(newObject<String>(argv[argi]));
     }
-    if (getenv("PORKCHOP_IO_DISABLE")) {
-        disableIO = true;
-    }
+    disableIO = getenv("PORKCHOP_IO_DISABLE");
 }
 
 $union Func::call(Assembly *assembly, VM* vm) const try {

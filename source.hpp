@@ -18,6 +18,7 @@ struct Source {
         CODE, STRING
     };
     std::vector<BraceType> braces;
+    std::vector<Token> greedy;
 
     [[nodiscard]] std::string_view of(Token token) const noexcept;
     void append(std::string code);

@@ -23,6 +23,7 @@ struct LocalContext {
 
     void push();
     void pop();
+    void checkDeclared();
     void local(std::string_view name, TypeReference const& type);
     void declare(std::string_view name, FnDeclExpr* decl);
     void define(std::string_view name, FnDefExpr* def);
