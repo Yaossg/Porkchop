@@ -8,6 +8,8 @@ Porkchop Programming Language: A Complete Nonsense
 }
 ```
 
+:tada: My first one-year-long and 10k-line-code project!
+
 ## 编译器使用
 
 ```
@@ -54,7 +56,7 @@ PorkchopRuntime <input-type> <input-file> [args...]
 
 第二个参数为输入的汇编文件。该文件应保证对应的由 `Porkchop -t` 或 `Porkchop -b` 输出。
 
-之后的参数作为程序的参数，在程序中可以通过 `getargs()` 获取。
+之后的参数作为程序的参数，可以通过 `getargs()` 获取。
 
 ## 解释器使用
 
@@ -63,6 +65,26 @@ PorkchopInterpreter <input> [args...]
 ```
 
 编译第一个参数输入的程序之后，立即执行。之后的参数作为程序的参数。
+
+## Shell 使用
+
+你可以直接双击打开！也可以使用命令行传入程序的参数。
+
+```
+PorkchopShell [args...]
+```
+
+可以对表达式求值，还有一些简单的指令可供使用
+
+```
+>>> let a = 5
+5
+>>> a + 6
+11
+>>> /lets
+let a : int = 5
+>>>
+```
 
 ## 示例：九九乘法表
 
