@@ -502,4 +502,96 @@ bool Coroutine::move() {
     return false;
 }
 
+bool NoneSet::NoneSetIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<NoneSet::NoneSetIterator*>(other)) {
+        return set == iter->set && cache.has_value() == iter->cache.has_value();
+    }
+    return false;
+}
+
+std::string NoneSet::toString() {
+    return state ? "@[()]" : "@[]";
+}
+
+bool NoneSet::equals(Object *other) {
+    if (this == other) return true;
+    if (auto set = dynamic_cast<NoneSet*>(other)) {
+        return state == set->state;
+    }
+    return false;
+}
+
+size_t NoneSet::hashCode() {
+    return state;
+}
+
+bool BoolSet::BoolSetIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<BoolSet::BoolSetIterator*>(other)) {
+        return set == iter->set && falseState == iter->falseState && trueState == iter->trueState;
+    }
+    return false;
+}
+
+std::string BoolSet::toString() {
+    switch (hashCode()) {
+        case 0:
+            return "@[]";
+        case 1:
+            return "@[false]";
+        case 2:
+            return "@[true]";
+        case 3:
+            return "@[false, true]";
+        default:
+            unreachable();
+    }
+}
+
+bool BoolSet::equals(Object *other) {
+    if (this == other) return true;
+    if (auto set = dynamic_cast<BoolSet*>(other)) {
+        return falseState == set->falseState && trueState == set->trueState;
+    }
+    return false;
+}
+
+size_t BoolSet::hashCode() {
+    return (trueState << 1) | falseState;
+}
+
+bool ByteSet::ByteSetIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<ByteSet::ByteSetIterator*>(other)) {
+        return set == iter->set && index == iter->index;
+    }
+    return false;
+}
+
+std::string ByteSet::toString() {
+    Stringifier sf{ScalarTypeKind::BYTE};
+    std::string buf = "@[";
+    bool first = true;
+    for (size_t i = 0; i < 256; ++i) {
+        if (!set.test(i)) continue;
+        if (first) { first = false; } else { buf += ", "; }
+        buf += sf(i);
+    }
+    buf += "]";
+    return buf;
+}
+
+bool ByteSet::equals(Object *other) {
+    if (this == other) return true;
+    if (auto set0 = dynamic_cast<ByteSet*>(other)) {
+        return set == set0->set;
+    }
+    return false;
+}
+
+size_t ByteSet::hashCode() {
+    return std::hash<std::bitset<256>>()(set);
+}
+
 }

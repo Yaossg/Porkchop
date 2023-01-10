@@ -511,9 +511,9 @@ ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield, S
         if (returns.empty()) {
             type0 = clause->typeCache;
         } else {
-            type0 = isNever(clause->typeCache) ? returns[0]->rhs->typeCache : clause->typeCache;
-            for (auto&& i : returns) {
-                if (!type0->equals(i->typeCache)) {
+            type0 = isNever(clause->typeCache) ? returns.front()->rhs->typeCache : clause->typeCache;
+            for (auto&& return_ : returns) {
+                if (!type0->equals(return_->rhs->typeCache)) {
                     raiseReturns(clause.get(), ErrorMessage().error(decl).text("multiple returns conflict in type"));
                 }
             }

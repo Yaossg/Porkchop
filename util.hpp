@@ -44,8 +44,9 @@ inline std::string readLine(FILE* file) {
         char buf[256];
         fgets(buf, sizeof buf, file);
         line += buf;
-    } while (!line.ends_with('\n'));
-    line.pop_back();
+    } while (!line.ends_with('\n') && !feof(file));
+    if (line.ends_with('\n'))
+        line.pop_back();
     return line;
 }
 

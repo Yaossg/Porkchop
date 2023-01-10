@@ -39,11 +39,11 @@ $union exit(VM* vm, const std::vector<$union> &args) {
 }
 
 $union millis(VM* vm, const std::vector<$union> &args) {
-    return (int64_t) (std::chrono::system_clock::now().time_since_epoch().count() / 1'000'000LL);
+    return (int64_t) std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 $union nanos(VM* vm, const std::vector<$union> &args) {
-    return (int64_t) std::chrono::system_clock::now().time_since_epoch().count();
+    return (int64_t) std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 $union getargs(VM* vm, const std::vector<$union> &args) {
@@ -70,7 +70,7 @@ $union flush(VM* vm, const std::vector<$union> &args) {
 }
 
 $union eof(VM* vm, const std::vector<$union> &args) {
-    return (bool) feof(vm->in);
+    return feof(vm->in) != 0;
 }
 
 $union typename_(VM* vm, const std::vector<$union> &args) {
@@ -122,6 +122,5 @@ $union fromChars(VM* vm, std::vector<$union> const &args) {
 $union eval(VM* vm, std::vector<$union> const &args) {
     throw Exception("use interpreter instead of runtime for implementation of eval()");
 }
-
 
 }

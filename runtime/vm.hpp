@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <optional>
 #include <algorithm>
+#include <bitset>
 
 #include "../type.hpp"
 
@@ -653,7 +654,7 @@ struct ScalarList : List {
         std::vector<$union>::iterator first, last;
 
         explicit ScalarListIterator(ScalarList* list): list(list), first(list->elements.begin()), last(list->elements.end()) {
-            E = ScalarTypes::BYTE;
+            E = std::make_shared<ScalarType>(list->type);
         }
 
         void walkMark() override {
@@ -740,6 +741,185 @@ struct Set : Collection {
 
     Iterator * iterator() override {
         return vm->newObject<SetIterator>(this);
+    }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
+};
+
+struct NoneSet : Collection {
+    bool state;
+
+    explicit NoneSet(bool state): state(state) {}
+
+    TypeReference getType() override { return std::make_shared<SetType>(ScalarTypes::NONE); }
+
+    void add($union element) override {
+        state = true;
+    }
+
+    void remove($union element) override {
+        state = false;
+    }
+
+    bool contains($union element) override {
+        return state;
+    }
+
+    size_t size() override {
+        return state;
+    }
+
+    struct NoneSetIterator : Iterator {
+        NoneSet* set;
+
+        explicit NoneSetIterator(NoneSet* set): set(set) {
+            E = ScalarTypes::NONE;
+        }
+
+        void walkMark() override {
+            set->mark();
+        }
+
+        bool move() override {
+            if (!cache.has_value()) {
+                cache = nullptr;
+                return true;
+            }
+            return false;
+        }
+
+        bool equals(Object *other) override;
+    };
+
+    Iterator * iterator() override {
+        return vm->newObject<NoneSetIterator>(this);
+    }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
+};
+
+struct BoolSet : Collection {
+    bool falseState;
+    bool trueState;
+
+    BoolSet(): falseState(false), trueState(false) {}
+
+    TypeReference getType() override { return std::make_shared<SetType>(ScalarTypes::BOOL); }
+
+    void add($union element) override {
+        (element.$bool ? trueState : falseState) = true;
+    }
+
+    void remove($union element) override {
+        (element.$bool ? trueState : falseState) = false;
+    }
+
+    bool contains($union element) override {
+        return element.$bool ? trueState : falseState;
+    }
+
+    size_t size() override {
+        return falseState + trueState;
+    }
+
+    struct BoolSetIterator : Iterator {
+        BoolSet* set;
+        bool falseState;
+        bool trueState;
+
+        explicit BoolSetIterator(BoolSet* set): set(set), falseState(set->falseState), trueState(set->trueState) {
+            E = ScalarTypes::BOOL;
+        }
+
+        void walkMark() override {
+            set->mark();
+        }
+
+        bool move() override {
+            if (falseState) {
+                cache = false;
+                falseState = false;
+                return true;
+            } else if (trueState) {
+                cache = true;
+                trueState = false;
+                return true;
+            }
+            return false;
+        }
+
+        bool equals(Object *other) override;
+    };
+
+    Iterator * iterator() override {
+        return vm->newObject<BoolSetIterator>(this);
+    }
+
+    std::string toString() override;
+
+    bool equals(Object *other) override;
+
+    size_t hashCode() override;
+};
+
+struct ByteSet : Collection {
+    std::bitset<256> set;
+
+    ByteSet() = default;
+
+    TypeReference getType() override { return std::make_shared<SetType>(ScalarTypes::BYTE); }
+
+    void add($union element) override {
+        set.set(element.$byte);
+    }
+
+    void remove($union element) override {
+        set.reset(element.$byte);
+    }
+
+    bool contains($union element) override {
+        return set.test(element.$byte);
+    }
+
+    size_t size() override {
+        return set.count();
+    }
+
+    struct ByteSetIterator : Iterator {
+        ByteSet* set;
+        size_t index;
+
+        explicit ByteSetIterator(ByteSet* set): set(set), index(0) {
+            E = ScalarTypes::BYTE;
+        }
+
+        void walkMark() override {
+            set->mark();
+        }
+
+        bool move() override {
+            for (; index < 256; ++index) {
+                if (set->set.test(index)) {
+                    cache = index++;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool equals(Object *other) override;
+    };
+
+    Iterator * iterator() override {
+        return vm->newObject<ByteSetIterator>(this);
     }
 
     std::string toString() override;

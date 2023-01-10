@@ -725,7 +725,7 @@ TypeReference AssignExpr::evalType() const {
     }
     switch (token.type) {
         case TokenType::OP_ASSIGN:
-            Porkchop::assignable(typeCache, lhs->typeCache, segment());
+            assignable(rhs->typeCache, lhs->typeCache, segment());
             return type1;
         case TokenType::OP_ASSIGN_AND:
         case TokenType::OP_ASSIGN_XOR:
@@ -969,7 +969,9 @@ void AsExpr::walkBytecode(Assembler* assembler) const {
     if (isAny(lhs->typeCache)) {
         assembler->typed(Opcode::AS, T);
     } else if (isAny(T)) {
-        assembler->typed(Opcode::ANY, lhs->typeCache);
+        if (isValueBased(lhs->typeCache)) {
+            assembler->typed(Opcode::ANY, lhs->typeCache);
+        }
     } else if (isNone(T)) {
         assembler->opcode(Opcode::POP);
         assembler->const0();

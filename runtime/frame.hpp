@@ -285,6 +285,28 @@ struct Frame {
         VM::GCGuard guard{vm};
         auto elements = npop(cons.second);
         auto type = std::dynamic_pointer_cast<SetType>(cons.first);
+        if (auto scalar = dynamic_cast<ScalarType*>(type->E.get())) {
+            switch (scalar->S) {
+                case ScalarTypeKind::NONE: {
+                    push(vm->newObject<NoneSet>(!elements.empty()));
+                    return;
+                }
+                case ScalarTypeKind::BOOL: {
+                    auto set = vm->newObject<BoolSet>();
+                    for (auto&& element : elements)
+                        set->add(element);
+                    push(set);
+                    return;
+                }
+                case ScalarTypeKind::BYTE: {
+                    auto set = vm->newObject<ByteSet>();
+                    for (auto&& element : elements)
+                        set->add(element);
+                    push(set);
+                    return;
+                }
+            }
+        }
         auto kind = getIdentityKind(type->E);
         Set::underlying set(elements.begin(), elements.end(), 0, Hasher{kind}, Equator{kind});
         push(vm->newObject<Set>(std::move(set), std::move(type)));
@@ -608,7 +630,7 @@ struct Frame {
         return ret;
     }
 
-    Opcode code() {
+    [[nodiscard]] Opcode code() const {
         return instructions->at(pc).first;
     }
 
