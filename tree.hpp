@@ -364,6 +364,30 @@ struct DotExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
+struct BindExpr : Expr {
+    Token token1, token2;
+    ExprHandle lhs;
+    std::vector<ExprHandle> rhs;
+
+    BindExpr(Compiler& compiler, Token token1, Token token2, ExprHandle lhs, std::vector<ExprHandle> rhs): Expr(compiler),
+            token1(token1), token2(token2), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret{lhs.get()};
+        for (auto&& e : rhs) ret.push_back(e.get());
+        return ret;
+    }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return "$()"; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(lhs->segment(), token2);
+    }
+
+    [[nodiscard]] TypeReference evalType() const override;
+
+    void walkBytecode(Assembler* assembler) const override;
+};
+
 struct AsExpr : Expr {
     Token token, token2;
     ExprHandle lhs;

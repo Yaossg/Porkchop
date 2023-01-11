@@ -216,10 +216,18 @@ struct Frame {
     }
 
     void bind(size_t size) {
-        VM::GCGuard guard{vm};
-        auto object = opop();
+        auto object = dynamic_cast<Func*>(opop());
         auto captures = npop(size);
-        push(dynamic_cast<Func*>(object)->bind(std::move(captures)));
+        // optimization: merge bind call
+        if (auto&& [opcode, args] = instructions->at(pc + 1); opcode == Opcode::CALL) {
+            ++pc;
+            auto captures0 = object->captures;
+            captures0.insert(captures0.end(), captures.begin(), captures.end());
+            push(Porkchop::call(assembly, vm, object->func, std::move(captures0)), !isValueBased(object->prototype->R));
+            return;
+        }
+        VM::GCGuard guard{vm};
+        push(object->bind(std::move(captures)));
     }
 
     void as(TypeReference const& type) {

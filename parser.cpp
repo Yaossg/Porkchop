@@ -188,6 +188,14 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         lhs = make<DotExpr>(std::move(lhs), std::move(id));
                         break;
                     }
+                    case TokenType::OP_DOLLAR: {
+                        auto token1 = next();
+                        expect(TokenType::LPAREN, "(");
+                        auto expr = parseExpressions(TokenType::RPAREN);
+                        auto token2 = next();
+                        lhs = make<BindExpr>(token1, token2, std::move(lhs), std::move(expr));
+                        break;
+                    }
                     case TokenType::KW_AS: {
                         auto token = next();
                         auto type = parseType();

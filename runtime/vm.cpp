@@ -72,10 +72,10 @@ void VM::init(int argi, int argc, const char* argv[]) {
     disableIO = getenv("PORKCHOP_IO_DISABLE");
 }
 
-$union call(Assembly *assembly, VM *vm, size_t func, std::vector<$union> const& captures) try {
+$union call(Assembly *assembly, VM *vm, size_t func, std::vector<$union> captures) try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
-        auto frame = std::make_unique<Frame>(vm, assembly, &std::get<Instructions>(f), captures);
+        auto frame = std::make_unique<Frame>(vm, assembly, &std::get<Instructions>(f), std::move(captures));
         frame->init();
         if (frame->opcode() == Opcode::YIELD) {
             return vm->newObject<Coroutine>(assembly->prototypes[func]->R, std::move(frame));
@@ -483,37 +483,6 @@ bool Set::SetIterator::equals(Object *other) {
     return false;
 }
 
-bool Dict::DictIterator::equals(Object *other) {
-    if (this == other) return true;
-    if (auto iter = dynamic_cast<Dict::DictIterator*>(other)) {
-        return dict == iter->dict && first == iter->first;
-    }
-    return false;
-}
-
-void Coroutine::walkMark() {
-    if (cache.has_value() && !isValueBased(E))
-        cache->$object->mark();
-    frame->markAll();
-}
-
-bool Coroutine::move() {
-    if (frame->opcode() != Opcode::RETURN) {
-        ++frame->pc;
-        cache = frame->loop();
-        return frame->opcode() != Opcode::RETURN;
-    }
-    return false;
-}
-
-bool NoneSet::NoneSetIterator::equals(Object *other) {
-    if (this == other) return true;
-    if (auto iter = dynamic_cast<NoneSet::NoneSetIterator*>(other)) {
-        return set == iter->set && cache.has_value() == iter->cache.has_value();
-    }
-    return false;
-}
-
 std::string NoneSet::toString() {
     return state ? "@[()]" : "@[]";
 }
@@ -528,14 +497,6 @@ bool NoneSet::equals(Object *other) {
 
 size_t NoneSet::hashCode() {
     return state;
-}
-
-bool BoolSet::BoolSetIterator::equals(Object *other) {
-    if (this == other) return true;
-    if (auto iter = dynamic_cast<BoolSet::BoolSetIterator*>(other)) {
-        return set == iter->set && falseState == iter->falseState && trueState == iter->trueState;
-    }
-    return false;
 }
 
 std::string BoolSet::toString() {
@@ -553,6 +514,14 @@ std::string BoolSet::toString() {
     }
 }
 
+bool NoneSet::NoneSetIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<NoneSet::NoneSetIterator*>(other)) {
+        return set == iter->set && cache.has_value() == iter->cache.has_value();
+    }
+    return false;
+}
+
 bool BoolSet::equals(Object *other) {
     if (this == other) return true;
     if (auto set = dynamic_cast<BoolSet*>(other)) {
@@ -565,10 +534,10 @@ size_t BoolSet::hashCode() {
     return (trueState << 1) | falseState;
 }
 
-bool ByteSet::ByteSetIterator::equals(Object *other) {
+bool BoolSet::BoolSetIterator::equals(Object *other) {
     if (this == other) return true;
-    if (auto iter = dynamic_cast<ByteSet::ByteSetIterator*>(other)) {
-        return set == iter->set && index == iter->index;
+    if (auto iter = dynamic_cast<BoolSet::BoolSetIterator*>(other)) {
+        return set == iter->set && falseState == iter->falseState && trueState == iter->trueState;
     }
     return false;
 }
@@ -596,6 +565,37 @@ bool ByteSet::equals(Object *other) {
 
 size_t ByteSet::hashCode() {
     return std::hash<std::bitset<256>>()(set);
+}
+
+bool ByteSet::ByteSetIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<ByteSet::ByteSetIterator*>(other)) {
+        return set == iter->set && index == iter->index;
+    }
+    return false;
+}
+
+bool Dict::DictIterator::equals(Object *other) {
+    if (this == other) return true;
+    if (auto iter = dynamic_cast<Dict::DictIterator*>(other)) {
+        return dict == iter->dict && first == iter->first;
+    }
+    return false;
+}
+
+void Coroutine::walkMark() {
+    if (cache.has_value() && !isValueBased(E))
+        cache->$object->mark();
+    frame->markAll();
+}
+
+bool Coroutine::move() {
+    if (frame->opcode() != Opcode::RETURN) {
+        ++frame->pc;
+        cache = frame->loop();
+        return frame->opcode() != Opcode::RETURN;
+    }
+    return false;
 }
 
 }

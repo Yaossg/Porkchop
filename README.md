@@ -403,9 +403,15 @@ string # UTF-8 字符串，如 "你好"
 将会导致编译错误：
 
 ```
-Compilation Error: type mismatch on both operands, the first one is 'int', but this one is 'float' at line 4 column 13 to 25
-   4  |     apple + banana * 2.0
-      |             ^~~~~~~~~~~~
+error: type mismatch on both operands
+   4  | apple + banana * 2.0
+      | ^~~~~~~~~~~~~~~~~~~~
+note: type of left operand is 'int'
+   4  | apple + banana * 2.0
+      | ^~~~~
+note: type of right operand is 'float'
+   4  | apple + banana * 2.0
+      |         ^~~~~~~~~~~~
 ```
 
 唯一的例外是，任何类型的值都可以无条件隐式转换为 `none`，也就是忽略表达式的值。`none` 存在一个隐变量 `_`，处处可供存取。
@@ -413,6 +419,7 @@ Compilation Error: type mismatch on both operands, the first one is 'int', but t
 ```
 {
     _ = 1 # discard this one
+    
     _ # obtain a none via load
     () # obtain a none via const
     {} # obtain a none via const
@@ -752,23 +759,9 @@ fn 关键字引导，参数如下所示，返回值可以指定也可以推导�
 
 ## Unicode 支持
 
-Porkchop 的源文件应该是一个 UTF-8 文件。Porkchop 的标识符和字符串都支持 Unicode。
+Porkchop 的源文件必须是一个 UTF-8 文件。Porkchop 的标识符和字符串都支持 Unicode。
 
-```
-{
-    let 你好Hello世界: int = "再见Goodbye我的朋友"
-}
-```
-
-编译器输出：
-
-```
-Compilation Error: 'string' is not assignable to 'int' at line 2 column 34 to 61
-   2  |     let 你好Hello世界: int = "再见Goodbye我的朋友"
-      |                              ^~~~~~~~~~~~~~~~~~~~~
-```
-
-在对齐的等宽字体下可以看到更好的效果。
+错误报告在对齐的等宽字体下可以看到更好的效果。但为了实现对齐，Porkchop 仅接受空格作为空白字符，请勿使用制表符。
 
 ## 协程
 

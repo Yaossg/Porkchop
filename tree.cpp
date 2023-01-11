@@ -899,8 +899,9 @@ void InvokeExpr::walkBytecode(Assembler* assembler) const {
         e->walkBytecode(assembler);
     }
     lhs->walkBytecode(assembler);
-    if (!rhs.empty())
+    if (!rhs.empty()) {
         assembler->indexed(Opcode::BIND, rhs.size());
+    }
     assembler->opcode(Opcode::CALL);
 }
 
@@ -924,6 +925,39 @@ void DotExpr::walkBytecode(Assembler* assembler) const {
     lhs->walkBytecode(assembler);
     rhs->walkBytecode(assembler);
     assembler->indexed(Opcode::BIND, 1);
+}
+
+TypeReference BindExpr::evalType() const {
+    if (auto func = dynamic_cast<FuncType*>(lhs->typeCache.get())) {
+        if (rhs.size() > func->P.size()) {
+            Error error;
+            error.with(ErrorMessage().error(range(token1, token2)).text("expected at most").num(func->P.size()).text("parameters but got").num(rhs.size()));
+            error.with(ErrorMessage().note(lhs->segment()).text("type of this function is").type(lhs->typeCache));
+            error.raise();
+        }
+        for (size_t i = 0; i < rhs.size(); ++i) {
+            if (!func->P[i]->assignableFrom(rhs[i]->typeCache)) {
+                Error error;
+                error.with(ErrorMessage().error(rhs[i]->segment()).type(rhs[i]->typeCache).text("is not assignable to").type(func->P[i]));
+                error.with(ErrorMessage().note(lhs->segment()).text("type of this function is").type(lhs->typeCache));
+                error.raise();
+            }
+        }
+        auto P = func->P;
+        P.erase(P.begin(), P.begin() + rhs.size());
+        return std::make_shared<FuncType>(std::move(P), func->R);
+    }
+    lhs->expect("invocable type");
+}
+
+void BindExpr::walkBytecode(Assembler *assembler) const {
+    for (auto& e : rhs) {
+        e->walkBytecode(assembler);
+    }
+    lhs->walkBytecode(assembler);
+    if (!rhs.empty()) {
+        assembler->indexed(Opcode::BIND, rhs.size());
+    }
 }
 
 TypeReference AsExpr::evalType() const {

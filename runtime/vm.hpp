@@ -164,7 +164,7 @@ private:
     int maxObjects = 1024;
 };
 
-$union call(Assembly *assembly, VM *vm, size_t func, std::vector<$union> const& captures);
+$union call(Assembly *assembly, VM *vm, size_t func, std::vector<$union> captures);
 
 struct Func : Object {
     size_t func;
