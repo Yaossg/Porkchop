@@ -728,7 +728,7 @@ struct FnDefExpr : FnDeclExpr {
     }
 
     [[nodiscard]] Segment segment() const override {
-        return range(token, definition->clause->segment());
+        return range(token, definition ? definition->clause->segment() : token2);
     }
 
     void walkBytecode(Assembler* assembler) const override;

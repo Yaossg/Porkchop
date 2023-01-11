@@ -72,13 +72,13 @@ void VM::init(int argi, int argc, const char* argv[]) {
     disableIO = getenv("PORKCHOP_IO_DISABLE");
 }
 
-$union Func::call(Assembly *assembly, VM* vm) const try {
+$union call(Assembly *assembly, VM *vm, size_t func, std::vector<$union> const& captures) try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
         auto frame = std::make_unique<Frame>(vm, assembly, &std::get<Instructions>(f), captures);
         frame->init();
-        if (frame->code() == Opcode::YIELD) {
-            return vm->newObject<Coroutine>(prototype->R, std::move(frame));
+        if (frame->opcode() == Opcode::YIELD) {
+            return vm->newObject<Coroutine>(assembly->prototypes[func]->R, std::move(frame));
         } else {
             return frame->loop();
         }
@@ -88,6 +88,10 @@ $union Func::call(Assembly *assembly, VM* vm) const try {
 } catch (Exception& e) {
     e.append("at func " + std::to_string(func));
     throw;
+}
+
+$union Func::call(Assembly *assembly, VM* vm) const {
+    return Porkchop::call(assembly, vm, func, captures);
 }
 
 std::string Func::toString() {
@@ -494,10 +498,10 @@ void Coroutine::walkMark() {
 }
 
 bool Coroutine::move() {
-    if (frame->code() != Opcode::RETURN) {
+    if (frame->opcode() != Opcode::RETURN) {
         ++frame->pc;
         cache = frame->loop();
-        return frame->code() != Opcode::RETURN;
+        return frame->opcode() != Opcode::RETURN;
     }
     return false;
 }

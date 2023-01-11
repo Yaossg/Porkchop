@@ -18,7 +18,10 @@ struct Frame {
     size_t pc = 0;
 
     Frame(VM* vm, Assembly* assembly, Instructions* instructions, std::vector<$union> captures = {})
-            : vm(vm), assembly(assembly), instructions(instructions), stack(std::move(captures)) {}
+            : vm(vm), assembly(assembly), instructions(instructions), stack(std::move(captures)) {
+        stack.reserve(32);
+        companion.reserve(32);
+    }
 
     void pushToVM() {
         vm->frames.push_back(this);
@@ -64,6 +67,12 @@ struct Frame {
     }
 
     std::vector<$union> npop(size_t n) {
+        if (n == 1) {
+            auto r = stack.back();
+            stack.pop_back();
+            companion.pop_back();
+            return {r};
+        }
         auto b1 = std::prev(stack.end(), n), e1 = stack.end();
         auto b2 = std::prev(companion.end(), n), e2 = companion.end();
         std::vector<$union> r1{b1, e1};
@@ -135,8 +144,32 @@ struct Frame {
     }
 
     void fconst(size_t index) {
-        auto func = std::dynamic_pointer_cast<FuncType>(assembly->prototypes[index]);
-        push(vm->newObject<Func>(index, func));
+        auto prototype = assembly->prototypes[index];
+        auto&& [opcode, args] = instructions->at(pc + 1);
+        // optimization: merge fconst bind call
+        if (opcode == Opcode::BIND && instructions->at(pc + 2).first == Opcode::CALL) {
+            ++++pc;
+            auto size = std::get<size_t>(args);
+            push(Porkchop::call(assembly, vm, index, npop(size)), !isValueBased(prototype->R));
+            return;
+        }
+        // optimization: merge fconst call
+        if (opcode == Opcode::CALL) {
+            ++pc;
+            push(Porkchop::call(assembly, vm, index, {}), !isValueBased(prototype->R));
+            return;
+        }
+        auto object = vm->newObject<Func>(index, prototype);
+        // optimization: merge fconst bind
+        if (opcode == Opcode::BIND) {
+            ++pc;
+            auto size = std::get<size_t>(args);
+            object->captures = npop(size);
+            auto P = prototype->P;
+            P.erase(P.begin(), P.begin() + size);
+            object->prototype = std::make_shared<FuncType>(std::move(P), prototype->R);
+        }
+        push(object);
     }
 
     void tload(size_t index) {
@@ -183,12 +216,10 @@ struct Frame {
     }
 
     void bind(size_t size) {
-        if (size > 0) {
-            VM::GCGuard guard{vm};
-            auto captures = npop(size);
-            auto object = opop();
-            push(dynamic_cast<Func*>(object)->bind(std::move(captures)));
-        }
+        VM::GCGuard guard{vm};
+        auto object = opop();
+        auto captures = npop(size);
+        push(dynamic_cast<Func*>(object)->bind(std::move(captures)));
     }
 
     void as(TypeReference const& type) {
@@ -630,12 +661,11 @@ struct Frame {
         return ret;
     }
 
-    [[nodiscard]] Opcode code() const {
+    [[nodiscard]] Opcode opcode() const {
         return instructions->at(pc).first;
     }
-
     void init() {
-        for (pc = 0; code() == Opcode::LOCAL; ++pc) {
+        for (pc = 0; opcode() == Opcode::LOCAL; ++pc) {
             local(std::get<TypeReference>(instructions->at(pc).second));
         }
     }

@@ -895,10 +895,10 @@ TypeReference InvokeExpr::evalType() const {
 }
 
 void InvokeExpr::walkBytecode(Assembler* assembler) const {
-    lhs->walkBytecode(assembler);
     for (auto& e : rhs) {
         e->walkBytecode(assembler);
     }
+    lhs->walkBytecode(assembler);
     if (!rhs.empty())
         assembler->indexed(Opcode::BIND, rhs.size());
     assembler->opcode(Opcode::CALL);
@@ -921,8 +921,8 @@ TypeReference DotExpr::evalType() const {
 }
 
 void DotExpr::walkBytecode(Assembler* assembler) const {
-    rhs->walkBytecode(assembler);
     lhs->walkBytecode(assembler);
+    rhs->walkBytecode(assembler);
     assembler->indexed(Opcode::BIND, 1);
 }
 
@@ -1240,10 +1240,10 @@ void FnDefExpr::walkBytecode(Assembler* assembler) const {
 }
 
 void LambdaExpr::walkBytecode(Assembler* assembler) const {
-    assembler->indexed(Opcode::FCONST, index);
     for (auto&& e : captures) {
         e->walkBytecode(assembler);
     }
+    assembler->indexed(Opcode::FCONST, index);
     if (!captures.empty())
         assembler->indexed(Opcode::BIND, captures.size());
 }
