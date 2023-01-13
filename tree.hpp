@@ -693,9 +693,9 @@ struct ParameterList : Descriptor {
         return ret;
     }
 
-    void declare(Compiler* compiler, LocalContext& context) {
+    void declare(Compiler& compiler, LocalContext& context) {
         for (size_t i = 0; i < identifiers.size(); ++i) {
-            context.local(compiler->of(identifiers[i]->token), prototype->P[i]);
+            context.local(compiler.of(identifiers[i]->token), prototype->P[i]);
         }
     }
 };

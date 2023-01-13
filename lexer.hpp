@@ -63,6 +63,7 @@ struct LineTokenizer {
     void addNumber();
     void addChar();
     void addString(bool first);
+    void checkGreedy(const char* left, const char* right, TokenType match);
 };
 
 int64_t parseInt(Source& source, Token token);

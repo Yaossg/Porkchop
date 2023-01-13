@@ -83,7 +83,7 @@ $union call(Assembly *assembly, VM *vm, size_t func, std::vector<$union> capture
             return frame->loop();
         }
     } else {
-        return std::get<ExternalFunctionR>(f)(vm, captures);
+        return std::get<ExternalFunction>(f)(vm, captures);
     }
 } catch (Exception& e) {
     e.append("at func " + std::to_string(func));

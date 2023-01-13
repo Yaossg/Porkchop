@@ -6,7 +6,7 @@
 namespace Porkchop {
 
 struct Parser {
-    Compiler* compiler;
+    Compiler& compiler;
     std::vector<Token>::const_iterator p;
     const std::vector<Token>::const_iterator q;
     std::vector<std::shared_ptr<LoopHook>> hooks;
@@ -15,7 +15,7 @@ struct Parser {
     std::vector<const YieldBreakExpr*> yieldBreaks;
     LocalContext& context;
 
-    Parser(Compiler* compiler, std::vector<Token>::const_iterator p, const std::vector<Token>::const_iterator q, LocalContext& context):
+    Parser(Compiler& compiler, std::vector<Token>::const_iterator p, const std::vector<Token>::const_iterator q, LocalContext& context):
             compiler(compiler), p(p), q(q), context(context) {}
 
     Token next() {
@@ -103,7 +103,7 @@ struct Parser {
     template<std::derived_from<Expr> E, typename... Args>
         requires std::constructible_from<E, Compiler&, Args...>
     auto make(Args&&... args) {
-        auto expr = std::make_unique<E>(*compiler, std::forward<Args>(args)...);
+        auto expr = std::make_unique<E>(compiler, std::forward<Args>(args)...);
         expr->initialize();
         return expr;
     }

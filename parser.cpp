@@ -250,8 +250,9 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     }
                     return make<ListExpr>(token, token2, std::move(expr));
                 }
-                case TokenType::AT_BRACKET: {
+                case TokenType::OP_AT: {
                     next();
+                    expect(TokenType::LBRACKET, "[");
                     std::vector<ExprHandle> keys, values;
                     size_t count = 0;
                     while (true) {
@@ -548,21 +549,21 @@ ExprHandle Parser::parseFn() {
         auto def = make<FnDefExpr>(token, rewind(), std::move(name), std::move(parameters));
         auto token2 = next();
         bool yield = type == TokenType::KW_YIELD;
-        context.declare(compiler->of(def->name->token), def.get());
-        LocalContext subcontext(compiler->continuum, &context);
+        context.declare(compiler.of(def->name->token), def.get());
+        LocalContext subcontext(compiler.continuum, &context);
         Parser child(compiler, p, q, subcontext);
         def->parameters->declare(compiler, child.context);
         auto clause = child.parseFnBody(def->parameters->prototype, yield, range(token, token2));
         p = child.p;
         def->definition = std::make_unique<FunctionDefinition>(yield, std::move(clause), std::move(child.context.localTypes));
-        context.define(compiler->of(def->name->token), def.get());
+        context.define(compiler.of(def->name->token), def.get());
         return def;
     } else {
         if (parameters->prototype->R == nullptr) {
             raise("return type of declared function is missing", rewind());
         }
         auto decl = make<FnDeclExpr>(token, rewind(), std::move(name), std::move(parameters));
-        context.declare(compiler->of(decl->name->token), decl.get());
+        context.declare(compiler.of(decl->name->token), decl.get());
         return decl;
     }
 }
@@ -585,10 +586,10 @@ ExprHandle Parser::parseLambda() {
     }
     auto token2 = next();
     bool yield = type == TokenType::KW_YIELD;
-    LocalContext subcontext(compiler->continuum, &context);
+    LocalContext subcontext(compiler.continuum, &context);
     Parser child(compiler, p, q, subcontext);
     for (auto&& capture : captures) {
-        child.context.local(compiler->of(capture->token), capture->typeCache);
+        child.context.local(compiler.of(capture->token), capture->typeCache);
     }
     parameters->declare(compiler, child.context);
     auto clause = child.parseFnBody(parameters->prototype, yield, range(token, token2));
@@ -612,7 +613,7 @@ ExprHandle Parser::parseLet() {
 TypeReference Parser::parseType() {
     switch (Token token = next(); token.type) {
         case TokenType::IDENTIFIER: {
-            auto id = compiler->of(token);
+            auto id = compiler.of(token);
             if (auto it = SCALAR_TYPES.find(id); it != SCALAR_TYPES.end()) {
                 return std::make_shared<ScalarType>(it->second);
             }
@@ -681,7 +682,8 @@ TypeReference Parser::parseType() {
             expect(TokenType::RBRACKET, "]");
             return std::make_shared<ListType>(E);
         }
-        case TokenType::AT_BRACKET: {
+        case TokenType::OP_AT: {
+            expect(TokenType::LBRACKET, "[");
             auto K = parseType();
             auto V = optionalType();
             expect(TokenType::RBRACKET, "]");
@@ -729,7 +731,7 @@ TypeReference Parser::parseType() {
 IdExprHandle Parser::parseId(bool initialize) {
     auto token = next();
     if (token.type != TokenType::IDENTIFIER) raise("id-expression is expected", token);
-    auto id = std::make_unique<IdExpr>(*compiler, token);
+    auto id = std::make_unique<IdExpr>(compiler, token);
     if (initialize) {
         id->initLookup(context);
         id->initialize();
@@ -740,7 +742,7 @@ IdExprHandle Parser::parseId(bool initialize) {
 std::unique_ptr<SimpleDeclarator> Parser::parseSimpleDeclarator() {
     auto id = parseId(false);
     auto type = optionalType();
-    bool underscore = compiler->of(id->token) == "_";
+    bool underscore = compiler.of(id->token) == "_";
     auto segment = range(id->segment(), rewind());
     if (type == nullptr) {
         if (underscore) type = ScalarTypes::NONE;
@@ -753,7 +755,7 @@ std::unique_ptr<SimpleDeclarator> Parser::parseSimpleDeclarator() {
                     ).raise();
         }
     }
-    return std::make_unique<SimpleDeclarator>(*compiler, segment, std::move(id), std::move(type));
+    return std::make_unique<SimpleDeclarator>(compiler, segment, std::move(id), std::move(type));
 }
 
 DeclaratorHandle Parser::parseDeclarator() {
@@ -775,7 +777,7 @@ DeclaratorHandle Parser::parseDeclarator() {
             case 1:
                 return std::move(elements.front());
             default:
-                return std::make_unique<TupleDeclarator>(*compiler, segment, std::move(elements));
+                return std::make_unique<TupleDeclarator>(compiler, segment, std::move(elements));
         }
     } else {
         return parseSimpleDeclarator();

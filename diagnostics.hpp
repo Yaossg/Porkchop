@@ -117,6 +117,6 @@ struct Error : std::exception {
 
 [[noreturn]] void raise(const char* msg, Segment segment);
 
-
 void neverGonnaGiveYouUp(TypeReference const& type, const char* msg, Segment segment);
+
 }

@@ -216,18 +216,19 @@ struct Frame {
     }
 
     void bind(size_t size) {
-        auto object = dynamic_cast<Func*>(opop());
+        VM::ObjectHolder object = opop();
+        auto func = object.as<Func>();
         auto captures = npop(size);
         // optimization: merge bind call
         if (auto&& [opcode, args] = instructions->at(pc + 1); opcode == Opcode::CALL) {
             ++pc;
-            auto captures0 = object->captures;
+            auto captures0 = func->captures;
             captures0.insert(captures0.end(), captures.begin(), captures.end());
-            push(Porkchop::call(assembly, vm, object->func, std::move(captures0)), !isValueBased(object->prototype->R));
+            push(Porkchop::call(assembly, vm, func->func, std::move(captures0)), !isValueBased(func->prototype->R));
             return;
         }
         VM::GCGuard guard{vm};
-        push(object->bind(std::move(captures)));
+        push(func->bind(std::move(captures)));
     }
 
     void as(TypeReference const& type) {
@@ -248,9 +249,7 @@ struct Frame {
     }
 
     void any(TypeReference const& type) {
-        if (isValueBased(type)) {
-            push(vm->newObject<AnyScalar>(pop(), dynamic_cast<ScalarType*>(type.get())->S));
-        }
+        push(vm->newObject<AnyScalar>(pop(), dynamic_cast<ScalarType*>(type.get())->S));
     }
 
     void i2b() {
@@ -261,7 +260,7 @@ struct Frame {
     void i2c() {
         auto value = ipop();
         if (isInvalidChar(value))
-            throw Exception("int is invalid to cast to char");
+            throw Exception("invalid int to cast to char");
         push(value);
     }
 
@@ -605,9 +604,9 @@ struct Frame {
     }
 
     void z2s() {
-        const static std::string $true{"true"}, $false{"false"};
         auto value = pop();
-        push(value.$bool ? $true : $false);
+        Stringifier sf{ScalarTypeKind::BOOL};
+        push(sf(value));
     }
 
     void c2s() {
@@ -672,6 +671,7 @@ struct Frame {
     [[nodiscard]] Opcode opcode() const {
         return instructions->at(pc).first;
     }
+
     void init() {
         for (pc = 0; opcode() == Opcode::LOCAL; ++pc) {
             local(std::get<TypeReference>(instructions->at(pc).second));

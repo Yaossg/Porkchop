@@ -25,19 +25,6 @@ std::string ErrorMessage::build(Source* source) {
     if (textOnly || source == nullptr) return message + '\n';
     std::string result;
     result += message;
-//    result += " at line ";
-//    result += std::to_string(segment.line1 + 1);
-//    result += " column ";
-//    result += std::to_string(segment.column1 + 1);
-//    if (segment.line1 != segment.line2 || segment.column1 + 1 != segment.column2) {
-//        result += " to ";
-//        if (segment.line1 != segment.line2) {
-//            result += "line ";
-//            result += std::to_string(segment.line2 + 1);
-//            result += " column ";
-//        }
-//        result += std::to_string(segment.column2);
-//    }
     result += "\n";
     int digits = digits10(segment.line2 + 1);
     for (size_t line = segment.line1; line <= segment.line2; ++line) {

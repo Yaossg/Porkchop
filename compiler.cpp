@@ -21,8 +21,7 @@ void Compiler::parse(Mode mode) {
             const char* msg;
             switch (token.type) {
                 case TokenType::LPAREN: msg = ")"; break;
-                case TokenType::LBRACKET:
-                case TokenType::AT_BRACKET: msg = "]"; break;
+                case TokenType::LBRACKET: msg = "]"; break;
                 case TokenType::LBRACE: msg = "}"; break;
                 default: unreachable();
             }
@@ -30,9 +29,13 @@ void Compiler::parse(Mode mode) {
         }
         error.raise();
     }
-    LocalContext subcontext(continuum, continuum->context.get());
-    subcontext.local("context", ScalarTypes::ANY);
-    Parser parser(this, source.tokens.begin(), source.tokens.end(), mode == Mode::EVAL ? subcontext : *continuum->context);
+    std::unique_ptr<LocalContext> subcontext;
+    if (mode == Mode::EVAL) {
+        subcontext = std::make_unique<LocalContext>(continuum, continuum->context.get());
+        subcontext->local("context", ScalarTypes::ANY);
+    }
+    std::unique_ptr<LocalContext>& reference = mode == Mode::EVAL ? subcontext : continuum->context;
+    Parser parser(*this, source.tokens.begin(), source.tokens.end(), *reference);
     auto F = std::make_shared<FuncType>(std::vector<TypeReference>{}, nullptr);
     auto tree = parser.parseFnBody(F, false, source.tokens.front());
     if (auto token = parser.next(); token.type != TokenType::LINEBREAK)

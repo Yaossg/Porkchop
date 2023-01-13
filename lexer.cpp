@@ -259,87 +259,44 @@ void LineTokenizer::add(TokenType type) {
     switch (type) {
         case TokenType::LPAREN:
         case TokenType::LBRACKET:
-        case TokenType::AT_BRACKET:
         case TokenType::LBRACE:
             context.greedy.push_back(context.tokens.back());
             break;
         case TokenType::RPAREN:
-            if (context.greedy.empty()) {
-                Error().with(
-                        ErrorMessage().error(context.tokens.back())
-                        .text("stray").quote(")").text("without").quote("(").text("to match")
-                        ).raise();
-            }
-            if (context.greedy.back().type != TokenType::LPAREN) {
-                Error error;
-                error.with(ErrorMessage().error(context.tokens.back()).quote(")").text("mismatch"));
-                error.with(ErrorMessage().note(context.greedy.back()).quote("(").text("expected here"));
-                for (auto it = context.greedy.rbegin(); it != context.greedy.rend(); ++it) {
-                    if (it->type == TokenType::LPAREN) {
-                        error.with(ErrorMessage().note(*it).text("nearest matching").quote("(").text("is here"));
-                        break;
-                    }
-                }
-                if (error.messages.size() < 3) {
-                    error.with(ErrorMessage().note().text("stray").quote(")").text("without").quote("(").text("to match"));
-                }
-                error.raise();
-            }
-            context.greedy.pop_back();
+            checkGreedy("(", ")", TokenType::LPAREN);
             break;
         case TokenType::RBRACKET:
-            if (context.greedy.empty()) {
-                Error().with(
-                        ErrorMessage().error(context.tokens.back())
-                        .text("stray").quote("]").text("without").quote("[").text("or").quote("@[").text("to match")
-                        ).raise();
-            }
-            if (context.greedy.back().type != TokenType::LBRACKET && context.greedy.back().type != TokenType::AT_BRACKET) {
-                Error error;
-                error.with(ErrorMessage().error(context.tokens.back()).quote("]").text("mismatch"));
-                error.with(ErrorMessage().note(context.greedy.back()).quote("[").text("or").quote("@[").text("expected here"));
-                for (auto it = context.greedy.rbegin(); it != context.greedy.rend(); ++it) {
-                    if (it->type == TokenType::LBRACKET) {
-                        error.with(ErrorMessage().note(*it).text("nearest matching").quote("[").text("is here"));
-                        break;
-                    }
-                    if (it->type == TokenType::AT_BRACKET) {
-                        error.with(ErrorMessage().note(*it).text("nearest matching").quote("@[").text("is here"));
-                        break;
-                    }
-                }
-                if (error.messages.size() < 3) {
-                    error.with(ErrorMessage().note().text("stray").quote("]").text("without").quote("[").text("or").quote("@[").text("to match"));
-                }
-                error.raise();
-            }
-            context.greedy.pop_back();
+            checkGreedy("[", "]", TokenType::LBRACKET);
             break;
         case TokenType::RBRACE:
-            if (context.greedy.empty()) {
-                Error().with(
-                        ErrorMessage().error(context.tokens.back())
-                        .text("stray").quote("}").text("without").quote("{").text("to match")
-                        ).raise();
-            }
-            if (context.greedy.back().type != TokenType::LBRACE) {
-                Error error;
-                error.with(ErrorMessage().error(context.tokens.back()).quote("}").text("mismatch"));
-                error.with(ErrorMessage().note(context.greedy.back()).quote("{").text("expected here"));
-                for (auto it = context.greedy.rbegin(); it != context.greedy.rend(); ++it) {
-                    if (it->type == TokenType::LBRACE) {
-                        error.with(ErrorMessage().note(*it).text("nearest matching").quote("{").text("is here"));
-                        break;
-                    }
-                }
-                if (error.messages.size() < 3) {
-                    error.with(ErrorMessage().note().text("stray").quote("}").text("without").quote("{").text("to match"));
-                }
-                error.raise();
-            }
-            context.greedy.pop_back();
+            checkGreedy("{", "}", TokenType::LBRACE);
             break;
     }
+}
+
+void LineTokenizer::checkGreedy(const char* left, const char* right, TokenType match) {
+    if (context.greedy.empty()) {
+        Error().with(
+                ErrorMessage().error(context.tokens.back())
+                .text("stray").quote(right).text("without").quote(left).text("to match")
+                ).raise();
+    }
+    if (context.greedy.back().type != match) {
+        Error error;
+        error.with(ErrorMessage().error(context.tokens.back()).quote(right).text("mismatch"));
+        error.with(ErrorMessage().note(context.greedy.back()).quote(left).text("expected here"));
+        for (auto it = context.greedy.rbegin(); it != context.greedy.rend(); ++it) {
+            if (it->type == match) {
+                error.with(ErrorMessage().note(*it).text("nearest matching").quote(left).text("is here"));
+                break;
+            }
+        }
+        if (error.messages.size() < 3) {
+            error.with(ErrorMessage().note().text("stray").quote(right).text("without").quote(left).text("to match"));
+        }
+        error.raise();
+    }
+    context.greedy.pop_back();
 }
 
 int64_t parseInt(Source& source, Token token) try {

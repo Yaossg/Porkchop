@@ -10,7 +10,7 @@ namespace Porkchop {
 
 struct VM;
 
-using ExternalFunctionR = std::function<$union(VM*, std::vector<$union> const &)>;
+using ExternalFunction = std::function<$union(VM*, std::vector<$union> const &)>;
 
 namespace Externals {
 

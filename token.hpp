@@ -37,8 +37,6 @@ enum class TokenType {
     LBRACE,
     RBRACE,
 
-    AT_BRACKET,
-
     OP_ASSIGN,
     OP_ASSIGN_AND,
     OP_ASSIGN_XOR,
@@ -80,6 +78,7 @@ enum class TokenType {
     OP_DOLLAR,
     OP_COMMA,
     OP_COLON,
+    OP_AT,
     OP_ATAT,
 
     CHARACTER_LITERAL,
@@ -168,7 +167,7 @@ const std::unordered_map<std::string_view, TokenType> PUNCTUATIONS {
     {"]", TokenType::RBRACKET},
     {"{", TokenType::LBRACE},
     {"}", TokenType::RBRACE},
-    {"@[", TokenType::AT_BRACKET},
+    {"@", TokenType::OP_AT},
     {"@@", TokenType::OP_ATAT},
 };
 
