@@ -10,6 +10,34 @@ Porkchop Programming Language: A Complete Nonsense
 
 :tada: My first one-year-long and 10k-line-code project!
 
+## 组件
+
+Porkchop 有编译器、运行时、解释器、Shell 四个组件。其中前三者的关系及其内容如下图所示。
+
+```mermaid
+graph LR
+
+AST-->Mermaid
+
+subgraph Porkchop Interpreter
+
+subgraph Porkchop Compiler
+Sources-->|Lexer|Tokens-->|Parser|AST
+
+
+end
+
+
+AST-->Assemblies-->Instructions
+
+subgraph Porkchop Runtime
+Instructions-->|VM|Evaluation
+end
+
+end
+
+```
+
 ## 编译器使用
 
 ```
@@ -788,4 +816,92 @@ Porkchop 支持生成器协程：
 ```
 0123456789
 ```
+
+## 外部函数
+
+Porkchop 预定义了下列函数：
+
+```
+>>> /fns
+fn eval(any, string): any
+fn fromChars([char]): string
+fn toBytes(string): [byte]
+fn toChars(string): [char]
+fn typename(any): string
+fn gc(): none
+fn print(string): none
+fn println(string): none
+fn nanos(): int
+fn readLine(): string
+fn parseInt(string): int
+fn parseFloat(string): float
+fn millis(): int
+fn getargs(): [string]
+fn exit(int): never
+fn input(string): none
+fn output(string): none
+fn flush(): none
+fn fromBytes([byte]): string
+fn eof(): bool
+```
+
+### I/O 函数
+
+- `print` `println`
+
+输出字符串，后者会额外输出一个换行符并 `flush`
+
+- `flush`
+
+刷新缓冲区
+
+- `readLine`
+
+读入一行字符串，不包含换行符
+
+- `eof`
+
+判断输入文件是否结束
+
+- `input` `output`
+
+重定向输入、输出文件
+
+### 虚拟机状态
+
+- `gc`
+
+手动调用垃圾回收器
+
+- `getargs`
+
+获取程序启动时传入的参数
+
+- `exit`
+
+退出程序
+
+- `eval`
+
+对提供的 Porkchop 表达式求值，第一个参数为任意上下文，在脚本中可以以 `context` 来访问。
+
+仅提供 Interpreter 和 Shell 的支持，Runtime 无法调用。
+
+- `typename`
+
+获取 `any` 对象的类型名称，与在代码中书写的格式一致。
+
+### 实用工具
+
+- `parseInt` `parseFloat`
+
+解析 `int` 和 `float`。注意这个解析仅支持最简单的表达，并非 Porkchop 的数字解析。
+
+- `millis` `nanos`
+
+毫秒、纳秒计时器，请使用两个次调用的差值来计时。
+
+- `fromChars` `toChars` `fromBytes` `toBytes`
+
+字符串 `string` 与字符数组 `[char]` 和字节数组 `[byte]` 的转换
 
