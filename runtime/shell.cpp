@@ -2,6 +2,57 @@
 #include "../common.hpp"
 #include "interpretation.hpp"
 
+void onCommand(std::string_view line, Porkchop::Continuum& continuum, std::unique_ptr<Porkchop::Frame>& frame) {
+    size_t space = line.find(' ');
+    std::string_view command = line.substr(0, space);
+    auto args = space == std::string::npos ? "" : line.substr(space);
+    if (args.starts_with(' '))
+        args.remove_prefix(args.find_first_not_of(' '));
+    if (command == "/help") {
+        puts("/help");
+        puts("/exit");
+        puts("/lets");
+        puts("/fns");
+        puts("/drop <variable-name>");
+    } else if (command == "/exit") {
+        std::exit(0);
+    } else if (command == "/lets") {
+        for (auto&& [name, index] : continuum.context->localIndices.back()) {
+            auto type = continuum.context->localTypes[index];
+            auto sf = Porkchop::stringifier(type);
+            fprintf(stdout, "let %s: %s = %s\n", Porkchop::render("\x1b[97m", name).c_str(), type->toString().c_str(), sf(frame->stack[index]).c_str());
+        }
+    } else if (command == "/fns") {
+        for (auto&& [name, index] : continuum.context->definedIndices.back()) {
+            auto&& function = continuum.functions[index];
+            fprintf(stdout, "fn %s%s\n", Porkchop::render("\x1b[97m", name).c_str(), function->prototype()->toString().c_str());
+        }
+    } else if (command == "/drop") {
+        if (space == std::string::npos) {
+            Porkchop::Error error;
+            error.with(Porkchop::ErrorMessage().usage().text("/drop <variable-name>"));
+            error.report(nullptr, true);
+        } else {
+            std::string name(args);
+            if (auto it = continuum.context->localIndices.back().find(name); it != continuum.context->localIndices.back().end()) {
+                auto index = it->second;
+                frame->stack[index] = nullptr;
+                frame->companion[index] = false;
+                continuum.context->localIndices.back().erase(it);
+                fprintf(stdout, "variable '%s' dropped\n", Porkchop::render("\x1b[97m", name).c_str());
+            } else {
+                Porkchop::Error error;
+                error.with(Porkchop::ErrorMessage().fatal().text("no such a variable called").quote(name));
+                error.report(nullptr, true);
+            }
+        }
+    } else {
+        Porkchop::Error error;
+        error.with(Porkchop::ErrorMessage().usage().text("/help"));
+        error.report(nullptr, true);
+    }
+}
+
 int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     const int argi = 1;
@@ -9,7 +60,7 @@ int main(int argc, const char* argv[]) try {
     Porkchop::Interpretation interpretation(&continuum);
     Porkchop::VM vm;
     vm.init(argi, argc, argv);
-    auto frame = std::make_unique<Porkchop::Frame>(&vm, &interpretation, nullptr);
+    auto frame = std::make_unique<Porkchop::Frame>(&vm, &interpretation);
     bool newline = false;
     while (true) {
         if (newline)
@@ -26,50 +77,7 @@ int main(int argc, const char* argv[]) try {
                 fflush(stdout);
                 auto line = Porkchop::readLine(stdin);
                 if (source.lines.empty() && line.starts_with('/')) {
-                    if (line == "/help") {
-                        puts("/help");
-                        puts("/exit");
-                        puts("/lets");
-                        puts("/fns");
-                        puts("/drop <variable-name>");
-                    } else if (line == "/exit") {
-                        std::exit(0);
-                    } else if (line == "/lets") {
-                        for (auto&& [name, index] : continuum.context->localIndices.back()) {
-                            auto type = continuum.context->localTypes[index];
-                            auto sf = Porkchop::stringifier(type);
-                            fprintf(stdout, "let %s : %s = %s\n", name.c_str(), type->toString().c_str(), sf(frame->stack[index]).c_str());
-                        }
-                    } else if (line == "/fns") {
-                        for (auto&& [name, index] : continuum.context->definedIndices.back()) {
-                            auto&& function = continuum.functions[index];
-                            fprintf(stdout, "fn %s%s\n", name.c_str(), function->prototype()->toString().c_str());
-                        }
-                    } else if (line.starts_with("/drop ")) {
-                        auto start = line.find_first_not_of(' ', 6);
-                        if (start == std::string::npos) {
-                            Porkchop::Error error;
-                            error.with(Porkchop::ErrorMessage().usage().text("/drop <variable-name>"));
-                            error.report(nullptr, true);
-                        } else {
-                            auto name = line.substr(start);
-                            if (auto it = continuum.context->localIndices.back().find(name); it != continuum.context->localIndices.back().end()) {
-                                auto index = it->second;
-                                frame->stack[index] = nullptr;
-                                frame->companion[index] = false;
-                                continuum.context->localIndices.back().erase(it);
-                                fprintf(stdout, "variable '%s' dropped\n", name.c_str());
-                            } else {
-                                Porkchop::Error error;
-                                error.with(Porkchop::ErrorMessage().fatal().text("no such a variable called").quote(name));
-                                error.report(nullptr, true);
-                            }
-                        }
-                    } else if (line == "/drop") {
-                        Porkchop::Error error;
-                        error.with(Porkchop::ErrorMessage().usage().text("/drop <variable-name>"));
-                        error.report(nullptr, true);
-                    }
+                    onCommand(line, continuum, frame);
                     break;
                 }
                 source.append(std::move(line));
@@ -92,16 +100,14 @@ int main(int argc, const char* argv[]) try {
         }
         compiler.compile(&interpretation);
         try {
-            frame->instructions = &std::get<Porkchop::Instructions>(interpretation.functions.back());
             auto type = compiler.continuum->functions.back()->prototype()->R;
-            frame->init();
+            frame->init(interpretation.functions.size() - 1);
             auto ret = frame->loop();
             if (!Porkchop::isNone(type)) {
                 auto sf = Porkchop::stringifier(type);
                 fputs(sf(ret).c_str(), stdout);
             }
         } catch (Porkchop::Exception& e) { // FIXME indeterminate local variable caused by exception
-            e.append("at func " + std::to_string(interpretation.functions.size() - 1));
             fprintf(stderr, "Runtime exception occurred: \n");
             fprintf(stderr, "%s", e.what());
         }

@@ -12,13 +12,15 @@ namespace Porkchop {
 struct Frame {
     VM* vm;
     Assembly *assembly;
-    Instructions* instructions;
     std::vector<$union> stack;
     std::vector<bool> companion;
-    size_t pc = 0;
 
-    Frame(VM* vm, Assembly* assembly, Instructions* instructions, std::vector<$union> captures = {})
-            : vm(vm), assembly(assembly), instructions(instructions), stack(std::move(captures)) {
+    Instructions* instructions;
+    size_t func;
+    size_t pc;
+
+    Frame(VM* vm, Assembly* assembly, std::vector<$union> captures = {})
+            : vm(vm), assembly(assembly), stack(std::move(captures)) {
         stack.reserve(32);
         companion.reserve(32);
     }
@@ -672,13 +674,15 @@ struct Frame {
         return instructions->at(pc).first;
     }
 
-    void init() {
+    void init(size_t func0) {
+        func = func0;
+        instructions = &std::get<Instructions>(assembly->functions[func]);
         for (pc = 0; opcode() == Opcode::LOCAL; ++pc) {
             local(std::get<TypeReference>(instructions->at(pc).second));
         }
     }
 
-    $union loop() {
+    $union loop() try {
         for (pushToVM(); pc < instructions->size(); ++pc) {
             switch (auto&& [opcode, args] = instructions->at(pc); opcode) {
                 case Opcode::NOP:
@@ -924,6 +928,9 @@ struct Frame {
             }
         }
         unreachable();
+    } catch (Exception& e) {
+        e.append("at func " + std::to_string(func));
+        throw;
     }
 };
 

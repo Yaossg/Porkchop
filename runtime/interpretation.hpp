@@ -28,10 +28,8 @@ struct Interpretation : Assembler, Assembly {
                 throw Exception("failed to compile script in eval");
             }
             compiler.compile(this);
-            auto frame = std::make_unique<Frame>(vm, this, &std::get<Instructions>(functions.back()), std::vector{args[0]});
             auto type = continuum->functions.back()->prototype()->R;
-            frame->init();
-            auto ret = frame->loop();
+            auto ret = Porkchop::call(this, vm, functions.size() - 1, {args[0]});
             if (isValueBased(type))
                 ret = vm->newObject<AnyScalar>(ret, dynamic_cast<ScalarType*>(type.get())->S);
             return ret;

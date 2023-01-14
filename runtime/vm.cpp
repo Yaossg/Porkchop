@@ -75,8 +75,8 @@ void VM::init(int argi, int argc, const char* argv[]) {
 $union call(Assembly *assembly, VM *vm, size_t func, std::vector<$union> captures) try {
     auto& f = assembly->functions[func];
     if (std::holds_alternative<Instructions>(f)) {
-        auto frame = std::make_unique<Frame>(vm, assembly, &std::get<Instructions>(f), std::move(captures));
-        frame->init();
+        auto frame = std::make_unique<Frame>(vm, assembly, std::move(captures));
+        frame->init(func);
         if (frame->opcode() == Opcode::YIELD) {
             return vm->newObject<Coroutine>(assembly->prototypes[func]->R, std::move(frame));
         } else {

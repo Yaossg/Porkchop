@@ -1013,7 +1013,7 @@ struct Dict : Collection {
 struct Coroutine : Iterator {
     std::unique_ptr<Frame> frame;
     
-    explicit Coroutine(TypeReference R, std::unique_ptr<Frame> frame): frame(std::move(frame)) {
+    Coroutine(TypeReference R, std::unique_ptr<Frame> frame): frame(std::move(frame)) {
         E = std::move(R);
     }
 
