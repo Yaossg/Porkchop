@@ -12,9 +12,10 @@ $union Expr::evalConst() const {
 
 void Expr::expect(const TypeReference& expected) const {
     if (!typeCache->equals(expected)) {
-        Error()
-        .with(ErrorMessage().error(segment()).text("expected ").type(expected).text("but got").type(typeCache))
-        .raise();
+        Error().with(
+                ErrorMessage().error(segment())
+                .text("expected ").type(expected).text("but got").type(typeCache)
+                ).raise();
     }
 }
 
@@ -25,9 +26,10 @@ void Expr::expect(bool pred(const TypeReference&), const char* expected) const {
 }
 
 void Expr::expect(const char *expected) const {
-    Error()
-    .with(ErrorMessage().error(segment()).text("expected ").text(expected).text(" but got").type(typeCache))
-    .raise();
+    Error().with(
+            ErrorMessage().error(segment())
+            .text("expected ").text(expected).text(" but got").type(typeCache)
+            ).raise();
 }
 
 void matchOperands(Expr* lhs, Expr* rhs) {

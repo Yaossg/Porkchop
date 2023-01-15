@@ -62,15 +62,17 @@ void LineTokenizer::tokenize() {
             [[unlikely]] case '\0':   // 0 paddings
                 raise("sourcecode of Porkchop is required to be encoded with UTF-8");
             case '\\': {
-                if (remains()) {
-                    raise("stray backslash");
-                } else {
-                    return;
-                }
+                if (backslash) raise("multiple backslash in one line");
+                backslash = true;
+                break;
+            }
+            case '#': {
+                q = r;
+                break;
             }
             [[unlikely]] case '\n':
             [[unlikely]] case '\r':
-            unreachable();
+                unreachable();
             [[unlikely]] case '\v':
             [[unlikely]] case '\f':
             [[unlikely]] case '\t':
@@ -105,7 +107,8 @@ void LineTokenizer::tokenize() {
         }
         step();
     }
-    add(TokenType::LINEBREAK);
+    if (!backslash)
+        add(TokenType::LINEBREAK);
 }
 
 void LineTokenizer::addId() {
@@ -255,6 +258,7 @@ void LineTokenizer::add(TokenType type) {
         if (!context.greedy.empty() && context.greedy.back().type != TokenType::LBRACE)
             return;
     }
+    if (backslash) raise("no token is allowed after backslash in one line");
     context.tokens.push_back(make(type));
     switch (type) {
         case TokenType::LPAREN:

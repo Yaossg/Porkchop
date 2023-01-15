@@ -60,18 +60,9 @@ inline std::vector<std::string_view> splitLines(std::string_view view) {
     std::vector<std::string_view> lines;
     const char *p = view.begin(), *q = p, *r = view.end();
     while (q != r) {
-        switch (*q++) {
-            [[unlikely]] case '#': {
-                lines.emplace_back(p, q - 1);
-                while (q != r && *q++ != '\n');
-                p = q;
-                break;
-            }
-            [[unlikely]] case '\n': {
-                lines.emplace_back(p, q - 1);
-                p = q;
-                break;
-            }
+        if (*q++ == '\n') {
+            lines.emplace_back(p, q - 1);
+            p = q;
         }
     }
     lines.emplace_back(p, q);
