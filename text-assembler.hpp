@@ -71,7 +71,7 @@ struct TextAssembler : Assembler {
             std::string buf = "string " + std::to_string(s.length()) + " ";
             for (char ch : s) {
                 char digits[3];
-                sprintf(digits, "%2X", ch);
+                sprintf(digits, "%02hhX", ch);
                 buf += digits;
             }
             fputs(buf.c_str(), file);

@@ -1406,4 +1406,16 @@ void InterpolationExpr::walkBytecode(Assembler *assembler) const {
     assembler->indexed(Opcode::SJOIN, literals.size() + elements.size());
 }
 
+TypeReference RawStringExpr::evalType() const {
+    return ScalarTypes::STRING;
+}
+
+void RawStringExpr::walkBytecode(Assembler *assembler) const {
+    for (auto&& element : elements) {
+        element->walkBytecode(assembler);
+        toStringBytecode(assembler, element->typeCache);
+    }
+    assembler->indexed(Opcode::SJOIN, elements.size());
+}
+
 }

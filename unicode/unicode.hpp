@@ -67,14 +67,14 @@ struct UnicodeParser {
         return Token{.line = line, .column = column - (q - p), .width = size_t(q - p), .type = TokenType::INVALID};
     }
 
-    char32_t parseHexASCII();
+    char parseHexASCII();
     char32_t parseHexUnicode();
     [[nodiscard]] int successiveUTF8Length(char8_t byte) const;
     void requireUTF8Continue(char8_t byte) const;
 
     char32_t decodeUnicode();
     char32_t unquoteChar(Token token);
-    std::string unquoteString(bool skip, char stop);
+    std::string unquoteString(bool escape);
     [[noreturn]] void raise(const char* msg) const;
 };
 

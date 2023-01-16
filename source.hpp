@@ -15,14 +15,15 @@ struct Source {
     std::vector<std::string_view> lines;
     std::vector<Token> tokens;
     enum class BraceType {
-        CODE, STRING
+        CODE, STRING, RAW_STRING
     };
     std::vector<BraceType> braces;
     std::vector<Token> greedy;
+    bool raw = false;
 
     [[nodiscard]] std::string_view of(Token token) const noexcept;
     void append(std::string code);
-
+    bool remains();
 };
 
 }

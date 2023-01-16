@@ -325,8 +325,24 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         elements.push_back(parseExpression(Expr::Level::PRIMARY));
                         token2 = next();
                         literals.push_back(make<StringConstExpr>(token2));
-                    } while (token2.type != TokenType::STRING_Q);
+                    } while (token2.type != TokenType::STRING_UQ);
                     return make<InterpolationExpr>(token1, token2, std::move(literals), std::move(elements));
+                }
+                case TokenType::RAW_STRING_QQ:
+                case TokenType::RAW_STRING_QD:
+                case TokenType::RAW_STRING_QU: {
+                    Token token1 = next();
+                    Token token2 = token1;
+                    std::vector<ExprHandle> elements;
+                    while (true) {
+                        elements.emplace_back(make<StringConstExpr>(token2));
+                        if (token2.type == TokenType::RAW_STRING_UQ || token2.type == TokenType::RAW_STRING_QQ) break;
+                        if (token2.type == TokenType::RAW_STRING_QD || token2.type == TokenType::RAW_STRING_UD) {
+                            elements.push_back(parseExpression(Expr::Level::PRIMARY));
+                        }
+                        token2 = next();
+                    }
+                    return make<RawStringExpr>(token1, token2, std::move(elements));
                 }
 
                 case TokenType::KW_DEFAULT: {

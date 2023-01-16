@@ -925,5 +925,31 @@ struct InterpolationExpr : Expr {
     void walkBytecode(Assembler* assembler) const override;
 };
 
+struct RawStringExpr : Expr {
+    Token token1, token2;
+    std::vector<ExprHandle> elements;
+
+    RawStringExpr(Compiler& compiler, Token token1, Token token2, std::vector<ExprHandle> elements)
+        : Expr(compiler), token1(token1), token2(token2), elements(std::move(elements)) {}
+
+    [[nodiscard]] std::vector<const Descriptor*> children() const override {
+        std::vector<const Descriptor*> ret;
+        for (auto&& element : elements) {
+            ret.push_back(element.get());
+        }
+        return ret;
+    }
+    [[nodiscard]] std::string_view descriptor() const noexcept override { return R"("""""")"; }
+
+    [[nodiscard]] Segment segment() const override {
+        return range(token1, token2);
+    }
+
+    [[nodiscard]] TypeReference evalType() const override;
+
+    void walkBytecode(Assembler* assembler) const override;
+
+};
+
 
 }

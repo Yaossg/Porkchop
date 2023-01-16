@@ -90,8 +90,15 @@ enum class TokenType {
 
     STRING_QQ,
     STRING_QD,
-    STRING_D,
-    STRING_Q,
+    STRING_UD,
+    STRING_UQ,
+
+    RAW_STRING_QQ,
+    RAW_STRING_QD,
+    RAW_STRING_QU,
+    RAW_STRING_UU,
+    RAW_STRING_UD,
+    RAW_STRING_UQ,
 
     LINEBREAK
 };

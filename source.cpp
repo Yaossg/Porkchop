@@ -1,4 +1,6 @@
 #include "lexer.hpp"
+#include "source.hpp"
+
 
 namespace Porkchop {
 
@@ -12,6 +14,10 @@ void Source::append(std::string code) {
         lines.push_back(line);
         LineTokenizer(*this, line);
     }
+}
+
+bool Source::remains() {
+    return !greedy.empty() || lines.back().ends_with('\\') || raw;
 }
 
 }

@@ -35,8 +35,8 @@ std::string Stringifier::operator()($union value) const {
         case ScalarTypeKind::BOOL:
             return value.$bool ? "true" : "false";
         case ScalarTypeKind::BYTE: {
-            char buf[8];
-            sprintf(buf, "%hhX", value);
+            char buf[3];
+            sprintf(buf, "%02hhX", value);
             return buf;
         }
         case ScalarTypeKind::INT:

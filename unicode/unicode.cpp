@@ -73,11 +73,11 @@ void UnicodeParser::requireUTF8Continue(char8_t byte) const {
         raise("unexpected UTF-8 multibyte series termination");
 }
 
-char32_t UnicodeParser::parseHexASCII() {
+char UnicodeParser::parseHexASCII() {
     const char *first = q;
     getc(); getc();
     const char *last = q;
-    return parseHex(first, last, ASCII_UPPER_BOUND, make());
+    return (char) parseHex(first, last, ASCII_UPPER_BOUND, make());
 }
 
 char32_t UnicodeParser::parseHexUnicode() {
@@ -162,17 +162,12 @@ char32_t UnicodeParser::unquoteChar(Token token) {
     return result;
 }
 
-std::string UnicodeParser::unquoteString(bool skip, char stop) {
-    if (skip) {
-        getc();
-        step();
-    }
+std::string UnicodeParser::unquoteString(bool escape) {
     std::string result;
-    char8_t ch1;
-    while ((ch1 = getc()) != stop) {
-        switch (successiveUTF8Length(ch1)) {
+    while (remains()) {
+        switch (char ch1 = getc(); successiveUTF8Length(ch1)) {
             case 1:
-                if (ch1 == '\\') {
+                if (ch1 == '\\' && escape) {
                     switch (getc()) {
                         case '\'': result += '\''; break;
                         case '\"': result += '\"'; break;
@@ -200,26 +195,26 @@ std::string UnicodeParser::unquoteString(bool skip, char stop) {
                 } else result += ch1;
                 break;
             case 2: {
-                char8_t ch2 = getc();
+                char ch2 = getc();
                 requireUTF8Continue(ch2);
                 result += ch1;
                 result += ch2;
             } break;
             case 3: {
-                char8_t ch2 = getc();
+                char ch2 = getc();
                 requireUTF8Continue(ch2);
-                char8_t ch3 = getc();
+                char ch3 = getc();
                 requireUTF8Continue(ch3);
                 result += ch1;
                 result += ch2;
                 result += ch3;
             } break;
             case 4: {
-                char8_t ch2 = getc();
+                char ch2 = getc();
                 requireUTF8Continue(ch2);
-                char8_t ch3 = getc();
+                char ch3 = getc();
                 requireUTF8Continue(ch3);
-                char8_t ch4 = getc();
+                char ch4 = getc();
                 requireUTF8Continue(ch4);
                 result += ch1;
                 result += ch2;

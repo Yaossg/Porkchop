@@ -81,7 +81,7 @@ int main(int argc, const char* argv[]) try {
                     break;
                 }
                 source.append(std::move(line));
-            } while (!source.greedy.empty() || source.lines.back().ends_with('\\'));
+            } while (source.remains());
         } catch (Porkchop::Error& e) {
             e.report(&source, false);
             continue;

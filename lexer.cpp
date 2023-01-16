@@ -55,6 +55,10 @@ void LineTokenizer::raise(const char *msg) const {
 }
 
 void LineTokenizer::tokenize() {
+    if (context.raw) {
+        context.raw = false;
+        addRawString(false);
+    }
     while (remains()) {
         switch (char ch = getc()) {
             [[unlikely]] case '\xFF':
@@ -83,15 +87,24 @@ void LineTokenizer::tokenize() {
                 addChar();
                 break;
             case '"':
-                addString(true);
+                if ((r - q) >= 2 && q[0] == '"' && q[1] == '"') {
+                    getc(); getc();
+                    addRawString(true);
+                } else {
+                    addString(true);
+                }
                 break;
             case '{':
                 addLBrace(Source::BraceType::CODE);
                 break;
             case '}':
-                if (addRBrace() == Source::BraceType::STRING) {
-                    step();
-                    addString(false);
+                switch (addRBrace()) {
+                    case Source::BraceType::STRING:
+                        addString(false);
+                        break;
+                    case Source::BraceType::RAW_STRING:
+                        addRawString(false);
+                        break;
                 }
                 break;
             default: {
@@ -107,7 +120,7 @@ void LineTokenizer::tokenize() {
         }
         step();
     }
-    if (!backslash)
+    if (!backslash && !context.raw)
         add(TokenType::LINEBREAK);
 }
 
@@ -228,27 +241,57 @@ void LineTokenizer::addString(bool first) {
     while (char ch = getc()) {
         switch (ch) {
             case '"':
-                add(first ? TokenType::STRING_QQ : TokenType::STRING_Q);
+                add(first ? TokenType::STRING_QQ : TokenType::STRING_UQ);
                 return;
             case '\\':
                 getc();
                 break;
             case '$': {
-                add(first ? TokenType::STRING_QD : TokenType::STRING_D);
-                step();
+                add(first ? TokenType::STRING_QD : TokenType::STRING_UD);
                 if (peekc() == '{') {
                     getc();
                     addLBrace(Source::BraceType::STRING);
                     return;
                 } else {
                     addId();
-                    step();
                     first = false;
                 }
             }
         }
     }
     raise("unterminated string literal");
+}
+
+void LineTokenizer::addRawString(bool first) {
+    while (char ch = getc()) {
+        switch (ch) {
+            case '"': {
+                size_t count = 1;
+                while (peekc() == '"') {
+                    getc();
+                    ++count;
+                }
+                if (count >= 3) {
+                    add(first ? TokenType::RAW_STRING_QQ : TokenType::RAW_STRING_UQ);
+                    return;
+                }
+                break;
+            }
+            case '$': {
+                add(first ? TokenType::RAW_STRING_QD : TokenType::RAW_STRING_UD);
+                if (peekc() == '{') {
+                    getc();
+                    addLBrace(Source::BraceType::RAW_STRING);
+                    return;
+                } else {
+                    addId();
+                    first = false;
+                }
+            }
+        }
+    }
+    add(first ? TokenType::RAW_STRING_QU : TokenType::RAW_STRING_UU);
+    context.raw = true;
 }
 
 void LineTokenizer::add(TokenType type) {
@@ -260,6 +303,7 @@ void LineTokenizer::add(TokenType type) {
     }
     if (backslash) raise("no token is allowed after backslash in one line");
     context.tokens.push_back(make(type));
+    step();
     switch (type) {
         case TokenType::LPAREN:
         case TokenType::LBRACKET:
@@ -335,9 +379,43 @@ char32_t parseChar(Source& source, Token token) {
 }
 
 std::string parseString(Source& source, Token token) {
-    bool skip = token.type == TokenType::STRING_QQ || token.type == TokenType::STRING_QD;
-    bool stop = token.type == TokenType::STRING_QQ || token.type == TokenType::STRING_Q;
-    return UnicodeParser(source.of(token), token).unquoteString(skip, stop ? '"' : '$');
+    size_t prefix = 0, suffix = 0;
+    bool escape = false, linebreak = false;
+    switch (token.type) {
+        case TokenType::STRING_QQ:
+        case TokenType::STRING_QD:
+            escape = prefix = suffix = 1;
+            break;
+        case TokenType::STRING_UD:
+        case TokenType::STRING_UQ:
+            escape = suffix = 1;
+            break;
+        case TokenType::RAW_STRING_QQ:
+            prefix = suffix = 3;
+            break;
+        case TokenType::RAW_STRING_QD:
+            prefix = 3;
+            suffix = 1;
+            break;
+        case TokenType::RAW_STRING_QU:
+            linebreak = prefix = 3;
+            break;
+        case TokenType::RAW_STRING_UU:
+            linebreak = true;
+            break;
+        case TokenType::RAW_STRING_UD:
+            suffix = 1;
+            break;
+        case TokenType::RAW_STRING_UQ:
+            suffix = 3;
+            break;
+    }
+    auto view = source.of(token);
+    view.remove_prefix(prefix);
+    view.remove_suffix(suffix);
+    auto parsed = UnicodeParser(view, token).unquoteString(escape);
+    if (linebreak) parsed.push_back('\n');
+    return parsed;
 }
 
 }
