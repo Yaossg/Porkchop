@@ -70,6 +70,11 @@ struct BinAssembly : Assembly {
                 case Opcode::DEC:
                 case Opcode::SJOIN:
                 case Opcode::CONST:
+                case Opcode::UCMP:
+                case Opcode::ICMP:
+                case Opcode::FCMP:
+                case Opcode::SCMP:
+                case Opcode::OCMP:
                     // index or size or const
                     instructions.emplace_back(opcode, stream0.readVarInt());
                     break;

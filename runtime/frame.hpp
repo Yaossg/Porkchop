@@ -416,81 +416,39 @@ struct Frame {
         push(int64_t(value1 >> value2));
     }
 
-    static constexpr size_t less = 0;
-    static constexpr size_t equivalent = 1;
-    static constexpr size_t greater = 2;
-    static constexpr size_t unordered = 3;
-
-    void compare_three_way(std::partial_ordering o) {
-        if (o == std::partial_ordering::less) {
-            const_(less);
-        } else if (o == std::partial_ordering::equivalent) {
-            const_(equivalent);
-        } else if (o == std::partial_ordering::greater) {
-            const_(greater);
-        } else if (o == std::partial_ordering::unordered) {
-            const_(unordered);
-        }
+    inline static constexpr bool (*comparators[6])(std::partial_ordering) = {std::is_eq, std::is_neq, std::is_lt, std::is_gt, std::is_lteq, std::is_gteq};
+    void compare_three_way(std::partial_ordering o, size_t cmp) {
+        push(comparators[cmp](o));
     }
 
-    void ucmp() {
+    void ucmp(size_t cmp) {
         auto value2 = pop().$size;
         auto value1 = pop().$size;
-        compare_three_way(value1 <=> value2);
+        compare_three_way(value1 <=> value2, cmp);
     }
 
-    void icmp() {
+    void icmp(size_t cmp) {
         auto value2 = ipop();
         auto value1 = ipop();
-        compare_three_way(value1 <=> value2);
+        compare_three_way(value1 <=> value2, cmp);
     }
 
-    void fcmp() {
+    void fcmp(size_t cmp) {
         auto value2 = fpop();
         auto value1 = fpop();
-        compare_three_way(value1 <=> value2);
+        compare_three_way(value1 <=> value2, cmp);
     }
 
-    void scmp() {
+    void scmp(size_t cmp) {
         auto value2 = spop();
         auto value1 = spop();
-        compare_three_way(value1->value <=> value2->value);
+        compare_three_way(value1->value <=> value2->value, cmp);
     }
 
-    void ocmp() {
+    void ocmp(size_t cmp) {
         auto value2 = opop();
         auto value1 = opop();
-        compare_three_way(value1->equals(value2) ? std::partial_ordering::equivalent : std::partial_ordering::unordered);
-    }
-
-    void eq() {
-        auto cmp = pop().$size;
-        push(cmp == equivalent);
-    }
-
-    void ne() {
-        auto cmp = pop().$size;
-        push(cmp != equivalent);
-    }
-
-    void lt() {
-        auto cmp = pop().$size;
-        push(cmp == less);
-    }
-
-    void gt() {
-        auto cmp = pop().$size;
-        push(cmp == greater);
-    }
-
-    void le() {
-        auto cmp = pop().$size;
-        push(cmp == less || cmp == equivalent);
-    }
-
-    void ge() {
-        auto cmp = pop().$size;
-        push(cmp == greater || cmp == equivalent);
+        compare_three_way(value1->equals(value2) ? std::partial_ordering::equivalent : std::partial_ordering::unordered, cmp);
     }
 
     void sadd() {
@@ -801,37 +759,19 @@ struct Frame {
                     ushr();
                     break;
                 case Opcode::UCMP:
-                    ucmp();
+                    ucmp(std::get<size_t>(args));
                     break;
                 case Opcode::ICMP:
-                    icmp();
+                    icmp(std::get<size_t>(args));
                     break;
                 case Opcode::FCMP:
-                    fcmp();
+                    fcmp(std::get<size_t>(args));
                     break;
                 case Opcode::SCMP:
-                    scmp();
+                    scmp(std::get<size_t>(args));
                     break;
                 case Opcode::OCMP:
-                    ocmp();
-                    break;
-                case Opcode::EQ:
-                    eq();
-                    break;
-                case Opcode::NE:
-                    ne();
-                    break;
-                case Opcode::LT:
-                    lt();
-                    break;
-                case Opcode::GT:
-                    gt();
-                    break;
-                case Opcode::LE:
-                    le();
-                    break;
-                case Opcode::GE:
-                    ge();
+                    ocmp(std::get<size_t>(args));
                     break;
                 case Opcode::SADD:
                     sadd();

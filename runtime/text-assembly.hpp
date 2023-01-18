@@ -108,6 +108,11 @@ struct TextAssembly : Assembly {
                         case Opcode::INC:
                         case Opcode::DEC:
                         case Opcode::SJOIN:
+                        case Opcode::UCMP:
+                        case Opcode::ICMP:
+                        case Opcode::FCMP:
+                        case Opcode::SCMP:
+                        case Opcode::OCMP:
                             // index or size
                             instructions.emplace_back(opcode, strtoull(args.data(), nullptr, 10));
                             break;

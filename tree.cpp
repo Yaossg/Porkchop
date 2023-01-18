@@ -622,54 +622,57 @@ void CompareExpr::walkBytecode(Assembler *assembler) const {
     }
     lhs->walkBytecode(assembler);
     rhs->walkBytecode(assembler);
+    Opcode opcode;
     if (token.type == TokenType::OP_EQQ || token.type == TokenType::OP_NEQ) {
-        assembler->opcode(Opcode::UCMP);
+        opcode = Opcode::UCMP;
     } else if (auto scalar = dynamic_cast<ScalarType*>(type.get())) {
         switch (scalar->S) {
             case ScalarTypeKind::BOOL:
             case ScalarTypeKind::BYTE:
             case ScalarTypeKind::CHAR:
-                assembler->opcode(Opcode::UCMP);
+                opcode = Opcode::UCMP;
                 break;
             case ScalarTypeKind::INT:
-                assembler->opcode(Opcode::ICMP);
+                opcode = Opcode::ICMP;
                 break;
             case ScalarTypeKind::FLOAT:
-                assembler->opcode(Opcode::FCMP);
+                opcode = Opcode::FCMP;
                 break;
             case ScalarTypeKind::STRING:
-                assembler->opcode(Opcode::SCMP);
+                opcode = Opcode::SCMP;
                 break;
             default:
                 unreachable();
         }
     } else {
-        assembler->opcode(Opcode::OCMP);
+        opcode = Opcode::OCMP;
     }
+    size_t cmp;
     switch (token.type) {
         case TokenType::OP_EQ:
         case TokenType::OP_EQQ:
-            assembler->opcode(Opcode::EQ);
+            cmp = 0;
             break;
         case TokenType::OP_NE:
         case TokenType::OP_NEQ:
-            assembler->opcode(Opcode::NE);
+            cmp = 1;
             break;
         case TokenType::OP_LT:
-            assembler->opcode(Opcode::LT);
+            cmp = 2;
             break;
         case TokenType::OP_GT:
-            assembler->opcode(Opcode::GT);
+            cmp = 3;
             break;
         case TokenType::OP_LE:
-            assembler->opcode(Opcode::LE);
+            cmp = 4;
             break;
         case TokenType::OP_GE:
-            assembler->opcode(Opcode::GE);
+            cmp = 5;
             break;
         default:
             unreachable();
     }
+    assembler->indexed(opcode, cmp);
 }
 
 TypeReference LogicalExpr::evalType() const {
