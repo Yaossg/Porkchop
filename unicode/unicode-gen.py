@@ -1,6 +1,6 @@
 import re
 
-version = '14.0'
+version = '15.0'
 
 
 def output(the_dict, name, filename, default, files):
