@@ -1189,11 +1189,7 @@ void ClauseExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference IfElseExpr::evalType() const {
-    if (isNever(cond->typeCache)) return ScalarTypes::NEVER;
     cond->expect(ScalarTypes::BOOL);
-    try {
-        return (cond->evalConst().$bool ? lhs : rhs)->typeCache;
-    } catch (Error&) {}
     if (auto either = eithertype(lhs->typeCache, rhs->typeCache)) {
         return either;
     } else {

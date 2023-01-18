@@ -147,9 +147,9 @@ struct Frame {
 
     void fconst(size_t index) {
         auto prototype = assembly->prototypes[index];
-        auto&& [opcode, args] = instructions->at(pc + 1);
+        auto&& [opcode, args] = instructions->operator[](pc + 1);
         // optimization: merge fconst bind call
-        if (opcode == Opcode::BIND && instructions->at(pc + 2).first == Opcode::CALL) {
+        if (opcode == Opcode::BIND && instructions->operator[](pc + 2).first == Opcode::CALL) {
             ++++pc;
             auto size = std::get<size_t>(args);
             push(Porkchop::call(assembly, vm, index, npop(size)), !isValueBased(prototype->R));
@@ -222,7 +222,7 @@ struct Frame {
         auto func = object.as<Func>();
         auto captures = npop(size);
         // optimization: merge bind call
-        if (auto&& [opcode, args] = instructions->at(pc + 1); opcode == Opcode::CALL) {
+        if (auto&& [opcode, args] = instructions->operator[](pc + 1); opcode == Opcode::CALL) {
             ++pc;
             auto captures0 = func->captures;
             captures0.insert(captures0.end(), captures.begin(), captures.end());
@@ -416,39 +416,49 @@ struct Frame {
         push(int64_t(value1 >> value2));
     }
 
-    inline static constexpr bool (*comparators[6])(std::partial_ordering) = {std::is_eq, std::is_neq, std::is_lt, std::is_gt, std::is_lteq, std::is_gteq};
-    void compare_three_way(std::partial_ordering o, size_t cmp) {
-        push(comparators[cmp](o));
+    inline static constexpr bool (*comparators[6])(std::partial_ordering) =
+            {std::is_eq, std::is_neq, std::is_lt, std::is_gt, std::is_lteq, std::is_gteq};
+    void compare(std::partial_ordering o, size_t cmp) {
+        bool result = comparators[cmp](o);
+        if (auto&& [opcode, args] = instructions->operator[](pc + 1); opcode == Opcode::JMP0) {
+            if (result) {
+                ++pc;
+            } else {
+                pc = std::get<size_t>(args) - 1;
+            }
+            return;
+        }
+        push(result);
     }
 
     void ucmp(size_t cmp) {
         auto value2 = pop().$size;
         auto value1 = pop().$size;
-        compare_three_way(value1 <=> value2, cmp);
+        compare(value1 <=> value2, cmp);
     }
 
     void icmp(size_t cmp) {
         auto value2 = ipop();
         auto value1 = ipop();
-        compare_three_way(value1 <=> value2, cmp);
+        compare(value1 <=> value2, cmp);
     }
 
     void fcmp(size_t cmp) {
         auto value2 = fpop();
         auto value1 = fpop();
-        compare_three_way(value1 <=> value2, cmp);
+        compare(value1 <=> value2, cmp);
     }
 
     void scmp(size_t cmp) {
         auto value2 = spop();
         auto value1 = spop();
-        compare_three_way(value1->value <=> value2->value, cmp);
+        compare(value1->value <=> value2->value, cmp);
     }
 
     void ocmp(size_t cmp) {
         auto value2 = opop();
         auto value1 = opop();
-        compare_three_way(value1->equals(value2) ? std::partial_ordering::equivalent : std::partial_ordering::unordered, cmp);
+        compare(value1->equals(value2) ? std::partial_ordering::equivalent : std::partial_ordering::unordered, cmp);
     }
 
     void sadd() {
@@ -629,20 +639,20 @@ struct Frame {
     }
 
     [[nodiscard]] Opcode opcode() const {
-        return instructions->at(pc).first;
+        return instructions->operator[](pc).first;
     }
 
     void init(size_t func0) {
         func = func0;
         instructions = &std::get<Instructions>(assembly->functions[func]);
         for (pc = 0; opcode() == Opcode::LOCAL; ++pc) {
-            local(std::get<TypeReference>(instructions->at(pc).second));
+            local(std::get<TypeReference>(instructions->operator[](pc).second));
         }
     }
 
     $union loop() try {
         for (pushToVM(); pc < instructions->size(); ++pc) {
-            switch (auto&& [opcode, args] = instructions->at(pc); opcode) {
+            switch (auto&& [opcode, args] = instructions->operator[](pc); opcode) {
                 case Opcode::NOP:
                     break;
                 case Opcode::DUP:
