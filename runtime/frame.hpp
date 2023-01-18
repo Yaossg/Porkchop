@@ -200,7 +200,7 @@ struct Frame {
         auto key = pop();
         auto dict = dynamic_cast<Dict*>(opop());
         if (!dict->elements.contains(key))
-            throw Exception("missing value for key");
+            throw Exception("missing such a key");
         push(dict->elements.at(key), !isValueBased(dict->prototype->V));
     }
 
