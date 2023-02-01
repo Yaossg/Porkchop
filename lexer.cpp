@@ -107,6 +107,9 @@ void LineTokenizer::tokenize() {
                         break;
                 }
                 break;
+            case ';':
+                addLinebreak(true);
+                break;
             default: {
                 ungetc(ch);
                 if (isNumberStart(ch)) {
@@ -121,7 +124,20 @@ void LineTokenizer::tokenize() {
         step();
     }
     if (!backslash && !context.raw)
-        add(TokenType::LINEBREAK);
+        addLinebreak(false);
+}
+
+void LineTokenizer::addLinebreak(bool force) {
+    if (context.tokens.empty() || context.tokens.back().type == TokenType::LINEBREAK) {
+        return;
+    }
+    if (!context.greedy.empty() && context.greedy.back().type != TokenType::LBRACE) {
+        if (force) {
+            raise("semicolon is not allowed here");
+        }
+        return;
+    }
+    add(TokenType::LINEBREAK);
 }
 
 void LineTokenizer::addId() {
@@ -295,12 +311,6 @@ void LineTokenizer::addRawString(bool first) {
 }
 
 void LineTokenizer::add(TokenType type) {
-    if (type == TokenType::LINEBREAK) {
-        if (context.tokens.empty() || context.tokens.back().type == TokenType::LINEBREAK)
-            return;
-        if (!context.greedy.empty() && context.greedy.back().type != TokenType::LBRACE)
-            return;
-    }
     if (backslash) raise("no token is allowed after backslash in one line");
     context.tokens.push_back(make(type));
     step();
