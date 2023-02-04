@@ -46,7 +46,7 @@ struct LambdaFunctionReference : FunctionReference {
     explicit LambdaFunctionReference(LambdaExpr* lambda): lambda(lambda) {
         std::vector<TypeReference> P;
         for (auto&& capture : lambda->captures) {
-            P.push_back(capture->typeCache);
+            P.push_back(capture->getType());
         }
         auto prototype = lambda->parameters->prototype;
         P.insert(P.end(), prototype->P.begin(), prototype->P.end());

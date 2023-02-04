@@ -75,7 +75,7 @@ void LocalContext::define(std::string_view name, FnDefExpr* def) {
     if (auto it = declaredIndices.back().find(name0); it != declaredIndices.back().end()) {
         size_t index = it->second;
         auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
-        function->decl->expect(def->typeCache);
+        function->decl->expect(def->getType());
         function->def = def;
         declaredIndices.back().erase(it);
         definedIndices.back().insert_or_assign(name0, index);

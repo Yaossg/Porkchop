@@ -242,12 +242,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     next();
                     auto expr = parseExpressions(TokenType::RBRACKET);
                     auto token2 = next();
-                    if (expr.empty()) {
-                        Error().with(
-                                ErrorMessage().error(range(token, token2))
-                                .text("use").quote("default([T])").text("to create an empty list")
-                                ).raise();
-                    }
                     return make<ListExpr>(token, token2, std::move(expr));
                 }
                 case TokenType::OP_AT: {
@@ -271,12 +265,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     }
                     optionalComma(keys.size());
                     auto token2 = next();
-                    if (keys.empty()) {
-                        Error().with(
-                                ErrorMessage().error(range(token, token2))
-                                .text("use").quote("default([T])").text("or").quote("default(@[K: V])").text("to create an empty set or dict")
-                                ).raise();
-                    }
                     if (count == 0) {
                         return make<SetExpr>(token, token2, std::move(keys));
                     } else if (count == keys.size()) {
@@ -345,13 +333,6 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     return make<RawStringExpr>(token1, token2, std::move(elements));
                 }
 
-                case TokenType::KW_DEFAULT: {
-                    next();
-                    expect(TokenType::LPAREN, "(");
-                    auto type = parseType();
-                    auto token2 = expect(TokenType::RPAREN, ")");
-                    return make<DefaultExpr>(token, token2, type);
-                }
                 case TokenType::KW_WHILE:
                     return parseWhile();
                 case TokenType::KW_IF:
@@ -446,7 +427,7 @@ ExprHandle Parser::parseFor() {
     pushLoop();
     LocalContext::Guard guard(context);
     auto initializer = parseExpression();
-    if (auto element = elementof(initializer->typeCache)) {
+    if (auto element = elementof(initializer->getType())) {
         declarator->infer(element);
         declarator->declare(context);
         auto clause = parseClause();
@@ -502,13 +483,13 @@ ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield, S
                 error.raise();
             }
         } else {
-            type0 = yieldReturns[0]->rhs->typeCache;
+            type0 = yieldReturns[0]->rhs->getType();
             for (size_t i = 1; i < yieldReturns.size(); ++i) {
-                if (!type0->equals(yieldReturns[i]->typeCache)) {
+                if (!type0->equals(yieldReturns[i]->getType())) {
                     Error error;
                     error.with(ErrorMessage().error(decl).text("multiple yield returns conflict in type"));
                     for (auto&& return_ : yieldReturns) {
-                        error.with(ErrorMessage().note(return_->segment()).text("this one yield returns").type(return_->rhs->typeCache));
+                        error.with(ErrorMessage().note(return_->segment()).text("this one yield returns").type(return_->rhs->getType()));
                     }
                     error.raise();
                 }
@@ -534,11 +515,11 @@ ExprHandle Parser::parseFnBody(std::shared_ptr<FuncType> const& F, bool yield, S
             error.raise();
         }
         if (returns.empty()) {
-            type0 = clause->typeCache;
+            type0 = clause->getType();
         } else {
-            type0 = isNever(clause->typeCache) ? returns.front()->rhs->typeCache : clause->typeCache;
+            type0 = isNever(clause->getType()) ? returns.front()->rhs->getType() : clause->getType();
             for (auto&& return_ : returns) {
-                if (!type0->equals(return_->rhs->typeCache)) {
+                if (!type0->equals(return_->rhs->getType())) {
                     raiseReturns(clause.get(), ErrorMessage().error(decl).text("multiple returns conflict in type"));
                 }
             }
@@ -605,7 +586,7 @@ ExprHandle Parser::parseLambda() {
     LocalContext subcontext(compiler.continuum, &context);
     Parser child(compiler, p, q, subcontext);
     for (auto&& capture : captures) {
-        child.context.local(compiler.of(capture->token), capture->typeCache);
+        child.context.local(compiler.of(capture->token), capture->getType());
     }
     parameters->declare(compiler, child.context);
     auto clause = child.parseFnBody(parameters->prototype, yield, range(token, token2));
@@ -621,7 +602,7 @@ ExprHandle Parser::parseLet() {
     auto declarator = parseDeclarator();
     expect(TokenType::OP_ASSIGN, "=");
     auto initializer = parseExpression();
-    declarator->infer(initializer->typeCache);
+    declarator->infer(initializer->getType(declarator->typeCache));
     declarator->declare(context);
     return make<LetExpr>(token, std::move(declarator), std::move(initializer));
 }
@@ -637,7 +618,7 @@ TypeReference Parser::parseType() {
                 expect(TokenType::LPAREN, "(");
                 auto expr = parseExpression();
                 expect(TokenType::RPAREN, ")");
-                return expr->typeCache;
+                return expr->getType();
             }
             if (id == "elementof") {
                 expect(TokenType::LPAREN, "(");
@@ -647,7 +628,7 @@ TypeReference Parser::parseType() {
                     auto expr = parseExpression();
                     expect(TokenType::RPAREN, ")");
                     expr->expect(ScalarTypes::INT);
-                    auto index = expr->evalConst().$int;
+                    auto index = expr->requireConst().$int;
                     if (0 <= index && index < tuple->E.size()) {
                         return tuple->E[index];
                     } else {
@@ -750,7 +731,6 @@ IdExprHandle Parser::parseId(bool initialize) {
     auto id = std::make_unique<IdExpr>(compiler, token);
     if (initialize) {
         id->initLookup(context);
-        id->initialize();
     }
     return id;
 }

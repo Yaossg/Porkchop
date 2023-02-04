@@ -86,16 +86,16 @@ struct Parser {
         Error error;
         error.with(std::move(msg));
         for (auto&& return_ : returns) {
-            error.with(ErrorMessage().note(return_->segment()).text("this one returns").type(return_->rhs->typeCache));
+            error.with(ErrorMessage().note(return_->segment()).text("this one returns").type(return_->rhs->getType()));
         }
-        if (!isNever(clause->typeCache)) {
+        if (!isNever(clause->getType())) {
             auto note = ErrorMessage();
             if (auto clause0 = dynamic_cast<ClauseExpr*>(clause)) {
                 note.note(clause0->lines.empty() ? clause0->segment() : clause0->lines.back()->segment());
             } else {
                 note.note(clause->segment());
             }
-            error.with(note.text("expression evaluates").type(clause->typeCache));
+            error.with(note.text("expression evaluates").type(clause->getType()));
         }
         error.raise();
     }
@@ -104,7 +104,6 @@ struct Parser {
         requires std::constructible_from<E, Compiler&, Args...>
     auto make(Args&&... args) {
         auto expr = std::make_unique<E>(compiler, std::forward<Args>(args)...);
-        expr->initialize();
         return expr;
     }
 };
