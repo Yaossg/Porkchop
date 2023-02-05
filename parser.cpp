@@ -444,11 +444,11 @@ std::unique_ptr<ParameterList> Parser::parseParameters() {
     while (true) {
         if (peek().type == TokenType::RPAREN) break;
         auto declarator = parseSimpleDeclarator();
-        identifiers.push_back(std::move(declarator->name));
-        P.push_back(declarator->designated);
         if (declarator->designated == nullptr) {
             raise("missing type for the parameter", declarator->segment);
         }
+        identifiers.push_back(std::move(declarator->name));
+        P.push_back(std::move(declarator->designated));
         if (peek().type == TokenType::RPAREN) break;
         expectComma();
     }
