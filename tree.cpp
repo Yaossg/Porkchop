@@ -826,7 +826,7 @@ void AssignExpr::walkBytecode(Assembler* assembler) const {
 }
 
 TypeReference AccessExpr::evalType(TypeReference const& infer) const {
-    TypeReference type1 = lhs->getType(), type2 = rhs->getType();
+    TypeReference type1 = lhs->getType();
     if (auto tuple = dynamic_cast<TupleType*>(type1.get())) {
         rhs->expect(ScalarTypes::INT);
         int64_t index = rhs->requireConst().$int;
@@ -1340,6 +1340,7 @@ void LetExpr::walkBytecode(Assembler *assembler) const {
 }
 
 TypeReference ForExpr::evalType(TypeReference const& infer) const {
+    if (isNever(clause->getType())) return ScalarTypes::NEVER;
     return ScalarTypes::NONE;
 }
 
@@ -1385,6 +1386,9 @@ void YieldBreakExpr::walkBytecode(Assembler *assembler) const {
 }
 
 TypeReference InterpolationExpr::evalType(TypeReference const& infer) const {
+    for (auto&& element : elements) {
+        element->getType();
+    }
     return ScalarTypes::STRING;
 }
 
@@ -1399,6 +1403,9 @@ void InterpolationExpr::walkBytecode(Assembler *assembler) const {
 }
 
 TypeReference RawStringExpr::evalType(TypeReference const& infer) const {
+    for (auto&& element : elements) {
+        element->getType();
+    }
     return ScalarTypes::STRING;
 }
 
