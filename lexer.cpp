@@ -61,15 +61,13 @@ void LineTokenizer::tokenize() {
     }
     while (remains()) {
         switch (char ch = getc()) {
-            case '\\': {
+            case '\\':
                 if (backslash) raise("multiple backslash in one line");
                 backslash = true;
                 break;
-            }
-            case '#': {
+            case '#':
                 q = r;
                 break;
-            }
             case '\n':
             case '\r':
             case '\v':
@@ -121,14 +119,12 @@ void LineTokenizer::tokenize() {
         addLinebreak(false);
 }
 
-void LineTokenizer::addLinebreak(bool force) {
+void LineTokenizer::addLinebreak(bool semicolon) {
     if (context.tokens.empty() || context.tokens.back().type == TokenType::LINEBREAK) {
         return;
     }
     if (!context.greedy.empty() && context.greedy.back().type != TokenType::LBRACE) {
-        if (force) {
-            raise("semicolon is not allowed here");
-        }
+        if (semicolon) raise("semicolon is not allowed here");
         return;
     }
     add(TokenType::LINEBREAK);

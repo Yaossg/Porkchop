@@ -34,7 +34,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
     switch (level) {
         case Expr::Level::ASSIGNMENT: {
             switch (Token token = peek(); token.type) {
-                case TokenType::KW_BREAK:  {
+                case TokenType::KW_BREAK: {
                     auto expr = make<BreakExpr>(next());
                     if (hooks.empty()) {
                         Error().with(

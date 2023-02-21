@@ -58,7 +58,7 @@ struct LineTokenizer {
     Source::BraceType addRBrace();
     [[noreturn]] void raise(const char* msg) const;
     void tokenize();
-    void addLinebreak(bool force);
+    void addLinebreak(bool semicolon);
     void addId();
     void addPunct();
     void scanDigits(bool pred(char) noexcept);
