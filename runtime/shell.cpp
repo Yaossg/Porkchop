@@ -80,7 +80,7 @@ int main(int argc, const char* argv[]) try {
                     onCommand(line, continuum, frame);
                     break;
                 }
-                source.append(std::move(line));
+                source.append(line);
             } while (source.remains());
         } catch (Porkchop::Error& e) {
             e.report(&source, false);

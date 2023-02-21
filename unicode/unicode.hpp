@@ -47,10 +47,10 @@ struct UnicodeParser {
 
 
     char getc() {
-        if (remains()) [[likely]] {
+        if (remains()) {
             ++column;
             return *q++;
-        } else [[unlikely]] {
+        } else {
             unreachable();
         }
     }

@@ -6,8 +6,8 @@
 
 namespace Porkchop {
 
-inline void tokenize(Source& source, std::string original) try {
-    source.append(std::move(original));
+inline void tokenize(Source& source, std::string const& original) try {
+    source.append(original);
 } catch (Porkchop::Error& e) {
     e.report(&source, true);
     std::exit(-3);

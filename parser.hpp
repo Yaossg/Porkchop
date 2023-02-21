@@ -19,9 +19,9 @@ struct Parser {
             compiler(compiler), p(p), q(q), context(context) {}
 
     Token next() {
-        if (p != q) [[likely]] {
+        if (p != q) {
             return *p++;
-        } else [[unlikely]] {
+        } else {
             raise("unexpected termination of tokens", rewind());
         }
     }

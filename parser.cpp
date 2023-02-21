@@ -112,7 +112,7 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     case Expr::Level::EQUALITY:
                         lhs = make<CompareExpr>(token, std::move(lhs), std::move(rhs));
                         break;
-                    [[likely]] default:
+                    default:
                         if (token.type == TokenType::KW_IN) {
                             lhs = make<InExpr>(token, std::move(lhs), std::move(rhs));
                         } else {

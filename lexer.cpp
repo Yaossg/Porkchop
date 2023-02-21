@@ -61,10 +61,6 @@ void LineTokenizer::tokenize() {
     }
     while (remains()) {
         switch (char ch = getc()) {
-            [[unlikely]] case '\xFF':
-            [[unlikely]] case '\xFE': // BOM
-            [[unlikely]] case '\0':   // 0 paddings
-                raise("sourcecode of Porkchop is required to be encoded with UTF-8");
             case '\\': {
                 if (backslash) raise("multiple backslash in one line");
                 backslash = true;
@@ -74,13 +70,11 @@ void LineTokenizer::tokenize() {
                 q = r;
                 break;
             }
-            [[unlikely]] case '\n':
-            [[unlikely]] case '\r':
-                unreachable();
-            [[unlikely]] case '\v':
-            [[unlikely]] case '\f':
-            [[unlikely]] case '\t':
-                raise("whitespaces other than spaces are not allowed");
+            case '\n':
+            case '\r':
+            case '\v':
+            case '\f':
+            case '\t':
             case ' ':
                 break;
             case *"'":
@@ -191,8 +185,7 @@ void LineTokenizer::addNumber() {
         switch (char ch = peekc()) {
             case 'x': case 'X':
                 base = TokenType::HEXADECIMAL_INTEGER; pred = isHexadecimal; getc(); break;
-            [[unlikely]] case 'o':
-            [[unlikely]] case 'O':
+            case 'o': case 'O':
                 base = TokenType::OCTAL_INTEGER; pred = isOctal; getc(); break;
             case 'b': case 'B':
                 base = TokenType::BINARY_INTEGER; pred = isBinary; getc(); break;
@@ -227,10 +220,10 @@ void LineTokenizer::addNumber() {
     TokenType type = base;
     if (flt) {
         switch (base) {
-            [[unlikely]] case TokenType::BINARY_INTEGER:
-            [[unlikely]] case TokenType::OCTAL_INTEGER:
+            case TokenType::BINARY_INTEGER:
+            case TokenType::OCTAL_INTEGER:
                 raise("binary or octal float literal is invalid");
-            [[likely]] case TokenType::DECIMAL_INTEGER:
+            case TokenType::DECIMAL_INTEGER:
             case TokenType::HEXADECIMAL_INTEGER:
                 type = TokenType::FLOATING_POINT;
                 break;

@@ -25,17 +25,17 @@ struct LineTokenizer {
     }
 
     char getc() noexcept {
-        if (remains()) [[likely]] {
+        if (remains()) {
             return *q++;
-        } else [[unlikely]] {
+        } else {
             return 0;
         }
     }
     void ungetc(char ch) {
-        if (ch) [[likely]] {
-            if (p == q) [[unlikely]] {
+        if (ch) {
+            if (p == q) {
                 unreachable();
-            } else [[likely]] {
+            } else {
                 --q;
             }
         }
