@@ -70,8 +70,6 @@ void LineTokenizer::tokenize() {
                 break;
             case '\n':
             case '\r':
-            case '\v':
-            case '\f':
             case '\t':
             case ' ':
                 break;
