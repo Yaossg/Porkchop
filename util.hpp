@@ -15,16 +15,14 @@ inline bool isInvalidChar(int64_t value) {
 FILE* open(const char* filename, const char* mode);
 
 inline std::string readText(const char* filename) {
-    FILE* input_file = open(filename, "r");
-    std::string content;
-    do {
-        char line[256];
-        memset(line, 0, sizeof line);
-        fgets(line, sizeof line, input_file);
-        content += line;
-    } while (!feof(input_file));
+    FILE* input_file = open(filename, "rb");
+    fseek(input_file, 0, SEEK_END);
+    size_t size = ftell(input_file);
+    fseek(input_file, 0, SEEK_SET);
+    std::string fileBuffer(size, '\0');
+    fread(fileBuffer.data(), 1, size, input_file);
     fclose(input_file);
-    return content;
+    return fileBuffer;
 }
 
 inline std::vector<uint8_t> readBin(const char* filename) {
@@ -58,11 +56,16 @@ inline void forceUTF8() {
 
 inline std::vector<std::string_view> splitLines(std::string_view view) {
     std::vector<std::string_view> lines;
-    const char *p = view.begin(), *q = p, *r = view.end();
-    while (q != r) {
-        if (*q++ == '\n') {
-            lines.emplace_back(p, q - 1);
-            p = q;
+    const char *p = view.begin(), *q = p;
+    while (q != view.end()) {
+        if (*q == '\n' || *q == '\r') {
+            lines.emplace_back(p, q);
+            if (q[0] == '\r' && q[1] == '\n') {
+                ++q;
+            }
+            p = ++q;
+        } else {
+            ++q;
         }
     }
     lines.emplace_back(p, q);

@@ -70,7 +70,7 @@ struct UnicodeParser {
     char parseHexASCII();
     char32_t parseHexUnicode();
     [[nodiscard]] int successiveUTF8Length(char8_t byte) const;
-    void requireUTF8Continue(char8_t byte) const;
+    char getUTF8Continue();
 
     char32_t decodeUnicode();
     char32_t unquoteChar(Token token);

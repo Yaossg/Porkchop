@@ -132,7 +132,7 @@ void LineTokenizer::addId() {
     std::string_view remains{p, r};
     UnicodeParser up(remains, line, column());
     if (!isIdentifierStart(up.decodeUnicode())) {
-        raise("invalid character");
+        raise("unexpected character");
     }
     do q = up.q;
     while (up.remains() && isIdentifierPart(up.decodeUnicode()));

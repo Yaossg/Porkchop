@@ -62,15 +62,16 @@ int UnicodeParser::successiveUTF8Length(char8_t byte) const {
         case 4:
             return ones;
         case 1:
-            raise("unexpected termination of UTF-8 multibyte series");
         default:
-            raise("UTF-8 series of 5 or more bytes is unsupported yet");
+            raise("invalid UTF-8 multibyte sequence");
     }
 }
 
-void UnicodeParser::requireUTF8Continue(char8_t byte) const {
-    if (notUTF8Continue(byte))
-        raise("unexpected UTF-8 multibyte series termination");
+char UnicodeParser::getUTF8Continue() {
+    char ch = getc();
+    if (notUTF8Continue(ch))
+        raise("invalid UTF-8 multibyte sequence");
+    return ch;
 }
 
 char UnicodeParser::parseHexASCII() {
@@ -95,24 +96,18 @@ char32_t UnicodeParser::decodeUnicode() {
             result = ch1;
             break;
         case 2: {
-            char8_t ch2 = getc();
-            requireUTF8Continue(ch2);
+            char8_t ch2 = getUTF8Continue();
             result = ((ch1 & ~0xC0) << 6) | (ch2 & ~0x80);
         } break;
         case 3: {
-            char8_t ch2 = getc();
-            requireUTF8Continue(ch2);
-            char8_t ch3 = getc();
-            requireUTF8Continue(ch3);
+            char8_t ch2 = getUTF8Continue();
+            char8_t ch3 = getUTF8Continue();
             result = ((ch1 & ~0xE0) << 12) | ((ch2 & ~0x80) << 6) | (ch3 & ~0x80);
         } break;
         case 4: {
-            char8_t ch2 = getc();
-            requireUTF8Continue(ch2);
-            char8_t ch3 = getc();
-            requireUTF8Continue(ch3);
-            char8_t ch4 = getc();
-            requireUTF8Continue(ch4);
+            char8_t ch2 = getUTF8Continue();
+            char8_t ch3 = getUTF8Continue();
+            char8_t ch4 = getUTF8Continue();
             result = ((ch1 & ~0xF0) << 18) | ((ch2 & ~0x80) << 12) | ((ch3 & ~0x80) << 6) | (ch4 & ~0x80);
         } break;
     }
@@ -195,31 +190,19 @@ std::string UnicodeParser::unquoteString(bool escape) {
                 } else result += ch1;
                 break;
             case 2: {
-                char ch2 = getc();
-                requireUTF8Continue(ch2);
                 result += ch1;
-                result += ch2;
+                result += getUTF8Continue();
             } break;
             case 3: {
-                char ch2 = getc();
-                requireUTF8Continue(ch2);
-                char ch3 = getc();
-                requireUTF8Continue(ch3);
                 result += ch1;
-                result += ch2;
-                result += ch3;
+                result += getUTF8Continue();
+                result += getUTF8Continue();
             } break;
             case 4: {
-                char ch2 = getc();
-                requireUTF8Continue(ch2);
-                char ch3 = getc();
-                requireUTF8Continue(ch3);
-                char ch4 = getc();
-                requireUTF8Continue(ch4);
                 result += ch1;
-                result += ch2;
-                result += ch3;
-                result += ch4;
+                result += getUTF8Continue();
+                result += getUTF8Continue();
+                result += getUTF8Continue();
             } break;
         }
         step();
