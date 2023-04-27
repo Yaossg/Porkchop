@@ -22,6 +22,7 @@ bool isInLevel(TokenType type, Expr::Level level) {
         case TokenType::OP_USHR: return level == Expr::Level::SHIFT;
         case TokenType::OP_ADD:
         case TokenType::OP_SUB: return level == Expr::Level::ADDITION;
+        case TokenType::IDENTIFIER:
         case TokenType::KW_IN:
         case TokenType::OP_MUL:
         case TokenType::OP_DIV:
@@ -115,6 +116,10 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     default:
                         if (token.type == TokenType::KW_IN) {
                             lhs = make<InExpr>(token, std::move(lhs), std::move(rhs));
+                        } else if (token.type == TokenType::IDENTIFIER) {
+                            auto id = std::make_unique<IdExpr>(compiler, token);
+                            id->initLookup(context);
+                            lhs = make<InfixInvokeExpr>(std::move(id), std::move(lhs), std::move(rhs));
                         } else {
                             lhs = make<InfixExpr>(token, std::move(lhs), std::move(rhs));
                         }

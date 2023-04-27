@@ -723,6 +723,39 @@ void InExpr::walkBytecode(Assembler *assembler) const {
     assembler->opcode(Opcode::IN);
 }
 
+TypeReference InfixInvokeExpr::evalType(TypeReference const& infer) const {
+    if (auto func = dynamic_cast<FuncType*>(infix->getType().get())) {
+        if (func->P.size() != 2) {
+            Error error;
+            error.with(ErrorMessage().error(segment()).text("infix invocation expected a function with exact two parameters but got").num(func->P.size()));
+            error.with(ErrorMessage().note(infix->segment()).text("type of this function is").type(infix->getType()));
+            error.raise();
+        }
+        if (!func->P[0]->assignableFrom(lhs->getType(func->P[0]))) {
+            Error error;
+            error.with(ErrorMessage().error(lhs->segment()).type(lhs->getType()).text("is not assignable to").type(func->P[0]));
+            error.with(ErrorMessage().note(infix->segment()).text("type of this function is").type(infix->getType()));
+            error.raise();
+        }
+        if (!func->P[1]->assignableFrom(rhs->getType(func->P[1]))) {
+            Error error;
+            error.with(ErrorMessage().error(rhs->segment()).type(rhs->getType()).text("is not assignable to").type(func->P[1]));
+            error.with(ErrorMessage().note(infix->segment()).text("type of this function is").type(infix->getType()));
+            error.raise();
+        }
+        return func->R;
+    }
+    infix->expect("invocable type");
+}
+
+void InfixInvokeExpr::walkBytecode(Assembler *assembler) const {
+    lhs->walkBytecode(assembler);
+    rhs->walkBytecode(assembler);
+    infix->walkBytecode(assembler);
+    assembler->indexed(Opcode::BIND, 2);
+    assembler->opcode(Opcode::CALL);
+}
+
 TypeReference AssignExpr::evalType(TypeReference const& infer) const {
     lhs->ensureAssignable();
     auto type1 = lhs->getType();

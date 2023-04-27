@@ -310,6 +310,17 @@ struct InExpr : InfixExprBase {
     void walkBytecode(Assembler* assembler) const override;
 };
 
+struct InfixInvokeExpr : InfixExprBase {
+    IdExprHandle infix;
+
+    InfixInvokeExpr(Compiler& compiler, IdExprHandle infix, ExprHandle lhs, ExprHandle rhs):
+        InfixExprBase(compiler, infix->token, std::move(lhs), std::move(rhs)), infix(std::move(infix)) {}
+
+    [[nodiscard]] TypeReference evalType(TypeReference const& infer) const override;
+
+    void walkBytecode(Assembler* assembler) const override;
+};
+
 struct AssignExpr : Expr {
     Token token;
     std::unique_ptr<AssignableExpr> lhs;
