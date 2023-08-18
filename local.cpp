@@ -20,10 +20,16 @@ void LocalContext::pop() {
 }
 
 void LocalContext::checkDeclared() {
-    if (!declaredIndices.back().empty() && std::uncaught_exceptions() == 0) {
-        size_t index = declaredIndices.back().begin()->second;
-        auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
-        raise("undefined declared function", function->decl->segment());
+    if (std::uncaught_exceptions() == 0) {
+        std::optional<Segment> segment;
+        for (auto&& [_, index] : declaredIndices.back()) {
+            auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
+            segment = function->decl->segment();
+            continuum->functions[index].reset();
+        }
+        if (segment) {
+            raise("undefined declared function", *segment);
+        }
     }
 }
 
@@ -112,6 +118,8 @@ LocalContext::LookupResult LocalContext::lookup(Compiler& compiler, Token token,
         if (auto lookup = it->find(name); lookup != it->end()) {
             size_t index = lookup->second;
             auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
+            if (function == nullptr)
+                raise("invalidated function name", token);
             if (function->decl->parameters->prototype->R == nullptr)
                 raise("recursive function without specified return type", function->decl->segment());
             return {function->decl->parameters->prototype, index, LookupResult::Scope::FUNCTION};
