@@ -5,7 +5,8 @@ namespace Porkchop {
 
 void Continuum::compile(Assembler* assembler) {
     for (; funcUntil < functions.size(); ++funcUntil) {
-        functions[funcUntil]->write(assembler);
+        if (functions[funcUntil])
+            functions[funcUntil]->write(assembler);
     }
 }
 

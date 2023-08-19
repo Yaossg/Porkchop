@@ -20,16 +20,16 @@ void LocalContext::pop() {
 }
 
 void LocalContext::checkDeclared() {
-    if (std::uncaught_exceptions() == 0) {
-        std::optional<Segment> segment;
-        for (auto&& [_, index] : declaredIndices.back()) {
-            auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
+    std::optional<Segment> segment;
+    for (auto&& [_, index] : declaredIndices.back()) {
+        auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
+        if (!segment)
             segment = function->decl->segment();
-            continuum->functions[index].reset();
-        }
-        if (segment) {
-            raise("undefined declared function", *segment);
-        }
+        continuum->functions[index].reset();
+    }
+    declaredIndices.back().clear();
+    if (segment && std::uncaught_exceptions() == 0) {
+        raise("undefined declared function", *segment);
     }
 }
 
