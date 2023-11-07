@@ -96,3 +96,39 @@ add_executable(PorkchopShell
         source.hpp source.cpp
         continuum.hpp continuum.cpp
 )
+
+add_executable(PorkchopTest  type.hpp token.hpp
+        compiler.hpp compiler.cpp
+        local.hpp local.cpp
+        lexer.hpp lexer.cpp
+        parser.hpp parser.cpp
+        tree.hpp tree.cpp
+        diagnostics.hpp diagnostics.cpp
+        unicode/unicode.hpp unicode/unicode.cpp
+        unicode/unicode-id.cpp unicode/unicode-width.cpp
+        function.hpp
+        opcode.hpp assembler.hpp
+        util.hpp
+        descriptor.hpp
+
+        runtime/assembly.hpp
+        runtime/external.hpp runtime/external.cpp
+        runtime/frame.hpp
+        runtime/vm.hpp runtime/vm.cpp
+
+        runtime/interpretation.hpp
+        runtime/common.hpp common.hpp
+        unicode/unicode.hpp unicode/unicode.cpp
+        source.hpp source.cpp
+        continuum.hpp continuum.cpp
+
+        test/test.cpp
+)
+
+enable_testing()
+
+file(GLOB tests "test/*.pc")
+foreach(test ${tests})
+    get_filename_component(filename ${test} NAME)
+    add_test(NAME "test_${filename}" COMMAND $<TARGET_FILE:PorkchopTest> ${test})
+endforeach()

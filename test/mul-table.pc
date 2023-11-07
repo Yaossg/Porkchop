@@ -1,0 +1,14 @@
+{
+    let i = 1
+    let j = 1
+    while i <= 9 {
+        j = 1
+        while j <= i {
+            let k = i * j
+            print("$i*$j=$k ")
+            ++j
+        }
+        println("")
+        ++i
+    }
+}

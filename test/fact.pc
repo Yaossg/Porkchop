@@ -1,0 +1,16 @@
+{
+    let result = (
+        $ (f: any, x: int) = {
+            (f as (any, int): int)(f, x)
+        }
+    )(
+        (
+            $ (f: any, x: int) = {
+                if x == 0 { 1 } else { (f as (any, int): int)(f, x - 1) * x }
+            }
+        ) as any, 5
+    )
+
+
+    println("$result")
+}

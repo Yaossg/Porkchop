@@ -1,0 +1,23 @@
+{
+    fn withdraw(balance: int) = {
+        let balance = [balance] # shadowing
+        $ balance (amount: int) = {
+            if (balance[0] >= amount) {
+                balance[0] -= amount
+                if (amount >= 0) {
+                    println("" + balance[0])
+                }
+            } else {
+                println("v50")
+            }
+        }
+    }
+    fn v50(account: (int): none) = account(-50)
+    let w1 = withdraw(100)
+    let w2 = withdraw(100)
+    w1(50)
+    w2(50)
+    w1(70)
+    v50(w1)
+    w1(70)
+}

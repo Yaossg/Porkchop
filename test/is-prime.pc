@@ -1,0 +1,20 @@
+{
+    fn isPrime(n: int) = {
+        if n < 2 { false } else {
+            let i = 2
+            while i * i <= n {
+                if n % i == 0 {
+                    return false
+                }
+                ++i
+            }
+            true
+        }
+    }
+
+    let i = 0
+    while i < 100 {
+        println("isPrime($i)=${isPrime(i)}")
+        ++i
+    }
+}

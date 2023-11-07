@@ -1,0 +1,45 @@
+{
+    fn output(a: [int]): none = {
+        let i = 1
+        while i <= 8 {
+            let j = 1
+            while j <= 8 {
+                print(if a[i] == j {"x"} else {"-"})
+                ++j
+            }
+            println("")
+            ++i
+        }
+        println("")
+    }
+    fn ok(a: [int], x: int, y: int) = {
+        let i = 1
+        while i <= x - 1 {
+            if a[i] == y || a[i] - i == y - x || a[i] + i == y + x {
+                return false
+            }
+            ++i
+        }
+        return true
+    }
+    fn queen(a: [int], x: int, c: [int]): none = {
+        if x > 8 {
+            output(a)
+            ++c[0]
+            return {}
+        }
+        let y = 1
+        while y <= 8 {
+            if ok(a, x, y) {
+                a[x] = y
+                queen(a, x + 1, c);
+                a[x] = 0
+            }
+            ++y
+        }
+    }
+    let c = [0]
+
+    queen([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 1, c)
+    println("solutions: " + c[0])
+}

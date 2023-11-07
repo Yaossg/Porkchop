@@ -1,0 +1,19 @@
+{
+    let n = [0]
+    let range = $n() yield {
+        let i = 0
+        while i < n[0] {
+            yield return i++
+        }
+    }
+    let verbose = $range() = {
+        for i in range() {
+            print("" + i)
+        }
+        println("")
+    }
+    n[0] = 10
+    verbose()
+    n[0] = 5
+    verbose()
+}

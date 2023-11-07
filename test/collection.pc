@@ -1,0 +1,57 @@
+{
+    {
+        let a = [0, 1, 2]
+        a += 1
+        println("$a") # [0, 1, 2, 1]
+        a -= 1
+        println("$a") # [0, 2, 1]
+        println("${2 in a}")         # true
+        println("${a == [0, 2, 1]}") # true
+        println("${sizeof a}")       # 3
+        a[1] = 5
+        println("${a[1]}")           # 5
+    }
+    {
+        println("${@@"hello"}")
+    }
+    {
+        let a = @[0, 1, 2]
+        a += 1
+        println("$a") # @[2, 1, 0]
+        a -= 1
+        println("$a") # @[2, 0]
+        println("${2 in a}")       # true
+        println("${a == @[0, 2]}") # true
+        println("${sizeof a}")     # 2
+    }
+    {
+        let a = @[0: 'a', 1: 'b', 2: 'c']
+        a += (0, 'd')
+        println("$a") # @[2: c, 1: b, 0: d]
+        a -= 1
+        println("$a") # @[2: c, 0: d]
+        println("${2 in a}")                 # true
+        println("${a == @[0: 'd', 2: 'c']}") # true
+        println("${sizeof a}")               # 2
+    }
+    {
+        let a = @[0: 'a']
+        a[0] = 'b'
+        println("${a[0]}") # b
+        a[1] = 'c'
+        println("$a")      # @[1: c, 0: b]
+    }
+    {
+        let a = [1, 2, 3]
+        let it = &a
+        while >>it {
+            println("${*it}")
+        }
+        for e in a {
+            println("$e")
+        }
+        for e in &a {
+            println("$e")
+        }
+    }
+}
