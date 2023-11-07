@@ -622,7 +622,7 @@ struct ScalarList : List {
     TypeReference getType() override { return std::make_shared<ListType>(std::make_shared<ScalarType>(type)); }
 
     void store(size_t index, $union element) override {
-        elements[index] = element.$byte;
+        elements[index] = element;
     }
 
     $union load(size_t index) override {
@@ -1013,9 +1013,7 @@ struct Dict : Collection {
 struct Coroutine : Iterator {
     std::unique_ptr<Frame> frame;
     
-    Coroutine(TypeReference R, std::unique_ptr<Frame> frame): frame(std::move(frame)) {
-        E = std::move(R);
-    }
+    Coroutine(TypeReference R, std::unique_ptr<Frame> frame);
 
     void walkMark() override;
 

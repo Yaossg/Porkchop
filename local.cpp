@@ -23,7 +23,7 @@ void LocalContext::checkDeclared() {
     std::optional<Segment> segment;
     for (auto&& [_, index] : declaredIndices.back()) {
         auto function = dynamic_cast<NamedFunctionReference*>(continuum->functions[index].get());
-        if (!segment)
+        if (!segment && std::uncaught_exceptions() == 0)
             segment = function->decl->segment();
         continuum->functions[index].reset();
     }

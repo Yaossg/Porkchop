@@ -583,6 +583,10 @@ bool Dict::DictIterator::equals(Object *other) {
     return false;
 }
 
+Coroutine::Coroutine(TypeReference R, std::unique_ptr<Frame> frame) : frame(std::move(frame)) {
+    E = std::move(R);
+}
+
 void Coroutine::walkMark() {
     if (cache.has_value() && !isValueBased(E))
         cache->$object->mark();

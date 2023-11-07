@@ -1,6 +1,7 @@
 #pragma once
 
 #include "opcode.hpp"
+#include <algorithm>
 
 namespace Porkchop {
 

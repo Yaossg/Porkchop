@@ -67,6 +67,7 @@ struct TextAssembly : Assembly {
 
         void processInstructions() {
             for (auto line: lines) {
+                if (line.empty()) continue;
                 size_t space = line.find(' ');
                 auto opcode = OPCODES.at(line.substr(0, space));
                 if (space != std::string::npos) {
