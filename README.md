@@ -635,10 +635,10 @@ int<-->float
 
 ```
 {
-    let a = 10                  # a is int
-    let b: typeof(a) = a        # b is int
-    let c: typeof(a as any) = a # c is any, even if a is actually int during runtime
-    let d: elementof([int]) = a # d is int
+    let a = 10                         # a is int
+    let b: typeof(a) = a               # b is int
+    let c: typeof(a as any) = a as any # c is any, even if a is actually int during runtime
+    let d: elementof([int]) = a        # d is int
 }
 ```
 
