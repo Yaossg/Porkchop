@@ -1093,6 +1093,7 @@ void IsExpr::walkBytecode(Assembler* assembler) const {
 TypeReference TupleExpr::evalType(TypeReference const& infer) const {
     std::vector<TypeReference> E;
     auto tuple = dynamic_cast<TupleType*>(infer.get());
+    if (tuple != nullptr && tuple->E.size() != elements.size()) tuple = nullptr;
     for (size_t i = 0; i < elements.size(); ++i) {
         E.push_back(elements[i]->getType(tuple == nullptr ? nullptr : tuple->E[i]));
     }
