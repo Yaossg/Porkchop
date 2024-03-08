@@ -87,10 +87,11 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                         case TokenType::OP_ASSIGN_REM: {
                             next();
                             auto rhs = parseExpression(level);
+                            auto segment = rhs->segment();
                             if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(lhs))) {
                                 return make<AssignExpr>(token, std::move(load), std::move(rhs));
                             } else {
-                                raise("assignable expression is expected", token);
+                                raise("assignable expression is expected", segment);
                             }
                         }
                     }
@@ -157,10 +158,11 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                 case TokenType::OP_DEC: {
                     next();
                     auto rhs = parseExpression(level);
+                    auto segment = rhs->segment();
                     if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(rhs))) {
                         return make<StatefulPrefixExpr>(token, std::move(load));
                     } else {
-                        raise("assignable expression is expected", token);
+                        raise("assignable expression is expected", segment);
                     }
                 }
                 default: {
@@ -216,10 +218,11 @@ ExprHandle Parser::parseExpression(Expr::Level level) {
                     case TokenType::OP_INC:
                     case TokenType::OP_DEC: {
                         auto token = next();
+                        auto segment = lhs->segment();
                         if (auto load = dynamic_pointer_cast<AssignableExpr>(std::move(lhs))) {
                             lhs = make<StatefulPostfixExpr>(token, std::move(load));
                         } else {
-                            raise("assignable expression is expected", token);
+                            raise("assignable expression is expected", segment);
                         }
                         break;
                     }

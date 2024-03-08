@@ -1259,7 +1259,6 @@ void BreakExpr::walkBytecode(Assembler* assembler) const {
 TypeReference WhileExpr::evalType(TypeReference const& infer) const {
     if (isNever(cond->getType())) return ScalarTypes::NEVER;
     cond->expect(ScalarTypes::BOOL);
-    if (isNever(clause->getType())) return ScalarTypes::NEVER;
     if (cond->isConst() && cond->requireConst().$bool && hook->breaks.empty())
         return ScalarTypes::NEVER;
     return ScalarTypes::NONE;
