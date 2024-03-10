@@ -12,7 +12,7 @@ Porkchop Programming Language: A Complete Nonsense
 
 ## 组件
 
-Porkchop 有编译器、高亮器、运行时、解释器、Shell 四个组件。其中前三者的关系及其内容如下图所示。
+Porkchop 有编译器、高亮器、运行时、解释器、Shell 五个组件。其中前四者的关系及其内容如下图所示。
 
 ```mermaid
 graph LR
@@ -73,13 +73,18 @@ graph             # headless 模式不会输出
 
 ## 高亮器使用
 
+高亮器用于为代码生成语法高亮。虽然是语法高亮但其实不会进行语法分析，而是只有词法分析。
+
 ```
 PorkchopHighlight <input> [options...]
 ```
 
 - `-o <output>` 指定输出文件名。如果缺省，则根据输入文件名和输出类型自动合成。`-o <stdout>` 表示输出到控制台，`-o <null>` 表示只检查语法，不输出。
 - `--console` 输出到控制台，注意此时不允许指定 `<stdout>` 以外的输出文件
-- `--html <type>` 输出到 HTML，`<type>` 如果是 `headless` 则只包含 `<body>` 中的正文，其它值则为默认输出，包含完整的 HTML 文件。
+- `--html <type>` 输出到 HTML
+  - `<type>` 如果是 `headless` 则只包含 `<body>` 中的正文。
+  - 其它值则为默认输出，包含完整的 HTML 文件。
+
 
 ## 运行时使用
 
