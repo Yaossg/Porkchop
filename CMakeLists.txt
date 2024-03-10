@@ -26,6 +26,17 @@ add_executable(Porkchop
         continuum.hpp continuum.cpp
 )
 
+add_executable(PorkchopHighlight
+        highlight.cpp
+        token.hpp
+        lexer.hpp lexer.cpp
+        diagnostics.hpp diagnostics.cpp
+        unicode/unicode.hpp unicode/unicode.cpp
+        unicode/unicode-id.cpp unicode/unicode-width.cpp
+        util.hpp
+        source.hpp source.cpp
+)
+
 add_executable(PorkchopRuntime
         runtime/assembly.hpp
         runtime/external.hpp runtime/external.cpp

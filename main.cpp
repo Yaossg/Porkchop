@@ -15,9 +15,22 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
     args["input"] = argv[1];
     for (int i = 2; i < argc; ++i) {
         if (!strcmp("-o", argv[i])) {
-            args["output"] = argv[++i];
-        } else if (!strcmp("-m", argv[i]) || !strcmp("--mermaid", argv[i])) {
+            if (++i >= argc) {
+                Porkchop::Error().with(
+                        Porkchop::ErrorMessage().fatal().text("no output file specified")
+                        ).report(nullptr, false);
+                std::exit(11);
+            }
+            args["output"] = argv[i];
+        } else if (!strcmp("--mermaid", argv[i])) {
             args["type"] = "mermaid";
+            if (++i >= argc) {
+                Porkchop::Error().with(
+                        Porkchop::ErrorMessage().fatal().text("no mermaid type specified")
+                ).report(nullptr, false);
+                std::exit(11);
+            }
+            args["mermaid-type"] = argv[i];
         } else if (!strcmp("-t", argv[i]) || !strcmp("--text-asm", argv[i])) {
             args["type"] = "text-asm";
         } else if (!strcmp("-b", argv[i]) || !strcmp("--bin-asm", argv[i])) {
@@ -42,36 +55,6 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
     return args;
 }
 
-struct OutputFile {
-    FILE* file;
-
-    explicit OutputFile(std::string const& filename, bool bin) {
-        if (filename == "<null>") {
-            file = nullptr;
-        } else if (filename == "<stdout>") {
-            file = stdout;
-        } else {
-            file = Porkchop::open(filename.c_str(), bin ? "wb" : "w");
-        }
-    }
-
-    ~OutputFile() {
-        if (file != nullptr && file != stdout) {
-            fclose(file);
-        }
-    }
-
-    void puts(const char* str) const {
-        if (file != nullptr)
-            fputs(str, file);
-    }
-
-    void write(Porkchop::Assembler* assembler) const {
-        if (file != nullptr)
-            assembler->write(file);
-    }
-};
-
 int main(int argc, const char* argv[]) try {
     Porkchop::forceUTF8();
     auto args = parseArgs(argc, argv);
@@ -82,10 +65,22 @@ int main(int argc, const char* argv[]) try {
     Porkchop::Compiler compiler(&continuum, std::move(source));
     Porkchop::parse(compiler);
     auto const& output_type = args["type"];
-    OutputFile output_file(args["output"], output_type == "bin-asm");
+    Porkchop::OutputFile output_file(args["output"], output_type == "bin-asm");
     if (output_type == "mermaid") {
         auto descriptor = compiler.descriptor();
+        auto const& mermaid_type = args["mermaid-type"];
+        bool markdown = mermaid_type == "markdown";
+        bool headless = mermaid_type == "headless";
+        if (markdown) {
+            output_file.puts("```mermaid\n");
+        }
+        if (!headless) {
+            output_file.puts("graph\n");
+        }
         output_file.puts(descriptor.c_str());
+        if (markdown) {
+            output_file.puts("```\n");
+        }
     } else if (output_type.ends_with("asm")) {
         std::unique_ptr<Porkchop::Assembler> assembler;
         if (output_type == "text-asm") {
@@ -94,7 +89,8 @@ int main(int argc, const char* argv[]) try {
             assembler = std::make_unique<Porkchop::BinAssembler>();
         }
         compiler.compile(assembler.get());
-        output_file.write(assembler.get());
+        if (output_file.file)
+            assembler->write(output_file.file);
     }
     puts("Compilation is done successfully");
 } catch (std::bad_alloc& e) {

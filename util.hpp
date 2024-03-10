@@ -98,4 +98,31 @@ inline void replaceAll(std::string& inout, std::string_view what, std::string_vi
     }
 }
 
+
+
+struct OutputFile {
+    FILE* file;
+
+    explicit OutputFile(std::string const& filename, bool bin) {
+        if (filename == "<null>") {
+            file = nullptr;
+        } else if (filename == "<stdout>") {
+            file = stdout;
+        } else {
+            file = Porkchop::open(filename.c_str(), bin ? "wb" : "w");
+        }
+    }
+
+    ~OutputFile() {
+        if (file != nullptr && file != stdout) {
+            fclose(file);
+        }
+    }
+
+    void puts(const char* str) const {
+        if (file != nullptr)
+            fputs(str, file);
+    }
+};
+
 }

@@ -12,12 +12,13 @@ Porkchop Programming Language: A Complete Nonsense
 
 ## 组件
 
-Porkchop 有编译器、运行时、解释器、Shell 四个组件。其中前三者的关系及其内容如下图所示。
+Porkchop 有编译器、高亮器、运行时、解释器、Shell 四个组件。其中前三者的关系及其内容如下图所示。
 
 ```mermaid
 graph LR
 
 AST-->Mermaid
+Tokens-->Highlight
 
 subgraph Porkchop Interpreter
 
@@ -49,27 +50,36 @@ Porkchop <input> [options...]
 参数：
 
 - `-o <output>` 指定输出文件名。如果缺省，则根据输入文件名和输出类型自动合成。`-o <stdout>` 表示输出到控制台，`-o <null>` 表示只检查语法，不输出。
-- `-m` 或 `--mermaid` 输出语法树。
+- `--mermaid <type>` 输出语法树。
 - `-t` 或 `--text-asm` 输出文本汇编。
 - `-b` 或 `--bin-asm` 输出二进制汇编。
 
 ### Mermaid 的使用
 
-语法树是使用 mermaid 格式输出的。如果你有 Typora，可以新建一个 markdown 文件，并把生成的内容放置于下面的代码里：
+语法树是使用 Mermaid 格式输出的。`<type>` 可以是：
+
+- `markdown`：输出 Markdown 格式的 Mermaid，适合 Markdown 编辑器中查看。
+- `headless`：输出的 Mermaid 不包含第一行的 `graph`。
+- 其它任意字符串：默认输出，适合 [在线编辑器](mermaid.live) 中查看。
+
+如下图所示：
 
 ````
-```mermaid
-graph
-< 将输出的文本放在这里 >
-```
+```mermaid        # markdown 模式会输出
+graph             # headless 模式不会输出
+< mermaid code >  # 总是会输出
+```               # markdown 模式会输出
 ````
 
-如果没有，也可以去 mermaid 的 [在线编辑器](mermaid.live)，在代码栏输入：
+## 高亮器使用
 
 ```
-graph
-< 将输出的文本放在这里 >
+PorkchopHighlight <input> [options...]
 ```
+
+- `-o <output>` 指定输出文件名。如果缺省，则根据输入文件名和输出类型自动合成。`-o <stdout>` 表示输出到控制台，`-o <null>` 表示只检查语法，不输出。
+- `--console` 输出到控制台，注意此时不允许指定 `<stdout>` 以外的输出文件
+- `--html <type>` 输出到 HTML，`<type>` 如果是 `headless` 则只包含 `<body>` 中的正文，其它值则为默认输出，包含完整的 HTML 文件。
 
 ## 运行时使用
 
@@ -235,6 +245,8 @@ graph
 46-->47
 47["i"]
 ```
+
+高亮器输出省略。
 
 文本汇编编译结果：
 
