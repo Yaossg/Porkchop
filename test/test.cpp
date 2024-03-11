@@ -31,4 +31,10 @@ int main(int argc, const char* argv[]) {
     auto sf = Porkchop::stringifier(type);
     fputs("Exited with returned object: ", stdout);
     fputs(sf(ret).c_str(), stdout);
+    fclose(stdout);
+    auto o = Porkchop::readText(output.c_str());
+    remove(output.c_str());
+    std::string ref = input.substr(0, input.find_last_of('.')) + ".r";
+    auto r = Porkchop::readText(ref.c_str());
+    return !(r == o);
 }

@@ -108,7 +108,8 @@ add_executable(PorkchopShell
         continuum.hpp continuum.cpp
 )
 
-add_executable(PorkchopTest  type.hpp token.hpp
+add_executable(PorkchopTest
+        type.hpp token.hpp
         compiler.hpp compiler.cpp
         local.hpp local.cpp
         lexer.hpp lexer.cpp

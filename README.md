@@ -1324,8 +1324,8 @@ $
 
 ```
 {
-	fn max(a: int, b: int) = if a > b {a} else {b}
-	println("${3 max 4}") # 输出 4
+    fn max(a: int, b: int) = if a > b {a} else {b}
+    println("${3 max 4}") # 输出 4
 }
 ```
 
