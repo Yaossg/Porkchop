@@ -17,14 +17,14 @@ struct Interpretation : Assembler, Assembly {
             try {
                 source.append(dynamic_cast<String*>(args[1].$object)->value);
             } catch (Error& e) {
-                e.report(&source, true);
+                e.report(&source);
                 throw Exception("failed to compile script in eval");
             }
             Compiler compiler(continuum, std::move(source));
             try {
                 compiler.parse(Compiler::Mode::EVAL);
             } catch (Error& e) {
-                e.report(&compiler.source, true);
+                e.report(&compiler.source);
                 throw Exception("failed to compile script in eval");
             }
             compiler.compile(this);

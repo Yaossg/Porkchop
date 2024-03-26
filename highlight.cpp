@@ -7,7 +7,7 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
         Porkchop::Error error;
         error.with(Porkchop::ErrorMessage().fatal().text("too few arguments, input file expected"));
         error.with(Porkchop::ErrorMessage().usage().text("PorkchopHighlight <input> [options...]"));
-        error.report(nullptr, true);
+        error.report(nullptr);
         std::exit(10);
     }
     args["input"] = argv[1];
@@ -17,7 +17,7 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
             if (++i >= argc) {
                 Porkchop::Error().with(
                         Porkchop::ErrorMessage().fatal().text("no output file specified")
-                ).report(nullptr, false);
+                ).report(nullptr);
                 std::exit(11);
             }
             args["output"] = argv[i];
@@ -26,7 +26,7 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
             if (++i >= argc) {
                 Porkchop::Error().with(
                         Porkchop::ErrorMessage().fatal().text("no html type specified")
-                ).report(nullptr, false);
+                ).report(nullptr);
                 std::exit(11);
             }
             args["html-type"] = argv[i];
@@ -35,7 +35,7 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
         } else {
             Porkchop::Error().with(
                     Porkchop::ErrorMessage().fatal().text("unknown flag: ").text(argv[i])
-            ).report(nullptr, false);
+            ).report(nullptr);
             std::exit(11);
         }
     }

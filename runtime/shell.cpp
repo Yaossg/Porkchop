@@ -31,7 +31,7 @@ void onCommand(std::string_view line, Porkchop::Continuum& continuum, std::uniqu
         if (space == std::string::npos) {
             Porkchop::Error error;
             error.with(Porkchop::ErrorMessage().usage().text("/drop <variable-name>"));
-            error.report(nullptr, true);
+            error.report(nullptr);
         } else {
             std::string name(args);
             if (auto it = continuum.context->localIndices.back().find(name); it != continuum.context->localIndices.back().end()) {
@@ -43,13 +43,13 @@ void onCommand(std::string_view line, Porkchop::Continuum& continuum, std::uniqu
             } else {
                 Porkchop::Error error;
                 error.with(Porkchop::ErrorMessage().fatal().text("no such a variable called").quote(name));
-                error.report(nullptr, true);
+                error.report(nullptr);
             }
         }
     } else {
         Porkchop::Error error;
         error.with(Porkchop::ErrorMessage().usage().text("/help"));
-        error.report(nullptr, true);
+        error.report(nullptr);
     }
 }
 

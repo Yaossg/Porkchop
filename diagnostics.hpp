@@ -111,7 +111,7 @@ struct Error : std::exception {
         throw std::move(*this);
     }
 
-    void report(Source* source, bool newline);
+    void report(Source* source, bool newline = true);
 };
 
 

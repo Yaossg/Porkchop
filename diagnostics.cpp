@@ -91,7 +91,7 @@ FILE* open(const char *filename, const char *mode) {
     if (file == nullptr) {
         Error error;
         error.with(ErrorMessage().fatal().text("failed to open input file: ").text(filename));
-        error.report(nullptr, true);
+        error.report(nullptr);
         std::exit(20);
     }
     return file;
