@@ -50,7 +50,9 @@ std::unordered_map<std::string, std::string> parseArgs(int argc, const char* arg
     }
     if (!args.contains("output")) {
         auto const& input = args["input"];
-        args["output"] = input.substr(0, input.find_last_of('.')) + '.' + args["type"];
+        auto type = args["type"];
+        if (type == "mermaid" && args["mermaid-type"] == "markdown") type = "md";
+        args["output"] = input.substr(0, input.find_last_of('.')) + '.' + type;
     }
     return args;
 }
